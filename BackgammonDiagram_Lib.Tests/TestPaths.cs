@@ -1,0 +1,23 @@
+namespace BackgammonDiagram_Lib.Tests;
+
+internal static class TestPaths
+{
+    private static readonly string _root =
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\..\..\TestData"));
+
+    public static string BothWaysDir => Path.Combine(_root, "BothWays");
+    public static string ThisWayXg => Path.Combine(BothWaysDir, "ThisWay.xg");
+    public static string ThatWayXg => Path.Combine(BothWaysDir, "ThatWay.xg");
+
+    public static string SvgDir => Path.Combine(_root, "svg");
+
+    /// <summary>
+    /// Returns a path for SVG output in TestData\svg\{filename}.
+    /// Creates the svg directory if it doesn't exist.
+    /// </summary>
+    public static string SvgOutputPath(string filename)
+    {
+        Directory.CreateDirectory(SvgDir);
+        return Path.Combine(SvgDir, filename);
+    }
+}

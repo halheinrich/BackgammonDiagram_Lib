@@ -1,6 +1,6 @@
 namespace BackgammonDiagram_Lib;
 
-public class DiagramRequest
+public record DiagramRequest
 {
     // -----------------------------------------------------------------------
     //  Always required
@@ -29,7 +29,18 @@ public class DiagramRequest
     public int[] Dice { get; init; } = new int[2];
 
     public DiagramMode Mode { get; init; }
+
+    /// <summary>Controls which player's home board is on the right.</summary>
     public DiagramOrientation Orientation { get; init; }
+
+    /// <summary>
+    /// True if the on-roll player is shown at the bottom of the diagram.
+    /// False if the opponent is shown at the bottom.
+    /// Drives dice placement: on-roll at bottom → dice in right half;
+    /// on-roll at top → dice in left half.
+    /// </summary>
+    public bool OnRollAtBottom { get; init; } = true;
+
     public PanelPosition AnalysisPanelPosition { get; init; }
 
     // -----------------------------------------------------------------------
