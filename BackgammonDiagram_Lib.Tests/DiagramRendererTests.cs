@@ -1,5 +1,6 @@
 ﻿using BackgammonDiagram_Lib;
 using BackgammonDiagram_Lib.Rendering;
+using System.Text;
 
 namespace BackgammonDiagram_Lib.Tests;
 
@@ -144,10 +145,10 @@ public class DiagramRendererTests
     public void RenderSvg_WritesProblemModeToDisk()
     {
         var svg = Render();
-        var path = Path.Combine(Path.GetTempPath(), "bg_problem.svg");
+        var path = TestPaths.SvgOutputPath("bg_problem.svg");
         File.WriteAllText(path, svg);
         Assert.True(File.Exists(path));
-        // Open path manually in a browser to inspect visually
+        // Open TestData\Output\bg_problem.svg in a browser to inspect visually
     }
 
     [Fact]
@@ -155,7 +156,7 @@ public class DiagramRendererTests
     {
         var req = MinimalRequest() with { Mode = DiagramMode.Solution };
         var svg = Render(req);
-        var path = Path.Combine(Path.GetTempPath(), "bg_solution.svg");
+        var path = TestPaths.SvgOutputPath("bg_solution.svg");
         File.WriteAllText(path, svg);
         Assert.True(File.Exists(path));
     }
@@ -169,35 +170,39 @@ public class DiagramRendererTests
             AnalysisPanelPosition = PanelPosition.Right
         };
         var svg = Render(req);
-        var path = Path.Combine(Path.GetTempPath(), "bg_panel_right.svg");
+        var path = TestPaths.SvgOutputPath("bg_panel_right.svg");
         File.WriteAllText(path, svg);
         Assert.True(File.Exists(path));
     }
     [Fact]
-    public void Debug_WriteTextFileToSvgDir()
+    public void RenderPng_WritesPngToDisk()
     {
-        var path = TestPaths.SvgOutputPath("test.txt");
-        File.WriteAllText(path, "hello from BackgammonDiagram_Lib.Tests");
+        var png = new DiagramRenderer().RenderPng(MinimalRequest(), DefaultOptions());
+        var path = TestPaths.SvgOutputPath("bg_default.png");
+        File.WriteAllBytes(path, png);
+        Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
         Assert.True(File.Exists(path));
     }
     [Fact]
-    public void Debug_WriteSvgContent()
+    public void RenderSvg_WritesGreyscaleToDisk()
     {
-        var svg = Render();
-        var path = TestPaths.SvgOutputPath("debug.svg");
-        Assert.NotEmpty(svg);
-        Assert.True(svg.Length > 100, $"SVG too short: {svg.Length} chars. Content: {svg[..Math.Min(200, svg.Length)]}");
+        var opts = new DiagramOptions { ThemeName = "Greyscale" };
+        var svg = Render(opts: opts);
+        var path = TestPaths.SvgOutputPath("bg_greyscale.svg");
         File.WriteAllText(path, svg);
         Assert.True(File.Exists(path));
-        var written = File.ReadAllText(path);
-        Assert.Equal(svg.Length, written.Length);
     }
-    //[Fact]
-    //public void Debug_PrintSvgOutputPath()
-    //{
-    //    var path = TestPaths.SvgOutputPath("debug.svg");
-    //    Assert.Fail($"Path would be: {path}");
-    //}
+
+    [Fact]
+    public void RenderPng_WritesGreyscalePngToDisk()
+    {
+        var opts = new DiagramOptions { ThemeName = "Greyscale" };
+        var png = new DiagramRenderer().RenderPng(MinimalRequest(), new DiagramOptions { ThemeName = "Greyscale" });
+        var path = TestPaths.SvgOutputPath("bg_greyscale.png");
+        File.WriteAllBytes(path, png);
+        Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
+        Assert.True(File.Exists(path));
+    }
     // -----------------------------------------------------------------------
     //  Helpers
     // -----------------------------------------------------------------------

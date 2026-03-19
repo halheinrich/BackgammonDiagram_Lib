@@ -8,8 +8,7 @@ public static class ThemeRegistry
     /// </summary>
     public static ITheme Resolve(string? name) => name switch
     {
-        // Future themes registered here, e.g.:
-        // "Dark" => new DarkTheme(),
+        "Greyscale" => new GreyscaleTheme(),
         _ => new DefaultTheme()
     };
 }
