@@ -88,10 +88,12 @@ internal static class PptxBuilder
     {
         var masterPart = presentationPart.AddNewPart<SlideMasterPart>();
 
-        // Required: theme part (blank but must be present)
-        var themePart = masterPart.AddNewPart<ThemePart>();
+        // Theme must be added to PresentationPart (→ /ppt/theme/theme1.xml),
+        // NOT to SlideMasterPart (which would nest it under /ppt/slideMasters/theme/).
+        var themePart = presentationPart.AddNewPart<ThemePart>();
         themePart.Theme = BuildBlankTheme();
         themePart.Theme.Save();
+        masterPart.AddPart(themePart);
 
         masterPart.SlideMaster = new SlideMaster(
             new CommonSlideData(new ShapeTree(
@@ -132,9 +134,8 @@ internal static class PptxBuilder
             Preserve = true
         };
         layoutPart.SlideLayout.Save();
-        layoutPart.AddPart(masterPart);  // layout → master
+        layoutPart.AddPart(masterPart);
 
-        // Register layout in master's SlideLayoutIdList
         var smIdList = masterPart.SlideMaster.GetFirstChild<SlideLayoutIdList>()
             ?? masterPart.SlideMaster.AppendChild(new SlideLayoutIdList());
         smIdList.AppendChild(new SlideLayoutId
@@ -143,7 +144,6 @@ internal static class PptxBuilder
             RelationshipId = masterPart.GetIdOfPart(layoutPart)
         });
 
-        // Register master in presentation's SlideMasterIdList
         var pres = presentationPart.Presentation
             ?? throw new InvalidOperationException("PresentationPart.Presentation is null.");
         var presSmIdList = pres.GetFirstChild<SlideMasterIdList>()
