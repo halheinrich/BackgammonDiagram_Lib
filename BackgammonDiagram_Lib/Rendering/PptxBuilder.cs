@@ -16,13 +16,13 @@ namespace BackgammonDiagram_Lib.Rendering;
 internal static class PptxBuilder
 {
     // Slide canvas: 13.33" × 7.5" at 914400 EMUs/inch
-    private const long SlideWidth = 12192000L;
-    private const long SlideHeight = 6858000L;
+    private const int SlideWidth = 12192000;
+    private const int SlideHeight = 6858000;
 
     // Margins (EMUs)
-    private const long MarginH = 457200L;   // 0.5"
-    private const long MarginV = 457200L;   // 0.5"
-    private const long TitleH = 400000L;   // reserved at bottom when title present
+    private const long MarginH = 457200L;  // 0.5"
+    private const long MarginV = 457200L;  // 0.5"
+    private const long TitleH = 400000L;  // reserved at bottom when title present
     private const long TitleGap = 91440L;  // gap between image and title
 
     public static byte[] Build(IEnumerable<(byte[] Png, string? Title)> slides)
@@ -33,16 +33,17 @@ internal static class PptxBuilder
             var presentationPart = doc.AddPresentationPart();
             presentationPart.Presentation = BuildPresentation();
 
-            var slideIdList = new SlideIdList();
-            presentationPart.Presentation.AppendChild(slideIdList);
+            var presProps = presentationPart.AddNewPart<PresentationPropertiesPart>();
+            presProps.PresentationProperties = new PresentationProperties();
+            presProps.PresentationProperties.Save();
 
-            var slideLayoutPart = AddSlideLayoutPart(presentationPart);
+            var (slideLayoutPart, _) = AddMasterAndLayout(presentationPart);
+            var slideIdList = presentationPart.Presentation.GetFirstChild<SlideIdList>()!;
 
             uint slideId = 256;
             foreach (var (png, title) in slides)
             {
                 var slidePart = presentationPart.AddNewPart<SlidePart>();
-                slideLayoutPart.AddPart(slidePart);   // back-reference so layout resolves
                 slidePart.AddPart(slideLayoutPart);
 
                 var imagePart = slidePart.AddNewPart<ImagePart>("image/png", NewId());
@@ -50,11 +51,12 @@ internal static class PptxBuilder
                     imagePart.FeedData(imgStream);
 
                 string rId = slidePart.GetIdOfPart(imagePart);
-                slidePart.Slide = BuildSlide(rId, png, title);
-                slidePart.Slide.Save();
+                var slide = BuildSlide(rId, png, title);
+                slidePart.Slide = slide;
+                slide.Save();
 
-                var rid = presentationPart.GetIdOfPart(slidePart);
-                slideIdList.AppendChild(new SlideId { Id = slideId++, RelationshipId = rid });
+                var slideRId = presentationPart.GetIdOfPart(slidePart);
+                slideIdList.AppendChild(new SlideId { Id = slideId++, RelationshipId = slideRId });
             }
 
             presentationPart.Presentation.Save();
@@ -71,18 +73,26 @@ internal static class PptxBuilder
     {
         var pres = new Presentation();
         pres.AppendChild(new SlideMasterIdList());
-        pres.AppendChild(new SlideSize { Cx = (int)SlideWidth, Cy = (int)SlideHeight });
-        pres.AppendChild(new NotesSize { Cx = 6858000L, Cy = 9144000L });
+        pres.AppendChild(new SlideIdList());          // must come before SldSz
+        pres.AppendChild(new SlideSize { Cx = SlideWidth, Cy = SlideHeight });
+        pres.AppendChild(new NotesSize { Cx = 6858000, Cy = 9144000 });
         return pres;
     }
 
     // -----------------------------------------------------------------------
-    //  Minimal slide layout / slide master (blank)
+    //  Slide master + layout
     // -----------------------------------------------------------------------
 
-    private static SlideLayoutPart AddSlideLayoutPart(PresentationPart presentationPart)
+    private static (SlideLayoutPart, SlideMasterPart) AddMasterAndLayout(
+        PresentationPart presentationPart)
     {
         var masterPart = presentationPart.AddNewPart<SlideMasterPart>();
+
+        // Required: theme part (blank but must be present)
+        var themePart = masterPart.AddNewPart<ThemePart>();
+        themePart.Theme = BuildBlankTheme();
+        themePart.Theme.Save();
+
         masterPart.SlideMaster = new SlideMaster(
             new CommonSlideData(new ShapeTree(
                 new P.NonVisualGroupShapeProperties(
@@ -115,17 +125,25 @@ internal static class PptxBuilder
                     new P.NonVisualDrawingProperties { Id = 1, Name = "" },
                     new P.NonVisualGroupShapeDrawingProperties(),
                     new ApplicationNonVisualDrawingProperties()),
-                new GroupShapeProperties(new A.TransformGroup()))));
+                new GroupShapeProperties(new A.TransformGroup()))),
+            new P.ColorMapOverride(new A.MasterColorMapping()))
+        {
+            Type = SlideLayoutValues.Blank,
+            Preserve = true
+        };
         layoutPart.SlideLayout.Save();
-        layoutPart.AddPart(masterPart);
+        layoutPart.AddPart(masterPart);  // layout → master
 
-        var smIdList = masterPart.SlideMaster.GetFirstChild<SlideLayoutIdList>() ?? masterPart.SlideMaster.AppendChild(new SlideLayoutIdList());
+        // Register layout in master's SlideLayoutIdList
+        var smIdList = masterPart.SlideMaster.GetFirstChild<SlideLayoutIdList>()
+            ?? masterPart.SlideMaster.AppendChild(new SlideLayoutIdList());
         smIdList.AppendChild(new SlideLayoutId
         {
             Id = 2199,
             RelationshipId = masterPart.GetIdOfPart(layoutPart)
         });
 
+        // Register master in presentation's SlideMasterIdList
         var pres = presentationPart.Presentation
             ?? throw new InvalidOperationException("PresentationPart.Presentation is null.");
         var presSmIdList = pres.GetFirstChild<SlideMasterIdList>()
@@ -136,7 +154,60 @@ internal static class PptxBuilder
             RelationshipId = presentationPart.GetIdOfPart(masterPart)
         });
 
-        return layoutPart;
+        return (layoutPart, masterPart);
+    }
+
+    // -----------------------------------------------------------------------
+    //  Blank theme (required by PowerPoint, content unused)
+    // -----------------------------------------------------------------------
+
+    private static A.Theme BuildBlankTheme()
+    {
+        return new A.Theme(
+            new A.ThemeElements(
+                new A.ColorScheme(
+                    new A.Dark1Color(new A.SystemColor { LastColor = "000000", Val = A.SystemColorValues.WindowText }),
+                    new A.Light1Color(new A.SystemColor { LastColor = "FFFFFF", Val = A.SystemColorValues.Window }),
+                    new A.Dark2Color(new A.RgbColorModelHex { Val = "1F497D" }),
+                    new A.Light2Color(new A.RgbColorModelHex { Val = "EEECE1" }),
+                    new A.Accent1Color(new A.RgbColorModelHex { Val = "4F81BD" }),
+                    new A.Accent2Color(new A.RgbColorModelHex { Val = "C0504D" }),
+                    new A.Accent3Color(new A.RgbColorModelHex { Val = "9BBB59" }),
+                    new A.Accent4Color(new A.RgbColorModelHex { Val = "8064A2" }),
+                    new A.Accent5Color(new A.RgbColorModelHex { Val = "4BACC6" }),
+                    new A.Accent6Color(new A.RgbColorModelHex { Val = "F79646" }),
+                    new A.Hyperlink(new A.RgbColorModelHex { Val = "0000FF" }),
+                    new A.FollowedHyperlinkColor(new A.RgbColorModelHex { Val = "800080" }))
+                { Name = "Backgammon" },
+                new A.FontScheme(
+                    new A.MajorFont(
+                        new A.LatinFont { Typeface = "Calibri" },
+                        new A.EastAsianFont { Typeface = "" },
+                        new A.ComplexScriptFont { Typeface = "" }),
+                    new A.MinorFont(
+                        new A.LatinFont { Typeface = "Calibri" },
+                        new A.EastAsianFont { Typeface = "" },
+                        new A.ComplexScriptFont { Typeface = "" }))
+                { Name = "Office" },
+                new A.FormatScheme(
+                    new A.FillStyleList(
+                        new A.SolidFill(new A.SchemeColor { Val = A.SchemeColorValues.PhColor }),
+                        new A.GradientFill(new A.GradientStopList()),
+                        new A.GradientFill(new A.GradientStopList())),
+                    new A.LineStyleList(
+                        new A.Outline(new A.SolidFill(new A.SchemeColor { Val = A.SchemeColorValues.PhColor })) { Width = 6350 },
+                        new A.Outline(new A.SolidFill(new A.SchemeColor { Val = A.SchemeColorValues.PhColor })) { Width = 12700 },
+                        new A.Outline(new A.SolidFill(new A.SchemeColor { Val = A.SchemeColorValues.PhColor })) { Width = 19050 }),
+                    new A.EffectStyleList(
+                        new A.EffectStyle(new A.EffectList()),
+                        new A.EffectStyle(new A.EffectList()),
+                        new A.EffectStyle(new A.EffectList())),
+                    new A.BackgroundFillStyleList(
+                        new A.SolidFill(new A.SchemeColor { Val = A.SchemeColorValues.PhColor }),
+                        new A.GradientFill(new A.GradientStopList()),
+                        new A.GradientFill(new A.GradientStopList())))
+                { Name = "Office" }))
+        { Name = "Backgammon" };
     }
 
     // -----------------------------------------------------------------------
@@ -147,11 +218,9 @@ internal static class PptxBuilder
     {
         bool hasTitle = !string.IsNullOrWhiteSpace(title);
 
-        // Image area — fill available space minus title row at bottom
         long availW = SlideWidth - MarginH * 2;
         long availH = SlideHeight - MarginV * 2 - (hasTitle ? TitleH + TitleGap : 0);
 
-        // Preserve PNG aspect ratio
         var (pngW, pngH) = ReadPngDimensions(png);
         double aspect = pngW / (double)pngH;
 
@@ -167,7 +236,6 @@ internal static class PptxBuilder
             imgH = (long)(availW / aspect);
         }
 
-        // Centre image horizontally; top-align vertically within the image zone
         long imgX = MarginH + (availW - imgW) / 2;
         long imgY = MarginV;
 
@@ -182,10 +250,12 @@ internal static class PptxBuilder
         if (hasTitle)
         {
             long titleY = imgY + imgH + TitleGap;
-            tree.AppendChild(BuildTitleBox(title!, MarginH, titleY, availW, TitleH));
+            _ = tree.AppendChild(BuildTitleBox(title!, MarginH, titleY, availW, TitleH));
         }
 
-        return new Slide(new CommonSlideData(tree));
+        return new Slide(
+            new CommonSlideData(tree),
+            new P.ColorMapOverride(new A.MasterColorMapping()));
     }
 
     // -----------------------------------------------------------------------
@@ -194,10 +264,9 @@ internal static class PptxBuilder
 
     private static P.Picture BuildPicture(string rId, long x, long y, long cx, long cy)
     {
-        uint picId = 2;
         return new P.Picture(
             new P.NonVisualPictureProperties(
-                new P.NonVisualDrawingProperties { Id = picId, Name = "Diagram" },
+                new P.NonVisualDrawingProperties { Id = 2, Name = "Diagram" },
                 new P.NonVisualPictureDrawingProperties(
                     new A.PictureLocks { NoChangeAspect = true }),
                 new ApplicationNonVisualDrawingProperties()),
@@ -238,7 +307,7 @@ internal static class PptxBuilder
                         new A.RunProperties
                         {
                             Language = "en-US",
-                            FontSize = 1800,     // 18pt in hundredths of a point
+                            FontSize = 1800,
                             Bold = false
                         },
                         new A.Text(text)))));
@@ -248,10 +317,8 @@ internal static class PptxBuilder
     //  Helpers
     // -----------------------------------------------------------------------
 
-    /// <summary>Reads PNG image dimensions from the IHDR chunk without any external dependency.</summary>
     private static (int Width, int Height) ReadPngDimensions(byte[] png)
     {
-        // PNG signature = 8 bytes; IHDR chunk: 4 len + 4 type + 4 w + 4 h + ...
         if (png.Length < 24) return (960, 540);
         int w = (png[16] << 24) | (png[17] << 16) | (png[18] << 8) | png[19];
         int h = (png[20] << 24) | (png[21] << 16) | (png[22] << 8) | png[23];

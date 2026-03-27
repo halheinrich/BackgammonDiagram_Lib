@@ -211,7 +211,7 @@ public class DiagramRendererTests
     public void RenderPptx_WritesSingleSlideToDisk()
     {
         var pptx = new DiagramRenderer().RenderPptx(MinimalRequest(), DefaultOptions());
-        var path = TestPaths.SvgOutputPath("bg_single.pptx");
+        var path = TestPaths.PptxOutputPath("bg_single.pptx");
         File.WriteAllBytes(path, pptx);
         Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
         Assert.True(File.Exists(path));
@@ -223,7 +223,7 @@ public class DiagramRendererTests
         var req1 = MinimalRequest() with { Title = "Opening" };
         var req2 = MinimalRequest() with { Mode = DiagramMode.Solution, Title = "Opening — Solution" };
         var pptx = new DiagramRenderer().RenderPptx([req1, req2], DefaultOptions());
-        var path = TestPaths.SvgOutputPath("bg_multi.pptx");
+        var path = TestPaths.PptxOutputPath("bg_multi.pptx");
         File.WriteAllBytes(path, pptx);
         Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
         Assert.True(File.Exists(path));
@@ -240,7 +240,7 @@ public class DiagramRendererTests
         Assert.Equal("Position 1 \u2014 Solution", solution.Title);
 
         var pptx = new DiagramRenderer().RenderPptx([problem, solution], DefaultOptions());
-        var path = TestPaths.SvgOutputPath("bg_pair.pptx");
+        var path = TestPaths.PptxOutputPath("bg_pair.pptx");
         File.WriteAllBytes(path, pptx);
         Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
     }

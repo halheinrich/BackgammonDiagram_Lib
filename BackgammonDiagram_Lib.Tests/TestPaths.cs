@@ -20,4 +20,11 @@ internal static class TestPaths
         Directory.CreateDirectory(SvgDir);
         return Path.Combine(SvgDir, filename);
     }
+    // add after SvgDir:
+    public static string PptxDir => Path.Combine(_root, "pptx");
+    public static string PptxOutputPath(string filename)
+    {
+        Directory.CreateDirectory(PptxDir);
+        return Path.Combine(PptxDir, filename);
+    }
 }
