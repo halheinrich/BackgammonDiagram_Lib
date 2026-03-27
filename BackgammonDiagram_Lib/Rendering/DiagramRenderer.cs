@@ -49,11 +49,16 @@ public class DiagramRenderer
         => throw new NotImplementedException();
 
     public byte[] RenderPptx(DiagramRequest request, DiagramOptions options)
-        => throw new NotImplementedException();
+    {
+        var png = RenderPng(request, options);
+        return PptxBuilder.Build([(png, request.Title)]);
+    }
 
     public byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options)
-        => throw new NotImplementedException();
-
+    {
+        var slides = requests.Select(r => (RenderPng(r, options), r.Title));
+        return PptxBuilder.Build(slides);
+    }
     // -----------------------------------------------------------------------
     //  Size resolution
     // -----------------------------------------------------------------------

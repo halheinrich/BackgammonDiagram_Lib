@@ -47,6 +47,8 @@ public record DiagramRequest
     //  Solution — cube fields (IsCube=true, Mode=Solution)
     // -----------------------------------------------------------------------
 
+    /// <summary>Optional slide title for PowerPoint output. Null = no title rendered.</summary>
+    public string? Title { get; init; }
     public double NoDoubleEquity { get; init; }
     public double DoubleTakeEquity { get; init; }
     public double WinPctAfterNoDouble { get; init; }

@@ -204,6 +204,47 @@ public class DiagramRendererTests
         Assert.True(File.Exists(path));
     }
     // -----------------------------------------------------------------------
+    //  PowerPoint rendering
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void RenderPptx_WritesSingleSlideToDisk()
+    {
+        var pptx = new DiagramRenderer().RenderPptx(MinimalRequest(), DefaultOptions());
+        var path = TestPaths.SvgOutputPath("bg_single.pptx");
+        File.WriteAllBytes(path, pptx);
+        Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public void RenderPptx_WritesMultiSlideToDisk()
+    {
+        var req1 = MinimalRequest() with { Title = "Opening" };
+        var req2 = MinimalRequest() with { Mode = DiagramMode.Solution, Title = "Opening — Solution" };
+        var pptx = new DiagramRenderer().RenderPptx([req1, req2], DefaultOptions());
+        var path = TestPaths.SvgOutputPath("bg_multi.pptx");
+        File.WriteAllBytes(path, pptx);
+        Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public void ToProblemSolutionPair_WritesDeckToDisk()
+    {
+        var req = MinimalRequest() with { Title = "Position 1" };
+        var (problem, solution) = req.ToProblemSolutionPair();
+        Assert.Equal(DiagramMode.Problem, problem.Mode);
+        Assert.Equal(DiagramMode.Solution, solution.Mode);
+        Assert.Equal("Position 1 \u2014 Problem", problem.Title);
+        Assert.Equal("Position 1 \u2014 Solution", solution.Title);
+
+        var pptx = new DiagramRenderer().RenderPptx([problem, solution], DefaultOptions());
+        var path = TestPaths.SvgOutputPath("bg_pair.pptx");
+        File.WriteAllBytes(path, pptx);
+        Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
+    }
+    // -----------------------------------------------------------------------
     //  Helpers
     // -----------------------------------------------------------------------
 
