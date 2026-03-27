@@ -7,26 +7,28 @@ Part of the Backgammon tools ecosystem: https://github.com/halheinrich/backgammo
 
 https://github.com/halheinrich/BackgammonDiagram_Lib
 **Branch:** main
-**Current commit:** `fbfdf4a`
+**Current commit:** `eb61c10`
 
 ## Raw URLs (current commit)
 
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib/Models/Enums.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib/Models/DiagramSize.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib/Models/DiagramRequest.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib/Models/DiagramOptions.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib/Models/PlayCandidate.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib/Models/AnalysisDepthEntry.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib/Themes/ITheme.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib/Themes/DefaultTheme.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib/Themes/GreyscaleTheme.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib/Themes/ThemeRegistry.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib/Rendering/BoardLayout.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib/Rendering/ISvgRasterizer.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib/Rendering/SkiaSharpRasterizer.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib/Rendering/DiagramRenderer.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib.Tests/DiagramRendererTests.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/fbfdf4a/BackgammonDiagram_Lib.Tests/TestPaths.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Models/Enums.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Models/DiagramSize.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Models/DiagramRequest.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Models/DiagramOptions.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Models/DiagramRequestExtensions.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Models/PlayCandidate.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Models/AnalysisDepthEntry.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Themes/ITheme.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Themes/DefaultTheme.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Themes/GreyscaleTheme.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Themes/ThemeRegistry.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Rendering/BoardLayout.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Rendering/ISvgRasterizer.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Rendering/SkiaSharpRasterizer.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Rendering/DiagramRenderer.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Rendering/PptxBuilder.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib.Tests/DiagramRendererTests.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib.Tests/TestPaths.cs
 
 ## Stack
 
@@ -65,6 +67,7 @@ of that.
 * Location: `D:\Users\Hal\Documents\Visual Studio 2026\Projects\backgammon\TestData`
 * `BothWays/` subfolder: `ThisWay.xg` and `ThatWay.xg` — same match, perspectives reversed
 * `svg/` subfolder: SVG and PNG output from tests for visual inspection
+* `pptx/` subfolder: PPTX output from tests for visual inspection
 * Shared across all projects — do NOT put TestData inside individual project directories
 * `TestPaths._root` resolves via 5 levels up from `AppContext.BaseDirectory`
 
@@ -104,6 +107,7 @@ public record DiagramRequest
     public DiagramOrientation Orientation { get; init; }
     public bool OnRollAtBottom { get; init; } = true;
     public PanelPosition AnalysisPanelPosition { get; init; }
+    public string? Title { get; init; }    // Optional slide title for PowerPoint output
     // ... cube and play solution fields omitted for brevity
     public int BestPlayIndex { get; init; }
     public int UserPlayIndex { get; init; } = -1;
@@ -140,6 +144,14 @@ public class AnalysisDepthEntry
     public string Label { get; init; } = string.Empty;
 }
 ```
+
+### DiagramRequestExtensions
+```csharp
+(DiagramRequest Problem, DiagramRequest Solution) ToProblemSolutionPair(this DiagramRequest request)
+```
+
+Titles default to "Problem" / "Solution"; if `request.Title` is set they become
+"{Title} — Problem" / "{Title} — Solution".
 
 ### Themes
 
@@ -181,6 +193,19 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 * `dominant-baseline` is ignored by SkiaSharp — use explicit baseline offset instead:
   `textY = centreY + fontSize * 0.35`
 
+### PowerPoint rendering (PptxBuilder)
+
+* Internal static class — called only by `DiagramRenderer`
+* Each `DiagramRequest` → one slide via `RenderPng` → embedded image
+* Slide canvas: 13.33" × 7.5" (12192000 × 6858000 EMUs)
+* PNG aspect ratio preserved; image centered horizontally, top-aligned vertically
+* Optional `Title` rendered as text box below image when present
+* `ToProblemSolutionPair()` extension method on `DiagramRequest` produces paired Problem/Solution requests
+* PPTX output written to `TestData\pptx\` for manual inspection
+* **Known issue**: PowerPoint shows a one-time repair prompt on open — OpenXml SDK writes
+  `Default Extension="xml"` with the presentation main content type instead of `application/xml`.
+  Content is intact after repair. Fix deferred — candidate for Opus.
+
 ### Analysis panel (checker play, Solution mode)
 
 * Best play (index == `BestPlayIndex`): crown icon, bold move notation, equity top-right
@@ -195,19 +220,21 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 
 ✅ SVG rendering — complete (geometry, themes, rails, cube, point numbers)
 ✅ PNG rendering — complete (SkiaSharp + Svg.Skia)
+✅ PowerPoint rendering — complete (known issue: one-time repair prompt on open)
 🔧 PDF rendering — stub only
-🔧 PowerPoint rendering — stub only
 
 ## Known issues
 
-* Point color alternation is wrong (dark/light swapped) — deferred to step 6
-* Bar not visually distinct from board background — deferred to step 6
-* Right rail color blends with board — deferred to step 6
+* Point color alternation is wrong (dark/light swapped) — deferred
+* Bar not visually distinct from board background — deferred
+* Right rail color blends with board — deferred
+* PPTX: PowerPoint shows one-time repair prompt on open — OpenXml SDK writes wrong
+  `Default Extension="xml"` content type in `[Content_Types].xml`; fix deferred
 
 ## Next steps
 
-1. PDF rendering (QuestPDF)
-2. PowerPoint rendering (OpenXml)
+1. Fix PPTX repair prompt (Content_Types.xml Default xml content type) — candidate for Opus
+2. PDF rendering (QuestPDF)
 3. `BackgammonDiagram_Blazor` wrapper project
 4. Fix point color alternation
 5. Add checkers
@@ -235,6 +262,11 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 * Avoid CSS stylesheets and complex SVG filters — Svg.Skia has limited SVG support
 * QuestPDF for PDF output (MIT licensed at v2024+)
 * OpenXml for PowerPoint output
+* PPTX: each DiagramRequest → one slide (PNG embedded); caller assembles multi-slide decks
+* PPTX: `Title` on `DiagramRequest` renders as text box below image on slide
+* PPTX: `ToProblemSolutionPair()` extension produces paired Problem/Solution requests
+* PPTX: `PptxBuilder` is internal static — not part of public API
+* PPTX: slide canvas 13.33" × 7.5" widescreen (12192000 × 6858000 EMUs)
 * `IsCube` drives diagram type and panel content
 * Analysis panel always shown in Solution mode, never in Problem mode
 * Panel position (Left/Right) is caller-specified
@@ -249,6 +281,7 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 * Full canvas background rect drawn before board to prevent white edge artifacts in PNG
 * `TestPaths._root` resolves 5 levels up from `AppContext.BaseDirectory` to reach `TestData`
 * SVG/PNG test output written to `TestData\svg\` for manual inspection
+* PPTX test output written to `TestData\pptx\` for manual inspection
 * Spec is expected to evolve during implementation
 
 ## Shared rules
