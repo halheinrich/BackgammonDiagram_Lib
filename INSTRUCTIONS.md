@@ -7,28 +7,28 @@ Part of the Backgammon tools ecosystem: https://github.com/halheinrich/backgammo
 
 https://github.com/halheinrich/BackgammonDiagram_Lib
 **Branch:** main
-**Current commit:** `eb61c10`
+**Current commit:** `5930001`
 
 ## Raw URLs (current commit)
 
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Models/Enums.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Models/DiagramSize.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Models/DiagramRequest.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Models/DiagramOptions.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Models/DiagramRequestExtensions.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Models/PlayCandidate.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Models/AnalysisDepthEntry.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Themes/ITheme.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Themes/DefaultTheme.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Themes/GreyscaleTheme.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Themes/ThemeRegistry.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Rendering/BoardLayout.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Rendering/ISvgRasterizer.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Rendering/SkiaSharpRasterizer.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Rendering/DiagramRenderer.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib/Rendering/PptxBuilder.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib.Tests/DiagramRendererTests.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/eb61c10/BackgammonDiagram_Lib.Tests/TestPaths.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Models/Enums.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Models/DiagramSize.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Models/DiagramRequest.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Models/DiagramOptions.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Models/DiagramRequestExtensions.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Models/PlayCandidate.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Models/AnalysisDepthEntry.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Themes/ITheme.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Themes/DefaultTheme.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Themes/GreyscaleTheme.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Themes/ThemeRegistry.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Rendering/BoardLayout.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Rendering/ISvgRasterizer.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Rendering/SkiaSharpRasterizer.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Rendering/DiagramRenderer.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib/Rendering/PptxBuilder.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib.Tests/DiagramRendererTests.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/5930001/BackgammonDiagram_Lib.Tests/TestPaths.cs
 
 ## Stack
 
@@ -202,9 +202,11 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 * Optional `Title` rendered as text box below image when present
 * `ToProblemSolutionPair()` extension method on `DiagramRequest` produces paired Problem/Solution requests
 * PPTX output written to `TestData\pptx\` for manual inspection
-* **Known issue**: PowerPoint shows a one-time repair prompt on open — OpenXml SDK writes
-  `Default Extension="xml"` with the presentation main content type instead of `application/xml`.
-  Content is intact after repair. Fix deferred — candidate for Opus.
+* `ThemePart` is added to `PresentationPart` (→ `/ppt/theme/theme1.xml`), then shared
+  to `SlideMasterPart` via `masterPart.AddPart(themePart)`. Adding it directly to the
+  slide master would nest it under `/ppt/slideMasters/theme/` which PowerPoint rejects.
+* **Known issue**: PowerPoint shows a one-time repair prompt on open — see Content_Types
+  bug in Known issues below. Content is intact after repair.
 
 ### Analysis panel (checker play, Solution mode)
 
@@ -220,27 +222,36 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 
 ✅ SVG rendering — complete (geometry, themes, rails, cube, point numbers)
 ✅ PNG rendering — complete (SkiaSharp + Svg.Skia)
-✅ PowerPoint rendering — complete (known issue: one-time repair prompt on open)
+✅ PowerPoint rendering — functional (known Content_Types issue causes repair prompt)
+✅ PPTX theme path — fixed (now at `/ppt/theme/theme1.xml`)
 🔧 PDF rendering — stub only
+🔧 PPTX Content_Types — diagnosed but not yet fixed (see Known issues)
 
 ## Known issues
 
+* **PPTX Content_Types.xml** — The OpenXml SDK writes
+  `<Default Extension="xml" ContentType="...presentation.main+xml"/>` and omits an
+  `Override` for `/ppt/presentation.xml`. PowerPoint expects
+  `<Default Extension="xml" ContentType="application/xml"/>` plus an explicit Override.
+  The fix is fully understood but all zip post-processing approaches (ZipArchive Update
+  mode, ZipArchive rebuild via Read→Create, with various compression levels and timestamp
+  preservation) produce files that PowerPoint still rejects. Next approach: use the SDK's
+  `doc.Features` API / `IPartExtensionFeature` to fix the content type mapping before
+  the package is serialized, avoiding zip post-processing entirely.
+  `doc.Features.GetType().FullName` compiles — the Features collection is accessible.
 * Point color alternation is wrong (dark/light swapped) — deferred
 * Bar not visually distinct from board background — deferred
 * Right rail color blends with board — deferred
-* PPTX: PowerPoint shows one-time repair prompt on open — OpenXml SDK writes wrong
-  `Default Extension="xml"` content type in `[Content_Types].xml`; fix deferred
 
 ## Next steps
 
-1. Fix PPTX repair prompt (Content_Types.xml Default xml content type) — candidate for Opus
+1. Fix PPTX Content_Types.xml via SDK Features API (avoid zip post-processing)
 2. PDF rendering (QuestPDF)
-3. `BackgammonDiagram_Blazor` wrapper project
-4. Fix point color alternation
-5. Add checkers
-6. Add dice
-7. Watermark
-8. Analysis panel
+3. Fix point color alternation
+4. Add checkers
+5. Add dice
+6. Watermark
+7. Analysis panel
 
 ## Deferred
 
@@ -267,6 +278,10 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 * PPTX: `ToProblemSolutionPair()` extension produces paired Problem/Solution requests
 * PPTX: `PptxBuilder` is internal static — not part of public API
 * PPTX: slide canvas 13.33" × 7.5" widescreen (12192000 × 6858000 EMUs)
+* PPTX: `ThemePart` added to `PresentationPart` then shared to slide master — NOT added
+  directly to `SlideMasterPart` (wrong path)
+* PPTX: zip post-processing to fix `[Content_Types].xml` does not work — all rebuild
+  approaches produce files PowerPoint rejects; must fix via SDK Features API instead
 * `IsCube` drives diagram type and panel content
 * Analysis panel always shown in Solution mode, never in Problem mode
 * Panel position (Left/Right) is caller-specified
