@@ -244,6 +244,7 @@ public class DiagramRendererTests
         File.WriteAllBytes(path, pptx);
         Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
     }
+
     // -----------------------------------------------------------------------
     //  Helpers
     // -----------------------------------------------------------------------
