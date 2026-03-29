@@ -7,29 +7,30 @@ Part of the Backgammon tools ecosystem: https://github.com/halheinrich/backgammo
 
 https://github.com/halheinrich/BackgammonDiagram_Lib
 **Branch:** main
-**Current commit:** `2023a53`
+**Current commit:** `09fd31e`
 
 ## Raw URLs (current commit)
 
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Models/Enums.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Models/DiagramSize.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Models/DiagramRequest.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Models/DiagramOptions.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Models/DiagramRequestExtensions.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Models/PlayCandidate.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Models/AnalysisDepthEntry.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Themes/ITheme.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Themes/DefaultTheme.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Themes/GreyscaleTheme.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Themes/ThemeRegistry.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Rendering/BoardLayout.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Rendering/ISvgRasterizer.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Rendering/SkiaSharpRasterizer.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Rendering/DiagramRenderer.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib/Rendering/PptxBuilder.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib.Tests/DiagramRendererTests.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib.Tests/PptxConformanceTests.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/2023a53/BackgammonDiagram_Lib.Tests/TestPaths.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Models/Enums.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Models/DiagramSize.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Models/DiagramRequest.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Models/DiagramOptions.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Models/DiagramRequestExtensions.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Models/PlayCandidate.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Models/AnalysisDepthEntry.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Themes/ITheme.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Themes/DefaultTheme.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Themes/GreyscaleTheme.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Themes/ThemeRegistry.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Rendering/BoardLayout.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Rendering/ISvgRasterizer.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Rendering/SkiaSharpRasterizer.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Rendering/DiagramRenderer.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Rendering/PptxBuilder.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Rendering/PdfBuilder.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib.Tests/DiagramRendererTests.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib.Tests/PptxConformanceTests.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib.Tests/TestPaths.cs
 
 ## Stack
 
@@ -52,7 +53,7 @@ of that.
 * **SkiaSharp 3.119.2** — PNG rendering surface and canvas
 * **Svg.Skia 3.6.0** — SVG parsing and drawing (replaces SkiaSharp.Svg)
 * **SVG — hand-rolled** — no SVG library needed for SVG output
-* **QuestPDF 2026.2.3** — PDF rendering (MIT licensed)
+* **QuestPDF 2026.2.3** — PDF rendering (Community license)
 * **DocumentFormat.OpenXml 3.5.1** — PowerPoint output
 
 ## Related projects
@@ -69,6 +70,7 @@ of that.
 * `BothWays/` subfolder: `ThisWay.xg` and `ThatWay.xg` — same match, perspectives reversed
 * `svg/` subfolder: SVG and PNG output from tests for visual inspection
 * `pptx/` subfolder: PPTX output from tests for visual inspection
+* `pdf/` subfolder: PDF output from tests for visual inspection
 * Shared across all projects — do NOT put TestData inside individual project directories
 * `TestPaths._root` resolves via 5 levels up from `AppContext.BaseDirectory`
 
@@ -108,7 +110,7 @@ public record DiagramRequest
     public DiagramOrientation Orientation { get; init; }
     public bool OnRollAtBottom { get; init; } = true;
     public PanelPosition AnalysisPanelPosition { get; init; }
-    public string? Title { get; init; }    // Optional slide title for PowerPoint output
+    public string? Title { get; init; }    // Optional title for PowerPoint/PDF output
     // ... cube and play solution fields omitted for brevity
     public int BestPlayIndex { get; init; }
     public int UserPlayIndex { get; init; } = -1;
@@ -203,11 +205,19 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 * Optional `Title` rendered as text box below image when present
 * `ToProblemSolutionPair()` extension method on `DiagramRequest` produces paired Problem/Solution requests
 * PPTX output written to `TestData\pptx\` for manual inspection
-* `ThemePart` is added to `PresentationPart` (→ `/ppt/theme/theme1.xml`), then shared
-  to `SlideMasterPart` via `masterPart.AddPart(themePart)`. Adding it directly to the
-  slide master would nest it under `/ppt/slideMasters/theme/` which PowerPoint rejects.
-* Post-processing fixes five OpenXml SDK quirks that trigger PowerPoint's repair prompt
-  (see Key decisions below). Regression tests in `PptxConformanceTests.cs`.
+* PPTX repair prompt fixed — six regression tests in `PptxConformanceTests.cs` guard all
+  post-processing fixes (content types, relative .rels targets, namespace hoisting,
+  sequential rId format, XML declaration format, valid sldLayoutId)
+
+### PDF rendering (PdfBuilder)
+
+* Internal static class — called only by `DiagramRenderer`
+* Each `DiagramRequest` → one page via `RenderPng` → embedded image
+* Page dimensions: widescreen landscape 13.33" × 7.5" (matching PPTX)
+* PNG embedded with `FitArea()` — aspect ratio preserved automatically
+* Optional `Title` rendered in page header, centered above image
+* QuestPDF Community license (free for < $1M revenue)
+* PDF output written to `TestData\pdf\` for manual inspection
 
 ### Analysis panel (checker play, Solution mode)
 
@@ -223,8 +233,8 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 
 ✅ SVG rendering — complete (geometry, themes, rails, cube, point numbers)
 ✅ PNG rendering — complete (SkiaSharp + Svg.Skia)
-✅ PowerPoint rendering — complete
-🔧 PDF rendering — stub only
+✅ PowerPoint rendering — complete (repair prompt fixed, six regression tests in `PptxConformanceTests.cs`)
+✅ PDF rendering — complete (QuestPDF, widescreen landscape, PNG embedding)
 
 ## Known issues
 
@@ -234,13 +244,12 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 
 ## Next steps
 
-1. PDF rendering (QuestPDF)
-2. `BackgammonDiagram_Blazor` wrapper project
-3. Fix point color alternation
-4. Add checkers
-5. Add dice
-6. Watermark
-7. Analysis panel
+1. `BackgammonDiagram_Blazor` wrapper project
+2. Fix point color alternation
+3. Add checkers
+4. Add dice
+5. Watermark
+6. Analysis panel
 
 ## Deferred
 
@@ -260,20 +269,19 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 * `SKSvg` is not `IDisposable` — never use `using` on it
 * `dominant-baseline` ignored by SkiaSharp — use `textY = centreY + fontSize * 0.35`
 * Avoid CSS stylesheets and complex SVG filters — Svg.Skia has limited SVG support
-* QuestPDF for PDF output (MIT licensed at v2024+)
+* QuestPDF for PDF output (Community license at v2024+)
 * OpenXml for PowerPoint output
 * PPTX: each DiagramRequest → one slide (PNG embedded); caller assembles multi-slide decks
 * PPTX: `Title` on `DiagramRequest` renders as text box below image on slide
 * PPTX: `ToProblemSolutionPair()` extension produces paired Problem/Solution requests
 * PPTX: `PptxBuilder` is internal static — not part of public API
 * PPTX: slide canvas 13.33" × 7.5" widescreen (12192000 × 6858000 EMUs)
-* PPTX: `ThemePart` added to `PresentationPart` then shared to slide master — NOT added
-  directly to `SlideMasterPart` (wrong path)
-* PPTX: `sldLayoutId` values must be ≥ 2147483648 (0x80000000) per OOXML spec —
-  the original root cause of the repair prompt was a hardcoded value of 2199
-* PPTX: post-processing fixes five OpenXml SDK quirks — Content_Types.xml default content
-  type, absolute .rels Target paths, scattered namespace declarations, GUID-based rIds,
-  XML declaration format. Each fix has a regression test in `PptxConformanceTests.cs`.
+* PPTX: OOXML `sldLayoutId` must be ≥ 2147483648 (0x80000000)
+* PDF: each DiagramRequest → one page (PNG embedded); caller assembles multi-page docs
+* PDF: `Title` on `DiagramRequest` renders in page header, centered above image
+* PDF: `PdfBuilder` is internal static — not part of public API
+* PDF: widescreen landscape 13.33" × 7.5" matching PPTX dimensions
+* PDF: QuestPDF Community license (free for < $1M revenue)
 * `IsCube` drives diagram type and panel content
 * Analysis panel always shown in Solution mode, never in Problem mode
 * Panel position (Left/Right) is caller-specified
@@ -289,6 +297,7 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 * `TestPaths._root` resolves 5 levels up from `AppContext.BaseDirectory` to reach `TestData`
 * SVG/PNG test output written to `TestData\svg\` for manual inspection
 * PPTX test output written to `TestData\pptx\` for manual inspection
+* PDF test output written to `TestData\pdf\` for manual inspection
 * Spec is expected to evolve during implementation
 
 ## Shared rules
