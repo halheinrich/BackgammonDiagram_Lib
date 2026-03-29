@@ -1,5 +1,7 @@
 ﻿using BackgammonDiagram_Lib;
 using BackgammonDiagram_Lib.Rendering;
+using BackgammonDiagram_Lib.Tests;
+using ExCSS;
 using System.Text;
 
 namespace BackgammonDiagram_Lib.Tests;
@@ -243,6 +245,48 @@ public class DiagramRendererTests
         var path = TestPaths.PptxOutputPath("bg_pair.pptx");
         File.WriteAllBytes(path, pptx);
         Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
+    }
+
+    // -----------------------------------------------------------------------
+    //  PDF rendering
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void RenderPdf_WritesSinglePageToDisk()
+    {
+        var pdf = new DiagramRenderer().RenderPdf(MinimalRequest(), DefaultOptions());
+        var path = TestPaths.PdfOutputPath("bg_single.pdf");
+        File.WriteAllBytes(path, pdf);
+        Assert.True(pdf.Length > 1_000, $"PDF too small: {pdf.Length} bytes");
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public void RenderPdf_WritesMultiPageToDisk()
+    {
+        var req1 = MinimalRequest() with { Title = "Opening" };
+        var req2 = MinimalRequest() with { Mode = DiagramMode.Solution, Title = "Opening — Solution" };
+        var pdf = new DiagramRenderer().RenderPdf([req1, req2], DefaultOptions());
+        var path = TestPaths.PdfOutputPath("bg_multi.pdf");
+        File.WriteAllBytes(path, pdf);
+        Assert.True(pdf.Length > 1_000, $"PDF too small: {pdf.Length} bytes");
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public void ToProblemSolutionPair_WritesPdfToDisk()
+    {
+        var req = MinimalRequest() with { Title = "Position 1" };
+        var (problem, solution) = req.ToProblemSolutionPair();
+        Assert.Equal(DiagramMode.Problem, problem.Mode);
+        Assert.Equal(DiagramMode.Solution, solution.Mode);
+        Assert.Equal("Position 1 \u2014 Problem", problem.Title);
+        Assert.Equal("Position 1 \u2014 Solution", solution.Title);
+
+        var pdf = new DiagramRenderer().RenderPdf([problem, solution], DefaultOptions());
+        var path = TestPaths.PdfOutputPath("bg_pair.pdf");
+        File.WriteAllBytes(path, pdf);
+        Assert.True(pdf.Length > 1_000, $"PDF too small: {pdf.Length} bytes");
     }
 
     // -----------------------------------------------------------------------

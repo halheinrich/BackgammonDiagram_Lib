@@ -1,4 +1,6 @@
 using BackgammonDiagram_Lib.Themes;
+using DocumentFormat.OpenXml.Office2016.Excel;
+using DocumentFormat.OpenXml.Wordprocessing;
 using System.Text;
 
 namespace BackgammonDiagram_Lib.Rendering;
@@ -43,11 +45,16 @@ public class DiagramRenderer
     }
 
     public byte[] RenderPdf(DiagramRequest request, DiagramOptions options)
-        => throw new NotImplementedException();
+    {
+        var png = RenderPng(request, options);
+        return PdfBuilder.Build([(png, request.Title)]);
+    }
 
     public byte[] RenderPdf(IEnumerable<DiagramRequest> requests, DiagramOptions options)
-        => throw new NotImplementedException();
-
+    {
+        var slides = requests.Select(r => (RenderPng(r, options), r.Title));
+        return PdfBuilder.Build(slides);
+    }
     public byte[] RenderPptx(DiagramRequest request, DiagramOptions options)
     {
         var png = RenderPng(request, options);

@@ -26,4 +26,10 @@ internal static class TestPaths
         Directory.CreateDirectory(PptxDir);
         return Path.Combine(PptxDir, filename);
     }
+    public static string PdfDir => Path.Combine(_root, "pdf");
+    public static string PdfOutputPath(string filename)
+    {
+        Directory.CreateDirectory(PdfDir);
+        return Path.Combine(PdfDir, filename);
+    }
 }
