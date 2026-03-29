@@ -58,7 +58,7 @@ of that.
 
 ## Related projects
 
-* **BackgammonDiagram_Blazor** — thin Blazor class library wrapper; references this lib and exposes
+* **BgDiag_Blazor** — thin Blazor class library wrapper; references this lib and exposes
   a `BackgammonDiagram.razor` component that calls `RenderSvg` and injects the result as
   `MarkupString`. Kept separate so the core lib has no Blazor dependency.
 
@@ -244,7 +244,7 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 
 ## Next steps
 
-1. `BackgammonDiagram_Blazor` wrapper project
+1. `BgDiag_Blazor` wrapper project
 2. Fix point color alternation
 3. Add checkers
 4. Add dice
@@ -256,12 +256,12 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 * `FromBoard(int[] board)` and `FromXgid(string xgid)` factory methods on `DiagramRequest`
 * Additional themes beyond Default and Greyscale
 * Animation
-* `BackgammonDiagram_Blazor` wrapper project
+* `BgDiag_Blazor` wrapper project
 
 ## Key decisions
 
 * Pure rendering library — no user interaction, no game state
-* Blazor support lives in separate `BackgammonDiagram_Blazor` wrapper project
+* Blazor support lives in separate `BgDiag_Blazor` wrapper project
 * SVG is hand-rolled (no SVG library)
 * PNG uses SkiaSharp 3.119.2 + Svg.Skia 3.6.0 (NOT SkiaSharp.Svg)
 * `ISvgRasterizer` interface isolates SkiaSharp — swappable without touching `DiagramRenderer`
