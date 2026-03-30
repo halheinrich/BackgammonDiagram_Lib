@@ -66,6 +66,71 @@ public class DiagramRenderer
         var slides = requests.Select(r => (RenderPng(r, options), r.Title));
         return PptxBuilder.Build(slides);
     }
+
+    /// <summary>
+    /// Returns hit-test rectangles for all clickable board regions.
+    /// Coordinates are in SVG viewBox space matching RenderSvg() output
+    /// for a Problem-mode (no panel) diagram.
+    /// </summary>
+    public BoardHitRegions GetHitRegions(DiagramOptions options)
+    {
+        var layout = BoardLayout.Default;
+
+        // No panel — hit regions are for interactive (Problem-mode) use
+        const bool panelOnLeft = false;
+        double totalWidth = layout.TotalWidth(withPanel: false);
+        double totalHeight = layout.BoardHeight;
+
+        // --- Points 1–24 ---
+        var points = new Dictionary<int, HitRect>(24);
+
+        for (int pt = 1; pt <= 24; pt++)
+        {
+            double cx = layout.ColumnCentreX(pt, panelOnLeft);
+            double x = cx - layout.ColumnWidth / 2;
+            double w = layout.ColumnWidth;
+
+            double y, h;
+            if (pt >= 13)
+            {
+                // Top points: triangle area only
+                y = layout.TopCheckerBaseY;
+                h = layout.PointHeight;
+            }
+            else
+            {
+                // Bottom points: triangle area only
+                y = layout.BottomCheckerBaseY;
+                h = layout.PointHeight;
+            }
+
+            points[pt] = new HitRect(x, y, w, h);
+        }
+
+        // --- Bar ---
+        var bar = new HitRect(
+            layout.BarX(panelOnLeft),
+            0,
+            layout.BarWidth,
+            totalHeight);
+
+        // --- Cube: full left-rail column (covers all possible cube positions) ---
+        var cube = new HitRect(
+            layout.LeftRailX(panelOnLeft),
+            0,
+            layout.LeftRailWidth,
+            totalHeight);
+
+        return new BoardHitRegions
+        {
+            ViewBox = new SvgViewBox(0, 0, totalWidth, totalHeight),
+            Points = points,
+            Bar = bar,
+            Cube = cube,
+            OnRollTray = null  // bearing-off tray not yet rendered
+        };
+    }
+
     // -----------------------------------------------------------------------
     //  Size resolution
     // -----------------------------------------------------------------------
