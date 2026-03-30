@@ -7,30 +7,32 @@ Part of the Backgammon tools ecosystem: https://github.com/halheinrich/backgammo
 
 https://github.com/halheinrich/BackgammonDiagram_Lib
 **Branch:** main
-**Current commit:** `09fd31e`
+**Current commit:** `ba30054`
 
 ## Raw URLs (current commit)
 
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Models/Enums.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Models/DiagramSize.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Models/DiagramRequest.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Models/DiagramOptions.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Models/DiagramRequestExtensions.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Models/PlayCandidate.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Models/AnalysisDepthEntry.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Themes/ITheme.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Themes/DefaultTheme.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Themes/GreyscaleTheme.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Themes/ThemeRegistry.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Rendering/BoardLayout.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Rendering/ISvgRasterizer.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Rendering/SkiaSharpRasterizer.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Rendering/DiagramRenderer.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Rendering/PptxBuilder.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib/Rendering/PdfBuilder.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib.Tests/DiagramRendererTests.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib.Tests/PptxConformanceTests.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/09fd31e/BackgammonDiagram_Lib.Tests/TestPaths.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Models/Enums.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Models/DiagramSize.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Models/DiagramRequest.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Models/DiagramOptions.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Models/DiagramRequestExtensions.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Models/PlayCandidate.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Models/AnalysisDepthEntry.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Models/BoardHitRegions.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Themes/ITheme.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Themes/DefaultTheme.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Themes/GreyscaleTheme.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Themes/ThemeRegistry.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Rendering/BoardLayout.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Rendering/ISvgRasterizer.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Rendering/SkiaSharpRasterizer.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Rendering/DiagramRenderer.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Rendering/PptxBuilder.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib/Rendering/PdfBuilder.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib.Tests/DiagramRendererTests.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib.Tests/PptxConformanceTests.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib.Tests/HitRegionsTests.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/ba30054/BackgammonDiagram_Lib.Tests/TestPaths.cs
 
 ## Stack
 
@@ -148,6 +150,21 @@ public class AnalysisDepthEntry
 }
 ```
 
+### Hit region types
+```
+public class BoardHitRegions
+{
+    public required SvgViewBox ViewBox { get; init; }
+    public required Dictionary<int, HitRect> Points { get; init; }  // 1–24
+    public required HitRect Bar { get; init; }
+    public HitRect? Cube { get; init; }
+    public HitRect? OnRollTray { get; init; }
+}
+
+public record SvgViewBox(double X, double Y, double Width, double Height);
+public record HitRect(double X, double Y, double Width, double Height);
+```
+
 ### DiagramRequestExtensions
 ```csharp
 (DiagramRequest Problem, DiagramRequest Solution) ToProblemSolutionPair(this DiagramRequest request)
@@ -170,7 +187,20 @@ byte[] RenderPdf(DiagramRequest request, DiagramOptions options);
 byte[] RenderPdf(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 byte[] RenderPptx(DiagramRequest request, DiagramOptions options);
 byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
+BoardHitRegions GetHitRegions(DiagramOptions options);
 ```
+
+### Hit regions API (GetHitRegions)
+
+* Returns axis-aligned `HitRect` rectangles in SVG viewBox coordinate space
+* Depends on `DiagramOptions` only — not `DiagramRequest` (piece positions don't move the points)
+* Assumes no panel (Problem mode) — coordinates match board-only `RenderSvg()` output
+* Points 1–24: each rect is `ColumnWidth` wide, centered on `ColumnCentreX`, covering triangle area
+* Bar: full bar strip, top to bottom
+* Cube: full left-rail column (covers all possible cube vertical positions)
+* OnRollTray: `null` (bearing-off tray not yet rendered)
+* ViewBox: `(0, 0, BoardWidth, BoardHeight)` — no panel
+* 10 tests in `HitRegionsTests.cs`
 
 ### Board layout (BoardLayout struct)
 
@@ -235,6 +265,7 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 ✅ PNG rendering — complete (SkiaSharp + Svg.Skia)
 ✅ PowerPoint rendering — complete (repair prompt fixed, six regression tests in `PptxConformanceTests.cs`)
 ✅ PDF rendering — complete (QuestPDF, widescreen landscape, PNG embedding)
+✅ Hit regions API — complete (`GetHitRegions`, 10 tests in `HitRegionsTests.cs`)
 
 ## Known issues
 
@@ -282,6 +313,10 @@ byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
 * PDF: `PdfBuilder` is internal static — not part of public API
 * PDF: widescreen landscape 13.33" × 7.5" matching PPTX dimensions
 * PDF: QuestPDF Community license (free for < $1M revenue)
+* Hit regions: `GetHitRegions(DiagramOptions)` — no `DiagramRequest` dependency
+* Hit regions: assumes no panel (Problem mode) — interactive use case
+* Hit regions: cube hit rect covers full left rail (all possible positions)
+* Hit regions: `OnRollTray` is null until bearing-off tray is rendered
 * `IsCube` drives diagram type and panel content
 * Analysis panel always shown in Solution mode, never in Problem mode
 * Panel position (Left/Right) is caller-specified
