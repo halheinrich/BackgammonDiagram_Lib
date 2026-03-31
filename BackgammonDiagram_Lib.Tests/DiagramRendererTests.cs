@@ -12,25 +12,8 @@ public class DiagramRendererTests
     //  Shared fixtures
     // -----------------------------------------------------------------------
 
-    private static DiagramRequest MinimalRequest() => new()
-    {
-        OnRollName = "Hal",
-        OpponentName = "Opponent",
-        OnRollPipCount = 133,
-        OpponentPipCount = 131,
-        CubeSize = 1,
-        CubeOwner = CubeOwner.Centered,
-        OnRollAtBottom = true,
-        Mode = DiagramMode.Problem,
-        Dice = [3, 1],
-        IsCube = false,
-        Mop = new int[26]
-    };
-
-    private static DiagramOptions DefaultOptions() => new()
-    {
-        Size = DiagramSize.Medium
-    };
+    private static DiagramRequest MinimalRequest() => TestFixtures.MinimalRequest();
+    private static DiagramOptions DefaultOptions() => TestFixtures.DefaultOptions();
 
     private static string Render(DiagramRequest? req = null, DiagramOptions? opts = null)
         => new DiagramRenderer().RenderSvg(req ?? MinimalRequest(), opts ?? DefaultOptions());
@@ -157,7 +140,9 @@ public class DiagramRendererTests
     [Fact]
     public void RenderSvg_WritesSolutionModeToDisk()
     {
-        var req = MinimalRequest() with { Mode = DiagramMode.Solution };
+        var b = TestFixtures.MinimalBuilder();
+        b.Mode = DiagramMode.Solution;
+        var req = b.Build();
         var svg = Render(req);
         var path = TestPaths.SvgOutputPath("bg_solution.svg");
         File.WriteAllText(path, svg);
@@ -167,11 +152,10 @@ public class DiagramRendererTests
     [Fact]
     public void RenderSvg_WritesPanelRightToDisk()
     {
-        var req = MinimalRequest() with
-        {
-            Mode = DiagramMode.Solution,
-            AnalysisPanelPosition = PanelPosition.Right
-        };
+        var b = TestFixtures.MinimalBuilder();
+        b.Mode = DiagramMode.Solution;
+        b.AnalysisPanelPosition = PanelPosition.Right;
+        var req = b.Build();
         var svg = Render(req);
         var path = TestPaths.SvgOutputPath("bg_panel_right.svg");
         File.WriteAllText(path, svg);
@@ -235,7 +219,9 @@ public class DiagramRendererTests
     [Fact]
     public void ToProblemSolutionPair_WritesDeckToDisk()
     {
-        var req = MinimalRequest() with { Title = "Position 1" };
+        var b = TestFixtures.MinimalBuilder();
+        b.Title = "Position 1";
+        var req = b.Build();
         var (problem, solution) = req.ToProblemSolutionPair();
         Assert.Equal(DiagramMode.Problem, problem.Mode);
         Assert.Equal(DiagramMode.Solution, solution.Mode);

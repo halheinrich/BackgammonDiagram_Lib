@@ -20,7 +20,7 @@ public class DiagramRenderer
 
     public string RenderSvg(DiagramRequest request, DiagramOptions options)
     {
-        var theme = ThemeRegistry.Resolve(options.ThemeName);
+        var theme = options.Theme;
         var layout = BoardLayout.Default;
         bool hasPanel = request.Mode == DiagramMode.Solution;
         bool panelOnLeft = request.AnalysisPanelPosition == PanelPosition.Left;

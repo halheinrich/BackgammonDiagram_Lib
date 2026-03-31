@@ -1,3 +1,5 @@
+using BackgammonDiagram_Lib.Themes;
+
 namespace BackgammonDiagram_Lib;
 
 public class DiagramOptions
@@ -12,8 +14,7 @@ public class DiagramOptions
     public string? WatermarkText { get; init; }
 
     /// <summary>
-    /// Optional theme name. Resolved via ThemeRegistry.Resolve().
-    /// Null or unrecognised values fall back to DefaultTheme.
+    /// Theme used for rendering. Defaults to ThemeRegistry.Default.
     /// </summary>
-    public string? ThemeName { get; init; }
+    public ITheme Theme { get; init; } = ThemeRegistry.Default;
 }

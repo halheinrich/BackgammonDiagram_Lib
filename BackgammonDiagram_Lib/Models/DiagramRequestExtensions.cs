@@ -11,8 +11,85 @@ public static class DiagramRequestExtensions
         ToProblemSolutionPair(this DiagramRequest request)
     {
         string base_ = string.IsNullOrWhiteSpace(request.Title) ? "" : request.Title + " \u2014 ";
-        var problem = request with { Mode = DiagramMode.Problem, Title = base_ + "Problem" };
-        var solution = request with { Mode = DiagramMode.Solution, Title = base_ + "Solution" };
+
+        var problem = new DiagramRequest.Builder
+        {
+            Mop = request.Mop,
+            OnRollNeeds = request.OnRollNeeds,
+            OpponentNeeds = request.OpponentNeeds,
+            OnRollPipCount = request.OnRollPipCount,
+            OpponentPipCount = request.OpponentPipCount,
+            OnRollName = request.OnRollName,
+            OpponentName = request.OpponentName,
+            CubeSize = request.CubeSize,
+            CubeOwner = request.CubeOwner,
+            IsCube = request.IsCube,
+            Dice = request.Dice,
+            Mode = DiagramMode.Problem,
+            Orientation = request.Orientation,
+            OnRollAtBottom = request.OnRollAtBottom,
+            AnalysisPanelPosition = request.AnalysisPanelPosition,
+            Title = base_ + "Problem",
+            NoDoubleEquity = request.NoDoubleEquity,
+            DoubleTakeEquity = request.DoubleTakeEquity,
+            WinPctAfterNoDouble = request.WinPctAfterNoDouble,
+            GammonPctAfterNoDouble = request.GammonPctAfterNoDouble,
+            BgPctAfterNoDouble = request.BgPctAfterNoDouble,
+            LosePctAfterNoDouble = request.LosePctAfterNoDouble,
+            LoseGammonPctAfterNoDouble = request.LoseGammonPctAfterNoDouble,
+            LoseBgPctAfterNoDouble = request.LoseBgPctAfterNoDouble,
+            WinPctAfterDoubleTake = request.WinPctAfterDoubleTake,
+            GammonPctAfterDoubleTake = request.GammonPctAfterDoubleTake,
+            BgPctAfterDoubleTake = request.BgPctAfterDoubleTake,
+            LosePctAfterDoubleTake = request.LosePctAfterDoubleTake,
+            LoseGammonPctAfterDoubleTake = request.LoseGammonPctAfterDoubleTake,
+            LoseBgPctAfterDoubleTake = request.LoseBgPctAfterDoubleTake,
+            ProbOfOpponentErrorJustifyingDouble = request.ProbOfOpponentErrorJustifyingDouble,
+            BestPlayIndex = request.BestPlayIndex,
+            UserPlayIndex = request.UserPlayIndex,
+            Plays = request.Plays,
+            AnalysisDepths = request.AnalysisDepths,
+        }.Build();
+
+        var solution = new DiagramRequest.Builder
+        {
+            Mop = request.Mop,
+            OnRollNeeds = request.OnRollNeeds,
+            OpponentNeeds = request.OpponentNeeds,
+            OnRollPipCount = request.OnRollPipCount,
+            OpponentPipCount = request.OpponentPipCount,
+            OnRollName = request.OnRollName,
+            OpponentName = request.OpponentName,
+            CubeSize = request.CubeSize,
+            CubeOwner = request.CubeOwner,
+            IsCube = request.IsCube,
+            Dice = request.Dice,
+            Mode = DiagramMode.Solution,
+            Orientation = request.Orientation,
+            OnRollAtBottom = request.OnRollAtBottom,
+            AnalysisPanelPosition = request.AnalysisPanelPosition,
+            Title = base_ + "Solution",
+            NoDoubleEquity = request.NoDoubleEquity,
+            DoubleTakeEquity = request.DoubleTakeEquity,
+            WinPctAfterNoDouble = request.WinPctAfterNoDouble,
+            GammonPctAfterNoDouble = request.GammonPctAfterNoDouble,
+            BgPctAfterNoDouble = request.BgPctAfterNoDouble,
+            LosePctAfterNoDouble = request.LosePctAfterNoDouble,
+            LoseGammonPctAfterNoDouble = request.LoseGammonPctAfterNoDouble,
+            LoseBgPctAfterNoDouble = request.LoseBgPctAfterNoDouble,
+            WinPctAfterDoubleTake = request.WinPctAfterDoubleTake,
+            GammonPctAfterDoubleTake = request.GammonPctAfterDoubleTake,
+            BgPctAfterDoubleTake = request.BgPctAfterDoubleTake,
+            LosePctAfterDoubleTake = request.LosePctAfterDoubleTake,
+            LoseGammonPctAfterDoubleTake = request.LoseGammonPctAfterDoubleTake,
+            LoseBgPctAfterDoubleTake = request.LoseBgPctAfterDoubleTake,
+            ProbOfOpponentErrorJustifyingDouble = request.ProbOfOpponentErrorJustifyingDouble,
+            BestPlayIndex = request.BestPlayIndex,
+            UserPlayIndex = request.UserPlayIndex,
+            Plays = request.Plays,
+            AnalysisDepths = request.AnalysisDepths,
+        }.Build();
+
         return (problem, solution);
     }
 }
