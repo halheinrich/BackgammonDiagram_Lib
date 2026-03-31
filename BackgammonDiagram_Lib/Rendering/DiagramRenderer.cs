@@ -72,9 +72,10 @@ public class DiagramRenderer
     /// Coordinates are in SVG viewBox space matching RenderSvg() output
     /// for a Problem-mode (no panel) diagram.
     /// </summary>
-    public BoardHitRegions GetHitRegions(DiagramOptions options)
+    public BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions options)
     {
         var layout = BoardLayout.Default;
+        bool homeBoardOnRight = request.HomeBoardOnRight;
 
         // No panel — hit regions are for interactive (Problem-mode) use
         const bool panelOnLeft = false;
@@ -86,7 +87,7 @@ public class DiagramRenderer
 
         for (int pt = 1; pt <= 24; pt++)
         {
-            double cx = layout.ColumnCentreX(pt, panelOnLeft);
+            double cx = layout.ColumnCentreX(pt, panelOnLeft, homeBoardOnRight);
             double x = cx - layout.ColumnWidth / 2;
             double w = layout.ColumnWidth;
 
