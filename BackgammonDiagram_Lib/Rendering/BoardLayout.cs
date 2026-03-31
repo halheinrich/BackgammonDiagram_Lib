@@ -100,32 +100,38 @@ public readonly struct BoardLayout
         // Points 7-12: outer half, right side, columns right-to-left
         // Points 13-18: outer half, left side, columns left-to-right
         // Points 19-24: inner half, left side, columns left-to-right
-        if (!homeBoardOnRight) point = 25 - point;
         double halfX;
-        int col; // 0-based column within half (left to right)
+        int col;
 
         if (point >= 1 && point <= 6)
         {
             halfX = InnerHalfX(panelOnLeft);
-            col = 6 - point; // pt1=rightmost col5, pt6=leftmost col0
+            col = 6 - point;
         }
         else if (point >= 7 && point <= 12)
         {
             halfX = OuterHalfX(panelOnLeft);
-            col = 12 - point; // pt7=rightmost col5, pt12=leftmost col0
+            col = 12 - point;
         }
         else if (point >= 13 && point <= 18)
         {
             halfX = OuterHalfX(panelOnLeft);
-            col = point - 13; // pt13=leftmost col0, pt18=rightmost col5
+            col = point - 13;
         }
         else // 19-24
         {
             halfX = InnerHalfX(panelOnLeft);
-            col = point - 19; // pt19=leftmost col0, pt24=rightmost col5
+            col = point - 19;
         }
 
-        return halfX + col * ColumnWidth + ColumnWidth / 2;
+        double cx = halfX + col * ColumnWidth + ColumnWidth / 2;
+        if (!homeBoardOnRight)
+        {
+            double spanLeft = OuterHalfX(panelOnLeft);
+            double spanRight = InnerHalfX(panelOnLeft) + HalfWidth;
+            cx = spanLeft + (spanRight - cx);
+        }
+        return cx;
     }
 
     // -----------------------------------------------------------------------

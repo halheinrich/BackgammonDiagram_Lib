@@ -238,9 +238,8 @@ public class DiagramRenderer
             string color = (pt % 2 == 0) ? theme.PointColorDark : theme.PointColorLight;
             double cx = layout.ColumnCentreX(pt, panelOnLeft, homeBoardOnRight);
             double halfW = layout.ColumnWidth / 2;
-            int effectivePt = homeBoardOnRight ? pt : 25 - pt;
 
-            if (effectivePt >= 13)
+            if (pt >= 13)
             {
                 double baseY = layout.TopCheckerBaseY;
                 double tipY = layout.TopCheckerBaseY + layout.PointHeight;

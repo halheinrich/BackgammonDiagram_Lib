@@ -315,6 +315,15 @@ public class DiagramRendererTests
     }
 
     [Fact]
+    public void RenderSvg_WritesHomeBoardRightToDisk()
+    {
+        var svg = Render(MinimalRequest());
+        var path = TestPaths.SvgOutputPath("bg_homeboardright.svg");
+        File.WriteAllText(path, svg);
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
     public void RenderSvg_HomeBoardLeftAndRight_ProduceDifferentSvg()
     {
         var svgRight = Render(MinimalRequest());
