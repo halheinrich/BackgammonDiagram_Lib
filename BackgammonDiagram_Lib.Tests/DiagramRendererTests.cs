@@ -290,6 +290,39 @@ public class DiagramRendererTests
     }
 
     // -----------------------------------------------------------------------
+    //  HomeBoardOnRight
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void RenderSvg_WritesHomeBoardLeftToDisk()
+    {
+        var req = MinimalRequest() with { HomeBoardOnRight = false };
+        var svg = Render(req);
+        var path = TestPaths.SvgOutputPath("bg_homeboardleft.svg");
+        File.WriteAllText(path, svg);
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public void RenderPng_WritesHomeBoardLeftToDisk()
+    {
+        var req = MinimalRequest() with { HomeBoardOnRight = false };
+        var png = new DiagramRenderer().RenderPng(req, DefaultOptions());
+        var path = TestPaths.SvgOutputPath("bg_homeboardleft.png");
+        File.WriteAllBytes(path, png);
+        Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public void RenderSvg_HomeBoardLeftAndRight_ProduceDifferentSvg()
+    {
+        var svgRight = Render(MinimalRequest());
+        var svgLeft = Render(MinimalRequest() with { HomeBoardOnRight = false });
+        Assert.NotEqual(svgRight, svgLeft);
+    }
+
+    // -----------------------------------------------------------------------
     //  Helpers
     // -----------------------------------------------------------------------
 

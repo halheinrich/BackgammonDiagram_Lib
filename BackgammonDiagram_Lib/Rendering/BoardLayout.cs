@@ -94,12 +94,13 @@ public readonly struct BoardLayout
     /// assuming OnRollAtBottom=true and OnRollRight orientation.
     /// The renderer applies orientation transforms on top of this.
     /// </summary>
-    public double ColumnCentreX(int point, bool panelOnLeft)
+    public double ColumnCentreX(int point, bool panelOnLeft, bool homeBoardOnRight = true)
     {
         // Points 1-6: inner half, right side, columns right-to-left
         // Points 7-12: outer half, right side, columns right-to-left
         // Points 13-18: outer half, left side, columns left-to-right
         // Points 19-24: inner half, left side, columns left-to-right
+        if (!homeBoardOnRight) point = 25 - point;
         double halfX;
         int col; // 0-based column within half (left to right)
 

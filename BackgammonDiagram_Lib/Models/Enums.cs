@@ -6,14 +6,6 @@ public enum DiagramMode
     Solution
 }
 
-public enum DiagramOrientation
-{
-    /// <summary>On-roll player's home board is on the right.</summary>
-    OnRollRight,
-    /// <summary>Opponent's home board is on the right.</summary>
-    OpponentRight
-}
-
 public enum PanelPosition
 {
     Left,

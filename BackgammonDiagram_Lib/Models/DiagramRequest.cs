@@ -30,8 +30,11 @@ public record DiagramRequest
 
     public DiagramMode Mode { get; init; }
 
-    /// <summary>Controls which player's home board is on the right.</summary>
-    public DiagramOrientation Orientation { get; init; }
+    /// <summary>
+    /// True (default) if the on-roll player's home board is on the right.
+    /// False mirrors the board horizontally.
+    /// </summary>
+    public bool HomeBoardOnRight { get; init; } = true;
 
     /// <summary>
     /// True if the on-roll player is shown at the bottom of the diagram.

@@ -151,6 +151,7 @@ public class DiagramRenderer
         DiagramRequest request, bool hasPanel, bool panelOnLeft)
     {
         bool effectivePanelOnLeft = hasPanel && panelOnLeft;
+        bool homeBoardOnRight = request.HomeBoardOnRight;
         double bx = layout.BoardOffsetX(effectivePanelOnLeft);
 
         // Full canvas background — prevents transparent edges showing in PNG
@@ -160,8 +161,8 @@ public class DiagramRenderer
 
         AppendLeftRail(sb, layout, theme, bx);
         AppendBar(sb, layout, theme, bx);
-        AppendPoints(sb, layout, theme, bx, effectivePanelOnLeft);
-        AppendPointNumbers(sb, layout, theme, bx, effectivePanelOnLeft);
+        AppendPoints(sb, layout, theme, bx, effectivePanelOnLeft, homeBoardOnRight);
+        AppendPointNumbers(sb, layout, theme, bx, effectivePanelOnLeft, homeBoardOnRight);
         AppendTopRail(sb, layout, theme, bx, request);
         AppendBottomRail(sb, layout, theme, bx, request);
         AppendCube(sb, layout, theme, bx, request);
@@ -230,15 +231,16 @@ public class DiagramRenderer
     // -----------------------------------------------------------------------
 
     private void AppendPoints(StringBuilder sb, BoardLayout layout, ITheme theme,
-        double bx, bool panelOnLeft)
+            double bx, bool panelOnLeft, bool homeBoardOnRight)
     {
         for (int pt = 1; pt <= 24; pt++)
         {
             string color = (pt % 2 == 0) ? theme.PointColorDark : theme.PointColorLight;
-            double cx = layout.ColumnCentreX(pt, panelOnLeft);
+            double cx = layout.ColumnCentreX(pt, panelOnLeft, homeBoardOnRight);
             double halfW = layout.ColumnWidth / 2;
+            int effectivePt = homeBoardOnRight ? pt : 25 - pt;
 
-            if (pt >= 13)
+            if (effectivePt >= 13)
             {
                 double baseY = layout.TopCheckerBaseY;
                 double tipY = layout.TopCheckerBaseY + layout.PointHeight;
@@ -258,11 +260,11 @@ public class DiagramRenderer
     // -----------------------------------------------------------------------
 
     private void AppendPointNumbers(StringBuilder sb, BoardLayout layout, ITheme theme,
-        double bx, bool panelOnLeft)
+            double bx, bool panelOnLeft, bool homeBoardOnRight)
     {
         for (int pt = 1; pt <= 24; pt++)
         {
-            double cx = layout.ColumnCentreX(pt, panelOnLeft);
+            double cx = layout.ColumnCentreX(pt, panelOnLeft, homeBoardOnRight);
 
             if (pt >= 13)
             {
