@@ -173,8 +173,7 @@ public class DiagramRendererTests
     [Fact]
     public void RenderSvg_WritesGreyscaleToDisk()
     {
-        var opts = new DiagramOptions { ThemeName = "Greyscale" };
-        var svg = Render(opts: opts);
+        var svg = Render(opts: TestFixtures.GreyscaleOptions());
         var path = TestPaths.SvgOutputPath("bg_greyscale.svg");
         File.WriteAllText(path, svg);
         Assert.True(File.Exists(path));
@@ -183,8 +182,7 @@ public class DiagramRendererTests
     [Fact]
     public void RenderPng_WritesGreyscalePngToDisk()
     {
-        var opts = new DiagramOptions { ThemeName = "Greyscale" };
-        var png = new DiagramRenderer().RenderPng(MinimalRequest(), new DiagramOptions { ThemeName = "Greyscale" });
+        var png = new DiagramRenderer().RenderPng(MinimalRequest(), TestFixtures.GreyscaleOptions());
         var path = TestPaths.PngOutputPath("bg_greyscale.png");
         File.WriteAllBytes(path, png);
         Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
@@ -207,8 +205,14 @@ public class DiagramRendererTests
     [Fact]
     public void RenderPptx_WritesMultiSlideToDisk()
     {
-        var req1 = MinimalRequest() with { Title = "Opening" };
-        var req2 = MinimalRequest() with { Mode = DiagramMode.Solution, Title = "Opening — Solution" };
+        var b1 = TestFixtures.MinimalBuilder();
+        b1.Title = "Opening";
+        var req1 = b1.Build();
+
+        var b2 = TestFixtures.MinimalBuilder();
+        b2.Mode = DiagramMode.Solution;
+        b2.Title = "Opening \u2014 Solution";
+        var req2 = b2.Build();
         var pptx = new DiagramRenderer().RenderPptx([req1, req2], DefaultOptions());
         var path = TestPaths.PptxOutputPath("bg_multi.pptx");
         File.WriteAllBytes(path, pptx);
@@ -251,8 +255,14 @@ public class DiagramRendererTests
     [Fact]
     public void RenderPdf_WritesMultiPageToDisk()
     {
-        var req1 = MinimalRequest() with { Title = "Opening" };
-        var req2 = MinimalRequest() with { Mode = DiagramMode.Solution, Title = "Opening — Solution" };
+        var b1 = TestFixtures.MinimalBuilder();
+        b1.Title = "Opening";
+        var req1 = b1.Build();
+
+        var b2 = TestFixtures.MinimalBuilder();
+        b2.Mode = DiagramMode.Solution;
+        b2.Title = "Opening \u2014 Solution";
+        var req2 = b2.Build();
         var pdf = new DiagramRenderer().RenderPdf([req1, req2], DefaultOptions());
         var path = TestPaths.PdfOutputPath("bg_multi.pdf");
         File.WriteAllBytes(path, pdf);
@@ -263,7 +273,9 @@ public class DiagramRendererTests
     [Fact]
     public void ToProblemSolutionPair_WritesPdfToDisk()
     {
-        var req = MinimalRequest() with { Title = "Position 1" };
+        var b = TestFixtures.MinimalBuilder();
+        b.Title = "Position 1";
+        var req = b.Build();
         var (problem, solution) = req.ToProblemSolutionPair();
         Assert.Equal(DiagramMode.Problem, problem.Mode);
         Assert.Equal(DiagramMode.Solution, solution.Mode);
@@ -283,7 +295,9 @@ public class DiagramRendererTests
     [Fact]
     public void RenderSvg_WritesHomeBoardLeftToDisk()
     {
-        var req = MinimalRequest() with { HomeBoardOnRight = false };
+        var b = TestFixtures.MinimalBuilder();
+        b.HomeBoardOnRight = false;
+        var req = b.Build();
         var svg = Render(req);
         var path = TestPaths.SvgOutputPath("bg_homeboardleft.svg");
         File.WriteAllText(path, svg);
@@ -293,7 +307,9 @@ public class DiagramRendererTests
     [Fact]
     public void RenderPng_WritesHomeBoardLeftToDisk()
     {
-        var req = MinimalRequest() with { HomeBoardOnRight = false };
+        var b = TestFixtures.MinimalBuilder();
+        b.HomeBoardOnRight = false;
+        var req = b.Build();
         var png = new DiagramRenderer().RenderPng(req, DefaultOptions());
         var path = TestPaths.PngOutputPath("bg_homeboardleft.png");
         File.WriteAllBytes(path, png);
@@ -314,7 +330,9 @@ public class DiagramRendererTests
     public void RenderSvg_HomeBoardLeftAndRight_ProduceDifferentSvg()
     {
         var svgRight = Render(MinimalRequest());
-        var svgLeft = Render(MinimalRequest() with { HomeBoardOnRight = false });
+        var bl = TestFixtures.MinimalBuilder();
+        bl.HomeBoardOnRight = false;
+        var svgLeft = Render(bl.Build());
         Assert.NotEqual(svgRight, svgLeft);
     }
 
@@ -346,7 +364,9 @@ public class DiagramRendererTests
     [Fact]
     public void RenderSvg_StartingPosition_WritesToDisk()
     {
-        var req = MinimalRequest() with { Mop = StartingMop() };
+        var b = TestFixtures.MinimalBuilder();
+        b.Mop = StartingMop();
+        var req = b.Build();
         var svg = new DiagramRenderer().RenderSvg(req, DefaultOptions());
 
         // Should contain circles (checkers)
@@ -366,7 +386,9 @@ public class DiagramRendererTests
         mop[6] = 8;    // overflow: 8 checkers on a single point (draws cap label)
         mop[19] = -7;    // overflow: 7 opponent checkers
 
-        var req = MinimalRequest() with { Mop = mop };
+        var b = TestFixtures.MinimalBuilder();
+        b.Mop = mop;
+        var req = b.Build();
         var svg = new DiagramRenderer().RenderSvg(req, DefaultOptions());
 
         // Overflow label: count text should appear for 8 and 7
@@ -381,7 +403,9 @@ public class DiagramRendererTests
     [Fact]
     public void RenderPng_StartingPosition_WritesToDisk()
     {
-        var req = MinimalRequest() with { Mop = StartingMop() };
+        var b = TestFixtures.MinimalBuilder();
+        b.Mop = StartingMop();
+        var req = b.Build();
         var png = new DiagramRenderer().RenderPng(req, DefaultOptions());
         var path = TestPaths.PngOutputPath("checkers_starting.png");
         File.WriteAllBytes(path, png);
@@ -396,7 +420,10 @@ public class DiagramRendererTests
     [Fact]
     public void RenderSvg_Dice31_WritesToDisk()
     {
-        var req = MinimalRequest() with { Mop = StartingMop(), Dice = [3, 1] };
+        var b = TestFixtures.MinimalBuilder();
+        b.Mop = StartingMop();
+        b.Dice = [3, 1];
+        var req = b.Build();
         var svg = new DiagramRenderer().RenderSvg(req, DefaultOptions());
         Assert.Contains("<circle", svg);
         var path = TestPaths.SvgOutputPath("dice_31.svg");
@@ -407,7 +434,10 @@ public class DiagramRendererTests
     [Fact]
     public void RenderSvg_Dice66_WritesToDisk()
     {
-        var req = MinimalRequest() with { Mop = StartingMop(), Dice = [6, 6] };
+        var b = TestFixtures.MinimalBuilder();
+        b.Mop = StartingMop();
+        b.Dice = [6, 6];
+        var req = b.Build();
         var svg = new DiagramRenderer().RenderSvg(req, DefaultOptions());
         var path = TestPaths.SvgOutputPath("dice_66.svg");
         File.WriteAllText(path, svg);
@@ -417,7 +447,10 @@ public class DiagramRendererTests
     [Fact]
     public void RenderSvg_IsCube_NoDiceRendered()
     {
-        var req = MinimalRequest() with { IsCube = true, Dice = [4, 2] };
+        var b = TestFixtures.MinimalBuilder();
+        b.IsCube = true;
+        b.Dice = [0, 0];
+        var req = b.Build();
         var svg = new DiagramRenderer().RenderSvg(req, DefaultOptions());
         // No die face rects beyond the board background rects — check pip count is 0
         // (pips are circles; checkers are also circles so we can't use that)
@@ -431,7 +464,10 @@ public class DiagramRendererTests
     [Fact]
     public void RenderPng_Dice31_WritesToDisk()
     {
-        var req = MinimalRequest() with { Mop = StartingMop(), Dice = [3, 1] };
+        var b = TestFixtures.MinimalBuilder();
+        b.Mop = StartingMop();
+        b.Dice = [3, 1];
+        var req = b.Build();
         var png = new DiagramRenderer().RenderPng(req, DefaultOptions());
         var path = TestPaths.PngOutputPath("dice_31.png");
         File.WriteAllBytes(path, png);

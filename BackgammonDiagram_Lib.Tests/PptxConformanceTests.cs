@@ -26,15 +26,17 @@ public class PptxConformanceTests
 {
     private static byte[] GenerateSingleSlidePptx()
     {
-        var request = new DiagramRequest
+        var request = new DiagramRequest.Builder
         {
             Mop = new int[26],
             OnRollName = "Player",
             OpponentName = "Opponent",
-            Dice = new[] { 3, 1 },
+            IsCube = false,
+            Dice = [3, 1],
+            CubeSize = 1,
             Mode = DiagramMode.Problem,
-            Title = "Conformance Test"
-        };
+            Title = "Conformance Test",
+        }.Build();
 
         var options = new DiagramOptions
         {

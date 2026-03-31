@@ -4,7 +4,7 @@ namespace BackgammonDiagram_Lib;
 public class DiagramRequest
 {
     // Private constructor — callers must use Builder.Build()
-    private DiagramRequest() { }
+    internal DiagramRequest() { }
 
     // -----------------------------------------------------------------------
     //  Always required
@@ -17,55 +17,53 @@ public class DiagramRequest
     /// [25]   = on-roll player's bar (value always &gt;= 0)
     /// Positive = on-roll player's checkers; negative = opponent's.
     /// </summary>
-    public int[] Mop { get; private set; } = new int[26];
+    public int[] Mop { get; init; } = new int[26];
 
-    public int OnRollNeeds { get; private set; }
-    public int OpponentNeeds { get; private set; }
-    public int OnRollPipCount { get; private set; }
-    public int OpponentPipCount { get; private set; }
-    public string OnRollName { get; private set; } = string.Empty;
-    public string OpponentName { get; private set; } = string.Empty;
-    public int CubeSize { get; private set; } = 1;
-    public CubeOwner CubeOwner { get; private set; }
-    public bool IsCube { get; private set; }
+    public int OnRollNeeds { get; init; }
+    public int OpponentNeeds { get; init; }
+    public int OnRollPipCount { get; init; }
+    public int OpponentPipCount { get; init; }
+    public string OnRollName { get; init; } = string.Empty;
+    public string OpponentName { get; init; } = string.Empty;
+    public int CubeSize { get; init; } = 1;
+    public CubeOwner CubeOwner { get; init; }
+    public bool IsCube { get; init; }
 
     /// <summary>Always length 2. Ignored when IsCube is true.</summary>
-    public int[] Dice { get; private set; } = new int[2];
+    public int[] Dice { get; init; } = new int[2];
 
-    public DiagramMode Mode { get; private set; }
-
-    /// <summary>Controls which player's home board is on the right.</summary>
-    public DiagramOrientation Orientation { get; private set; }
+    public DiagramMode Mode { get; init; }
+    public bool HomeBoardOnRight { get; init; } = true;
 
     /// <summary>
     /// True if the on-roll player is shown at the bottom of the diagram.
     /// False if the opponent is shown at the bottom.
     /// </summary>
-    public bool OnRollAtBottom { get; private set; } = true;
+    public bool OnRollAtBottom { get; init; } = true;
 
-    public PanelPosition AnalysisPanelPosition { get; private set; }
+    public PanelPosition AnalysisPanelPosition { get; init; }
 
     // -----------------------------------------------------------------------
     //  Solution — cube fields (IsCube=true, Mode=Solution)
     // -----------------------------------------------------------------------
 
     /// <summary>Optional slide title for PowerPoint output. Null = no title rendered.</summary>
-    public string? Title { get; private set; }
-    public double NoDoubleEquity { get; private set; }
-    public double DoubleTakeEquity { get; private set; }
-    public double WinPctAfterNoDouble { get; private set; }
-    public double GammonPctAfterNoDouble { get; private set; }
-    public double BgPctAfterNoDouble { get; private set; }
-    public double LosePctAfterNoDouble { get; private set; }
-    public double LoseGammonPctAfterNoDouble { get; private set; }
-    public double LoseBgPctAfterNoDouble { get; private set; }
-    public double WinPctAfterDoubleTake { get; private set; }
-    public double GammonPctAfterDoubleTake { get; private set; }
-    public double BgPctAfterDoubleTake { get; private set; }
-    public double LosePctAfterDoubleTake { get; private set; }
-    public double LoseGammonPctAfterDoubleTake { get; private set; }
-    public double LoseBgPctAfterDoubleTake { get; private set; }
-    public double ProbOfOpponentErrorJustifyingDouble { get; private set; }
+    public string? Title { get; init; }
+    public double NoDoubleEquity { get; init; }
+    public double DoubleTakeEquity { get; init; }
+    public double WinPctAfterNoDouble { get; init; }
+    public double GammonPctAfterNoDouble { get; init; }
+    public double BgPctAfterNoDouble { get; init; }
+    public double LosePctAfterNoDouble { get; init; }
+    public double LoseGammonPctAfterNoDouble { get; init; }
+    public double LoseBgPctAfterNoDouble { get; init; }
+    public double WinPctAfterDoubleTake { get; init; }
+    public double GammonPctAfterDoubleTake { get; init; }
+    public double BgPctAfterDoubleTake { get; init; }
+    public double LosePctAfterDoubleTake { get; init; }
+    public double LoseGammonPctAfterDoubleTake { get; init; }
+    public double LoseBgPctAfterDoubleTake { get; init; }
+    public double ProbOfOpponentErrorJustifyingDouble { get; init; }
 
     // -----------------------------------------------------------------------
     //  Solution — play fields (IsCube=false, Mode=Solution)
@@ -75,13 +73,13 @@ public class DiagramRequest
     /// Index into Plays identifying the best play.
     /// Drives the crown icon in the analysis panel.
     /// </summary>
-    public int BestPlayIndex { get; private set; }
+    public int BestPlayIndex { get; init; }
 
     /// <summary>Index into Plays identifying the user's play. -1 if not applicable.</summary>
-    public int UserPlayIndex { get; private set; } = -1;
+    public int UserPlayIndex { get; init; } = -1;
 
-    public List<PlayCandidate> Plays { get; private set; } = [];
-    public List<AnalysisDepthEntry> AnalysisDepths { get; private set; } = [];
+    public List<PlayCandidate> Plays { get; init; } = [];
+    public List<AnalysisDepthEntry> AnalysisDepths { get; init; } = [];
 
     // -----------------------------------------------------------------------
     //  Builder
@@ -101,7 +99,7 @@ public class DiagramRequest
         public bool IsCube { get; set; }
         public int[] Dice { get; set; } = new int[2];
         public DiagramMode Mode { get; set; }
-        public DiagramOrientation Orientation { get; set; }
+        public bool HomeBoardOnRight { get; set; } = true;
         public bool OnRollAtBottom { get; set; } = true;
         public PanelPosition AnalysisPanelPosition { get; set; }
         public string? Title { get; set; }
@@ -142,7 +140,7 @@ public class DiagramRequest
                 IsCube = IsCube,
                 Dice = Dice,
                 Mode = Mode,
-                Orientation = Orientation,
+                HomeBoardOnRight = HomeBoardOnRight,
                 OnRollAtBottom = OnRollAtBottom,
                 AnalysisPanelPosition = AnalysisPanelPosition,
                 Title = Title,
