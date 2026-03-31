@@ -32,4 +32,10 @@ internal static class TestPaths
         Directory.CreateDirectory(PdfDir);
         return Path.Combine(PdfDir, filename);
     }
+    public static string PngDir => Path.Combine(_root, "png");
+    public static string PngOutputPath(string filename)
+    {
+        Directory.CreateDirectory(PngDir);
+        return Path.Combine(PngDir, filename);
+    }
 }

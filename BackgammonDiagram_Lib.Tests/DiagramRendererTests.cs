@@ -18,11 +18,12 @@ public class DiagramRendererTests
         OpponentName = "Opponent",
         OnRollPipCount = 133,
         OpponentPipCount = 131,
-        CubeSize = 2,
+        CubeSize = 1,
         CubeOwner = CubeOwner.Centered,
         OnRollAtBottom = true,
         Mode = DiagramMode.Problem,
         Dice = [3, 1],
+        IsCube = false,
         Mop = new int[26]
     };
 
@@ -180,7 +181,7 @@ public class DiagramRendererTests
     public void RenderPng_WritesPngToDisk()
     {
         var png = new DiagramRenderer().RenderPng(MinimalRequest(), DefaultOptions());
-        var path = TestPaths.SvgOutputPath("bg_default.png");
+        var path = TestPaths.PngOutputPath("bg_default.png");
         File.WriteAllBytes(path, png);
         Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
         Assert.True(File.Exists(path));
@@ -200,7 +201,7 @@ public class DiagramRendererTests
     {
         var opts = new DiagramOptions { ThemeName = "Greyscale" };
         var png = new DiagramRenderer().RenderPng(MinimalRequest(), new DiagramOptions { ThemeName = "Greyscale" });
-        var path = TestPaths.SvgOutputPath("bg_greyscale.png");
+        var path = TestPaths.PngOutputPath("bg_greyscale.png");
         File.WriteAllBytes(path, png);
         Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
         Assert.True(File.Exists(path));
@@ -308,7 +309,7 @@ public class DiagramRendererTests
     {
         var req = MinimalRequest() with { HomeBoardOnRight = false };
         var png = new DiagramRenderer().RenderPng(req, DefaultOptions());
-        var path = TestPaths.SvgOutputPath("bg_homeboardleft.png");
+        var path = TestPaths.PngOutputPath("bg_homeboardleft.png");
         File.WriteAllBytes(path, png);
         Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
         Assert.True(File.Exists(path));
@@ -329,6 +330,127 @@ public class DiagramRendererTests
         var svgRight = Render(MinimalRequest());
         var svgLeft = Render(MinimalRequest() with { HomeBoardOnRight = false });
         Assert.NotEqual(svgRight, svgLeft);
+    }
+
+    // -----------------------------------------------------------------------
+    //  Checker rendering
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Backgammon opening position (standard setup).
+    /// 2 on pt24, 5 on pt13, 3 on pt8, 5 on pt6  (on-roll)
+    /// 2 on pt1,  5 on pt12, 3 on pt17, 5 on pt19 (opponent, negated)
+    /// </summary>
+    private static int[] StartingMop()
+    {
+        var mop = new int[26];
+        // On-roll checkers (positive)
+        mop[24] = 2;
+        mop[13] = 5;
+        mop[8] = 3;
+        mop[6] = 5;
+        // Opponent checkers (negative, mirror image)
+        mop[1] = -2;
+        mop[12] = -5;
+        mop[17] = -3;
+        mop[19] = -5;
+        return mop;
+    }
+
+    [Fact]
+    public void RenderSvg_StartingPosition_WritesToDisk()
+    {
+        var req = MinimalRequest() with { Mop = StartingMop() };
+        var svg = new DiagramRenderer().RenderSvg(req, DefaultOptions());
+
+        // Should contain circles (checkers)
+        Assert.Contains("<circle", svg);
+
+        var path = TestPaths.SvgOutputPath("checkers_starting.svg");
+        File.WriteAllText(path, svg);
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public void RenderSvg_BarAndOverflow_WritesToDisk()
+    {
+        var mop = new int[26];
+        mop[25] = 3;    // 3 on-roll checkers on bar
+        mop[0] = -2;    // 2 opponent checkers on bar
+        mop[6] = 8;    // overflow: 8 checkers on a single point (draws cap label)
+        mop[19] = -7;    // overflow: 7 opponent checkers
+
+        var req = MinimalRequest() with { Mop = mop };
+        var svg = new DiagramRenderer().RenderSvg(req, DefaultOptions());
+
+        // Overflow label: count text should appear for 8 and 7
+        Assert.Contains(">8<", svg);
+        Assert.Contains(">7<", svg);
+
+        var path = TestPaths.SvgOutputPath("checkers_bar_overflow.svg");
+        File.WriteAllText(path, svg);
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public void RenderPng_StartingPosition_WritesToDisk()
+    {
+        var req = MinimalRequest() with { Mop = StartingMop() };
+        var png = new DiagramRenderer().RenderPng(req, DefaultOptions());
+        var path = TestPaths.PngOutputPath("checkers_starting.png");
+        File.WriteAllBytes(path, png);
+        Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
+        Assert.True(File.Exists(path));
+    }
+
+    // -----------------------------------------------------------------------
+    //  Dice rendering
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void RenderSvg_Dice31_WritesToDisk()
+    {
+        var req = MinimalRequest() with { Mop = StartingMop(), Dice = [3, 1] };
+        var svg = new DiagramRenderer().RenderSvg(req, DefaultOptions());
+        Assert.Contains("<circle", svg);
+        var path = TestPaths.SvgOutputPath("dice_31.svg");
+        File.WriteAllText(path, svg);
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public void RenderSvg_Dice66_WritesToDisk()
+    {
+        var req = MinimalRequest() with { Mop = StartingMop(), Dice = [6, 6] };
+        var svg = new DiagramRenderer().RenderSvg(req, DefaultOptions());
+        var path = TestPaths.SvgOutputPath("dice_66.svg");
+        File.WriteAllText(path, svg);
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public void RenderSvg_IsCube_NoDiceRendered()
+    {
+        var req = MinimalRequest() with { IsCube = true, Dice = [4, 2] };
+        var svg = new DiagramRenderer().RenderSvg(req, DefaultOptions());
+        // No die face rects beyond the board background rects — check pip count is 0
+        // (pips are circles; checkers are also circles so we can't use that)
+        // Die faces: white rect with grey stroke — absent when IsCube=true
+        Assert.DoesNotContain("fill=\"#FFFFFF\" stroke=\"#888\" stroke-width=\"0.75\"", svg);
+        var path = TestPaths.SvgOutputPath("dice_iscube.svg");
+        File.WriteAllText(path, svg);
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public void RenderPng_Dice31_WritesToDisk()
+    {
+        var req = MinimalRequest() with { Mop = StartingMop(), Dice = [3, 1] };
+        var png = new DiagramRenderer().RenderPng(req, DefaultOptions());
+        var path = TestPaths.PngOutputPath("dice_31.png");
+        File.WriteAllBytes(path, png);
+        Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
+        Assert.True(File.Exists(path));
     }
 
     // -----------------------------------------------------------------------

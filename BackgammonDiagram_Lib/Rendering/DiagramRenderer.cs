@@ -163,6 +163,9 @@ public class DiagramRenderer
         AppendLeftRail(sb, layout, theme, bx);
         AppendBar(sb, layout, theme, bx);
         AppendPoints(sb, layout, theme, bx, effectivePanelOnLeft, homeBoardOnRight);
+        AppendCheckers(sb, layout, theme, request, effectivePanelOnLeft);
+        if (!request.IsCube)
+            AppendDice(sb, layout, theme, request, effectivePanelOnLeft);
         AppendPointNumbers(sb, layout, theme, bx, effectivePanelOnLeft, homeBoardOnRight);
         AppendTopRail(sb, layout, theme, bx, request);
         AppendBottomRail(sb, layout, theme, bx, request);
@@ -278,6 +281,144 @@ public class DiagramRenderer
             }
         }
     }
+
+    // -----------------------------------------------------------------------
+    //  Checkers
+    // -----------------------------------------------------------------------
+
+    private void AppendCheckers(StringBuilder sb, BoardLayout layout, ITheme theme,
+        DiagramRequest request, bool panelOnLeft)
+    {
+        // Points 1–24
+        for (int pt = 1; pt <= 24; pt++)
+        {
+            int count = request.Mop[pt];
+            if (count == 0) continue;
+
+            bool onRoll = count > 0;
+            int abs = Math.Abs(count);
+            double cx = layout.ColumnCentreX(pt, panelOnLeft);
+            bool bottom = pt <= 12;  // points 1-12 stack upward from bottom
+
+            AppendCheckerStack(sb, layout, theme, cx, abs, onRoll, bottom);
+        }
+
+        // On-roll bar (Mop[25], always >= 0) — stacks in the bottom half of the bar
+        int onRollBar = request.Mop[25];
+        if (onRollBar > 0)
+        {
+            double cx = layout.BarCentreX(panelOnLeft);
+            double anchorCy = layout.TopCheckerBaseY + layout.CheckerRadius
+                              + 5 * layout.CheckerRadius * 2;
+            AppendCheckerStack(sb, layout, theme, cx, onRollBar, onRoll: true,
+                bottomHalf: false, anchorCy: anchorCy, labelAtBase: true);
+        }
+
+        // Opponent bar (Mop[0], always <= 0) — stacks in the top half of the bar
+        int opponentBar = request.Mop[0];
+        if (opponentBar < 0)
+        {
+            double cx = layout.BarCentreX(panelOnLeft);
+            double anchorCy = layout.BottomCheckerBaseY + layout.PointHeight
+                              - layout.CheckerRadius
+                              - 5 * layout.CheckerRadius * 2;
+            AppendCheckerStack(sb, layout, theme, cx, Math.Abs(opponentBar), onRoll: false,
+                bottomHalf: true, anchorCy: anchorCy, labelAtBase: false);
+        }
+    }
+
+    private void AppendCheckerStack(StringBuilder sb, BoardLayout layout, ITheme theme,
+            double cx, int abs, bool onRoll, bool bottomHalf,
+            double? anchorCy = null, bool labelAtBase = false)
+    {
+        string fill = onRoll ? theme.CheckerColorOnRoll : theme.CheckerColorOpponent;
+        string stroke = "#888888";
+        double r = layout.CheckerRadius;
+        int draw = Math.Min(abs, 6);
+        bool capped = abs > 6;
+
+        for (int i = 0; i < draw; i++)
+        {
+            double cy = anchorCy.HasValue
+                ? bottomHalf
+                    ? anchorCy.Value + i * r * 2    // fixed anchor, grow downward
+                    : anchorCy.Value - i * r * 2    // fixed anchor, grow upward
+                : bottomHalf
+                    ? layout.BottomCheckerBaseY + layout.PointHeight - r - i * r * 2
+                    : layout.TopCheckerBaseY + r + i * r * 2;
+
+            sb.AppendLine($"""  <circle cx="{F(cx)}" cy="{F(cy)}" r="{F(r)}" fill="{fill}" stroke="{stroke}" stroke-width="0.75"/>""");
+
+            bool isLabelCircle = labelAtBase ? i == 0 : i == draw - 1;
+            if (capped && isLabelCircle)
+            {
+                string labelFill = onRoll ? theme.CheckerColorOpponent : theme.CheckerColorOnRoll;
+                double textY = cy + r * 0.35;
+                sb.AppendLine($"""  <text x="{F(cx)}" y="{F(textY)}" text-anchor="middle" font-family="sans-serif" font-size="{F(r * 1.1)}" font-weight="bold" fill="{labelFill}">{abs}</text>""");
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    //  Dice
+    // -----------------------------------------------------------------------
+
+    private void AppendDice(StringBuilder sb, BoardLayout layout, ITheme theme,
+        DiagramRequest request, bool panelOnLeft)
+    {
+        double r = layout.CheckerRadius;
+        double size = r * 1.6;          // die face size
+        double gap = size * 0.3;       // gap between the two dice
+        double rx = size * 0.15;      // corner radius
+
+        // Dice sit in the middle gap, vertically centred
+        double cy = layout.MiddleY + layout.MiddleGap / 2;
+        double pairW = size * 2 + gap;
+
+        // Horizontal centre: right half when on-roll is at bottom, left half otherwise
+        double halfCx = request.OnRollAtBottom
+            ? layout.InnerHalfX(panelOnLeft) + layout.HalfWidth / 2
+            : layout.OuterHalfX(panelOnLeft) + layout.HalfWidth / 2;
+
+        double d1X = halfCx - pairW / 2;          // left die top-left x
+        double d2X = halfCx - pairW / 2 + size + gap; // right die top-left x
+        double dY = cy - size / 2;               // top-left y (same for both)
+
+        AppendDie(sb, theme, d1X, dY, size, rx, request.Dice[0]);
+        AppendDie(sb, theme, d2X, dY, size, rx, request.Dice[1]);
+    }
+
+    private void AppendDie(StringBuilder sb, ITheme theme,
+        double x, double y, double size, double rx, int value)
+    {
+        // Face
+        sb.AppendLine($"""  <rect x="{F(x)}" y="{F(y)}" width="{F(size)}" height="{F(size)}" rx="{F(rx)}" fill="{theme.DiceColor}" stroke="#888" stroke-width="0.75"/>""");
+
+        // Pip grid: 3×3 positions, each pip at fraction of die size
+        // col: 0=left(0.25), 1=centre(0.5), 2=right(0.75)
+        // row: 0=top(0.25),  1=middle(0.5), 2=bottom(0.75)
+        double pipR = size * 0.09;
+
+        var pips = PipPositions(value);
+        foreach (var (col, row) in pips)
+        {
+            double px = x + size * (0.25 + col * 0.25);
+            double py = y + size * (0.25 + row * 0.25);
+            sb.AppendLine($"""  <circle cx="{F(px)}" cy="{F(py)}" r="{F(pipR)}" fill="#222"/>""");
+        }
+    }
+
+    /// <summary>Returns (col, row) 0-based pip positions for a die face value 1–6.</summary>
+    private static IEnumerable<(int col, int row)> PipPositions(int value) => value switch
+    {
+        1 => [(1, 1)],
+        2 => [(0, 0), (2, 2)],
+        3 => [(0, 0), (1, 1), (2, 2)],
+        4 => [(0, 0), (2, 0), (0, 2), (2, 2)],
+        5 => [(0, 0), (2, 0), (1, 1), (0, 2), (2, 2)],
+        6 => [(0, 0), (2, 0), (0, 1), (2, 1), (0, 2), (2, 2)],
+        _ => []
+    };
 
     // -----------------------------------------------------------------------
     //  Cube

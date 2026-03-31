@@ -70,6 +70,7 @@ public readonly struct BoardLayout
     public double BarX(bool panelOnLeft)         => OuterHalfX(panelOnLeft) + HalfWidth;
     public double InnerHalfX(bool panelOnLeft)   => BarX(panelOnLeft) + BarWidth;
     public double RightRailX(bool panelOnLeft)   => InnerHalfX(panelOnLeft) + HalfWidth;
+    public double BarCentreX(bool panelOnLeft) => BarX(panelOnLeft) + BarWidth / 2;
 
     public double PanelX(bool panelOnLeft) =>
         panelOnLeft ? 0 : BoardWidth;
