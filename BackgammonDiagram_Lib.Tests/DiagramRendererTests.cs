@@ -475,6 +475,38 @@ public class DiagramRendererTests
         Assert.True(File.Exists(path));
     }
 
+    [Fact]
+    public void RenderSvg_HomeBoardOnRight_Dice11_WritesToDisk()
+    {
+        var b = TestFixtures.MinimalBuilder();
+        b.HomeBoardOnRight = true;
+        b.Dice = [1, 1];
+        var req = b.Build();
+        var svg = new DiagramRenderer().RenderSvg(req, DefaultOptions());
+        Assert.Contains("<circle", svg);
+        var path = TestPaths.SvgOutputPath("dice_11_homeboardright.svg");
+        File.WriteAllText(path, svg);
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public void RenderSvg_CubeOwnerDefault_IsCentered()
+    {
+        // Do NOT set CubeOwner — rely on Builder default, matching BgQuiz_Blazor construction
+        var b = new DiagramRequest.Builder { HomeBoardOnRight = true, Dice = [1, 1] };
+        var svg = new DiagramRenderer().RenderSvg(b.Build(), DefaultOptions());
+
+        var layout = BoardLayout.Default;
+        double cubeSize = layout.LeftRailWidth * 0.7;
+        double expectedY = layout.BoardHeight / 2 - cubeSize / 2;
+
+        var path = TestPaths.SvgOutputPath("cube_default_centered.svg");
+        File.WriteAllText(path, svg);
+        Assert.True(File.Exists(path));
+
+        Assert.Contains($"y=\"{expectedY:0.##}\"", svg);
+    }
+
     // -----------------------------------------------------------------------
     //  Helpers
     // -----------------------------------------------------------------------
