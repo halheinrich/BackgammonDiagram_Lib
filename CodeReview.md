@@ -42,19 +42,19 @@ Check off items as fixes are committed.
 
 ## Medium severity
 
-- [ ] **#1 `DiagramRequest` — `Mop` and `Dice` array contents are mutable after `Build()`**
+- [x] **#1 `DiagramRequest` — `Mop` and `Dice` array contents are mutable after `Build()`**
   `int[]` properties are `init`-only (reference immutable) but content-mutable.
   `request.Mop[6] = 99` after `Build()` silently corrupts a supposedly immutable object.
   Fix: in `Builder.Build()`, copy arrays defensively before assigning:
   `Mop = Mop.ToArray(), Dice = Dice.ToArray()`.
   Consider exposing as `IReadOnlyList<int>` on the class.
 
-- [ ] **#3 `DiagramRequest` — `Plays` and `AnalysisDepths` lists are mutable after `Build()`**
+- [x] **#3 `DiagramRequest` — `Plays` and `AnalysisDepths` lists are mutable after `Build()`**
   Same issue as #1. `request.Plays.Add(...)` works silently post-construction.
   Fix: in `Build()`, assign `Plays = new List<PlayCandidate>(Plays)` (or `.AsReadOnly()`),
   and expose the property as `IReadOnlyList<PlayCandidate>`.
 
-- [ ] **#12 `BoardHitRegions` — `Points` dictionary is mutable**
+- [x] **#12 `BoardHitRegions` — `Points` dictionary is mutable**
   `Dictionary<int, HitRect>` is exposed as `required init` but callers can mutate
   contents after construction.
   Fix: expose as `IReadOnlyDictionary<int, HitRect>`.

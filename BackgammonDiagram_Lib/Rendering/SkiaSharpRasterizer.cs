@@ -7,7 +7,7 @@ namespace BackgammonDiagram_Lib.Rendering;
 /// Rasterizes SVG to PNG using SkiaSharp + Svg.Skia.
 /// All SkiaSharp dependencies are contained here.
 /// </summary>
-public class SkiaSharpRasterizer : ISvgRasterizer
+public partial class SkiaSharpRasterizer : ISvgRasterizer
 {
     public byte[] Rasterize(string svgContent, int targetWidth)
     {
@@ -43,11 +43,12 @@ public class SkiaSharpRasterizer : ISvgRasterizer
         return data.ToArray();
     }
 
+    [System.Text.RegularExpressions.GeneratedRegex(@"viewBox=""[\d.]+ [\d.]+ ([\d.]+) ([\d.]+)""")]
+    private static partial System.Text.RegularExpressions.Regex ViewBoxRegex();
+
     private static (float Width, float Height) ParseViewBox(string svgContent)
     {
-        var match = System.Text.RegularExpressions.Regex.Match(
-            svgContent,
-            @"viewBox=""[\d.]+ [\d.]+ ([\d.]+) ([\d.]+)""");
+        var match = ViewBoxRegex().Match(svgContent);
         if (match.Success)
             return (
                 float.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture),

@@ -14,7 +14,7 @@ public static class DiagramRequestExtensions
 
         var problem = new DiagramRequest.Builder
         {
-            Mop = request.Mop,
+            Mop = request.Mop.ToArray(),
             OnRollNeeds = request.OnRollNeeds,
             OpponentNeeds = request.OpponentNeeds,
             OnRollPipCount = request.OnRollPipCount,
@@ -24,7 +24,7 @@ public static class DiagramRequestExtensions
             CubeSize = request.CubeSize,
             CubeOwner = request.CubeOwner,
             IsCube = request.IsCube,
-            Dice = request.Dice,
+            Dice = request.Dice.ToArray(),
             Mode = DiagramMode.Problem,
             HomeBoardOnRight = request.HomeBoardOnRight,
             OnRollAtBottom = request.OnRollAtBottom,
@@ -47,13 +47,13 @@ public static class DiagramRequestExtensions
             ProbOfOpponentErrorJustifyingDouble = request.ProbOfOpponentErrorJustifyingDouble,
             BestPlayIndex = request.BestPlayIndex,
             UserPlayIndex = request.UserPlayIndex,
-            Plays = request.Plays,
-            AnalysisDepths = request.AnalysisDepths,
+            Plays = new List<PlayCandidate>(request.Plays),
+            AnalysisDepths = new List<AnalysisDepthEntry>(request.AnalysisDepths),
         }.Build();
 
         var solution = new DiagramRequest.Builder
         {
-            Mop = request.Mop,
+            Mop = request.Mop.ToArray(),
             OnRollNeeds = request.OnRollNeeds,
             OpponentNeeds = request.OpponentNeeds,
             OnRollPipCount = request.OnRollPipCount,
@@ -63,7 +63,7 @@ public static class DiagramRequestExtensions
             CubeSize = request.CubeSize,
             CubeOwner = request.CubeOwner,
             IsCube = request.IsCube,
-            Dice = request.Dice,
+            Dice = request.Dice.ToArray(),
             Mode = DiagramMode.Solution,
             HomeBoardOnRight = request.HomeBoardOnRight,
             OnRollAtBottom = request.OnRollAtBottom,
@@ -86,8 +86,8 @@ public static class DiagramRequestExtensions
             ProbOfOpponentErrorJustifyingDouble = request.ProbOfOpponentErrorJustifyingDouble,
             BestPlayIndex = request.BestPlayIndex,
             UserPlayIndex = request.UserPlayIndex,
-            Plays = request.Plays,
-            AnalysisDepths = request.AnalysisDepths,
+            Plays = new List<PlayCandidate>(request.Plays),
+            AnalysisDepths = new List<AnalysisDepthEntry>(request.AnalysisDepths),
         }.Build();
 
         return (problem, solution);

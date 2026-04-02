@@ -2,7 +2,7 @@ using BackgammonDiagram_Lib.Themes;
 
 namespace BackgammonDiagram_Lib;
 
-public class DiagramOptions
+public record DiagramOptions
 {
     public bool ShowPipCount { get; init; }
     public DiagramSize Size { get; init; } = DiagramSize.Medium;

@@ -1,4 +1,5 @@
 ﻿// TestFixtures.cs  (new file)
+using BackgammonDiagram_Lib.Rendering;
 using BackgammonDiagram_Lib.Themes;
 
 namespace BackgammonDiagram_Lib.Tests;
@@ -36,4 +37,22 @@ internal static class TestFixtures
         Size = DiagramSize.Medium,
         Theme = ThemeRegistry.Greyscale
     };
+    public static string Render(DiagramRequest? req = null, DiagramOptions? opts = null)
+        => new DiagramRenderer().RenderSvg(req ?? MinimalRequest(), opts ?? DefaultOptions());
+
+    public static int[] StartingMop()
+    {
+        var mop = new int[26];
+        mop[24] = 2; mop[13] = 5; mop[8] = 3; mop[6] = 5;
+        mop[1] = -2; mop[12] = -5; mop[17] = -3; mop[19] = -5;
+        return mop;
+    }
+
+    public static int CountOccurrences(string source, string pattern)
+    {
+        int count = 0, index = 0;
+        while ((index = source.IndexOf(pattern, index, StringComparison.Ordinal)) >= 0)
+        { count++; index += pattern.Length; }
+        return count;
+    }
 }

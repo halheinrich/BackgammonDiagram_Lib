@@ -7,7 +7,7 @@
 public class BoardHitRegions
 {
     public required SvgViewBox ViewBox { get; init; }
-    public required Dictionary<int, HitRect> Points { get; init; }  // 1–24
+    public required IReadOnlyDictionary<int, HitRect> Points { get; init; }  // 1–24
     public required HitRect Bar { get; init; }
     public HitRect? Cube { get; init; }
     public HitRect? OnRollTray { get; init; }

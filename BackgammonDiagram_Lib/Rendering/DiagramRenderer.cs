@@ -1,6 +1,7 @@
 using BackgammonDiagram_Lib.Themes;
 using DocumentFormat.OpenXml.Office2016.Excel;
 using DocumentFormat.OpenXml.Wordprocessing;
+using System.Numerics;
 using System.Text;
 
 namespace BackgammonDiagram_Lib.Rendering;
@@ -52,7 +53,7 @@ public class DiagramRenderer
 
     public byte[] RenderPdf(IEnumerable<DiagramRequest> requests, DiagramOptions options)
     {
-        var slides = requests.Select(r => (RenderPng(r, options), r.Title));
+        var slides = requests.Select(r => (RenderPng(r, options), r.Title)).ToList();
         return PdfBuilder.Build(slides);
     }
     public byte[] RenderPptx(DiagramRequest request, DiagramOptions options)
@@ -63,7 +64,7 @@ public class DiagramRenderer
 
     public byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options)
     {
-        var slides = requests.Select(r => (RenderPng(r, options), r.Title));
+        var slides = requests.Select(r => (RenderPng(r, options), r.Title)).ToList();
         return PptxBuilder.Build(slides);
     }
 
@@ -481,9 +482,11 @@ public class DiagramRenderer
     private static string Darken(string hex, double factor)
     {
         hex = hex.TrimStart('#');
-        int r = (int)(Convert.ToInt32(hex[..2], 16) * (1 - factor));
-        int g = (int)(Convert.ToInt32(hex[2..4], 16) * (1 - factor));
-        int b = (int)(Convert.ToInt32(hex[4..6], 16) * (1 - factor));
+        if (hex.Length != 6)
+            throw new ArgumentException($"Theme color must be a 6-character hex value, got '{hex}'.");
+        int r = (int)(int.Parse(hex[..2], System.Globalization.NumberStyles.HexNumber) * (1 - factor));
+        int g = (int)(int.Parse(hex[2..4], System.Globalization.NumberStyles.HexNumber) * (1 - factor));
+        int b = (int)(int.Parse(hex[4..6], System.Globalization.NumberStyles.HexNumber) * (1 - factor));
         return $"#{r:X2}{g:X2}{b:X2}";
     }
 }

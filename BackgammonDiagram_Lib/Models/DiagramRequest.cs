@@ -17,8 +17,7 @@ public class DiagramRequest
     /// [25]   = on-roll player's bar (value always &gt;= 0)
     /// Positive = on-roll player's checkers; negative = opponent's.
     /// </summary>
-    public int[] Mop { get; init; } = new int[26];
-
+    public IReadOnlyList<int> Mop { get; init; } = new int[26];
     public int OnRollNeeds { get; init; }
     public int OpponentNeeds { get; init; }
     public int OnRollPipCount { get; init; }
@@ -30,7 +29,7 @@ public class DiagramRequest
     public bool IsCube { get; init; }
 
     /// <summary>Always length 2. Ignored when IsCube is true.</summary>
-    public int[] Dice { get; init; } = new int[2];
+    public IReadOnlyList<int> Dice { get; init; } = new int[2];
 
     public DiagramMode Mode { get; init; }
     public bool HomeBoardOnRight { get; init; } = true;
@@ -78,8 +77,8 @@ public class DiagramRequest
     /// <summary>Index into Plays identifying the user's play. -1 if not applicable.</summary>
     public int UserPlayIndex { get; init; } = -1;
 
-    public List<PlayCandidate> Plays { get; init; } = [];
-    public List<AnalysisDepthEntry> AnalysisDepths { get; init; } = [];
+    public IReadOnlyList<PlayCandidate> Plays { get; init; } = [];
+    public IReadOnlyList<AnalysisDepthEntry> AnalysisDepths { get; init; } = [];
 
     // -----------------------------------------------------------------------
     //  Builder
@@ -128,7 +127,7 @@ public class DiagramRequest
             Validate();
             return new DiagramRequest
             {
-                Mop = Mop,
+                Mop = Mop.ToArray(),
                 OnRollNeeds = OnRollNeeds,
                 OpponentNeeds = OpponentNeeds,
                 OnRollPipCount = OnRollPipCount,
@@ -138,7 +137,7 @@ public class DiagramRequest
                 CubeSize = CubeSize,
                 CubeOwner = CubeOwner,
                 IsCube = IsCube,
-                Dice = Dice,
+                Dice = Dice.ToArray(),
                 Mode = Mode,
                 HomeBoardOnRight = HomeBoardOnRight,
                 OnRollAtBottom = OnRollAtBottom,
@@ -161,8 +160,8 @@ public class DiagramRequest
                 ProbOfOpponentErrorJustifyingDouble = ProbOfOpponentErrorJustifyingDouble,
                 BestPlayIndex = BestPlayIndex,
                 UserPlayIndex = UserPlayIndex,
-                Plays = Plays,
-                AnalysisDepths = AnalysisDepths,
+                Plays = new List<PlayCandidate>(Plays),
+                AnalysisDepths = new List<AnalysisDepthEntry>(AnalysisDepths),
             };
         }
 
