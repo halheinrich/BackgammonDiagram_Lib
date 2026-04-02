@@ -18,6 +18,7 @@ https://github.com/halheinrich/BackgammonDiagram_Lib
 * https://raw.githubusercontent.com/halheinrich/BackgammonDiagram_Lib/e29c86f/BackgammonDiagram_Lib/Models/DiagramRequestExtensions.cs
 * https://raw.githubusercontent.com/halheinrich/BackgammonDiagram_Lib/e29c86f/BackgammonDiagram_Lib/Models/PlayCandidate.cs
 * https://raw.githubusercontent.com/halheinrich/BackgammonDiagram_Lib/e29c86f/BackgammonDiagram_Lib/Models/AnalysisDepthEntry.cs
+* https://raw.githubusercontent.com/halheinrich/BackgammonDiagram_Lib/e29c86f/BackgammonDiagram_Lib/Models/BoardHitRegions.cs
 * https://raw.githubusercontent.com/halheinrich/BackgammonDiagram_Lib/e29c86f/BackgammonDiagram_Lib/Themes/ITheme.cs
 * https://raw.githubusercontent.com/halheinrich/BackgammonDiagram_Lib/e29c86f/BackgammonDiagram_Lib/Themes/DefaultTheme.cs
 * https://raw.githubusercontent.com/halheinrich/BackgammonDiagram_Lib/e29c86f/BackgammonDiagram_Lib/Themes/GreyscaleTheme.cs
@@ -27,6 +28,7 @@ https://github.com/halheinrich/BackgammonDiagram_Lib
 * https://raw.githubusercontent.com/halheinrich/BackgammonDiagram_Lib/e29c86f/BackgammonDiagram_Lib/Rendering/SkiaSharpRasterizer.cs
 * https://raw.githubusercontent.com/halheinrich/BackgammonDiagram_Lib/e29c86f/BackgammonDiagram_Lib/Rendering/DiagramRenderer.cs
 * https://raw.githubusercontent.com/halheinrich/BackgammonDiagram_Lib/e29c86f/BackgammonDiagram_Lib/Rendering/PptxBuilder.cs
+* https://raw.githubusercontent.com/halheinrich/BackgammonDiagram_Lib/e29c86f/BackgammonDiagram_Lib/Rendering/PdfBuilder.cs
 * https://raw.githubusercontent.com/halheinrich/BackgammonDiagram_Lib/e29c86f/BackgammonDiagram_Lib.Tests/DiagramRendererTests.cs
 * https://raw.githubusercontent.com/halheinrich/BackgammonDiagram_Lib/e29c86f/BackgammonDiagram_Lib.Tests/DiagramRequestBuilderTests.cs
 * https://raw.githubusercontent.com/halheinrich/BackgammonDiagram_Lib/e29c86f/BackgammonDiagram_Lib.Tests/HitRegionsTests.cs
