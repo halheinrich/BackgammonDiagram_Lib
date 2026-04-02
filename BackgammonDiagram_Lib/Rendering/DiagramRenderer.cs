@@ -1,6 +1,4 @@
 using BackgammonDiagram_Lib.Themes;
-using DocumentFormat.OpenXml.Office2016.Excel;
-using DocumentFormat.OpenXml.Wordprocessing;
 using System.Numerics;
 using System.Text;
 

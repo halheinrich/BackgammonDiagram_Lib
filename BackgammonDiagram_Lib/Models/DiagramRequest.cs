@@ -167,10 +167,10 @@ public class DiagramRequest
 
         private void Validate()
         {
-            if (Mop == null || Mop.Length != 26)
+            if (Mop.Length != 26)
                 throw new InvalidOperationException("Mop must be a 26-element array.");
 
-            if (Dice == null || Dice.Length != 2)
+            if (Dice.Length != 2)
                 throw new InvalidOperationException("Dice must be a 2-element array.");
 
             if (IsCube)
@@ -183,11 +183,8 @@ public class DiagramRequest
                 if (Dice[0] < 1 || Dice[0] > 6 || Dice[1] < 1 || Dice[1] > 6)
                     throw new InvalidOperationException("When IsCube is false, each die value must be 1–6.");
             }
-
-            if (!IsPowerOfTwo(CubeSize) || CubeSize < 1 || CubeSize > 4096)
+            if (!MathUtils.IsPowerOfTwo(CubeSize) || CubeSize < 1 || CubeSize > 4096)
                 throw new InvalidOperationException("CubeSize must be a power of 2 from 1 to 4096.");
         }
-
-        private static bool IsPowerOfTwo(int n) => n > 0 && (n & (n - 1)) == 0;
     }
 }

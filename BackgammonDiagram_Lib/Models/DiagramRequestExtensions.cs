@@ -10,7 +10,7 @@ public static class DiagramRequestExtensions
     public static (DiagramRequest Problem, DiagramRequest Solution)
         ToProblemSolutionPair(this DiagramRequest request)
     {
-        string base_ = string.IsNullOrWhiteSpace(request.Title) ? "" : request.Title + " \u2014 ";
+        string prefix = string.IsNullOrWhiteSpace(request.Title) ? "" : request.Title + " \u2014 ";
 
         var problem = new DiagramRequest.Builder
         {
@@ -29,7 +29,7 @@ public static class DiagramRequestExtensions
             HomeBoardOnRight = request.HomeBoardOnRight,
             OnRollAtBottom = request.OnRollAtBottom,
             AnalysisPanelPosition = request.AnalysisPanelPosition,
-            Title = base_ + "Problem",
+            Title = prefix + "Problem",
             NoDoubleEquity = request.NoDoubleEquity,
             DoubleTakeEquity = request.DoubleTakeEquity,
             WinPctAfterNoDouble = request.WinPctAfterNoDouble,
@@ -68,7 +68,7 @@ public static class DiagramRequestExtensions
             HomeBoardOnRight = request.HomeBoardOnRight,
             OnRollAtBottom = request.OnRollAtBottom,
             AnalysisPanelPosition = request.AnalysisPanelPosition,
-            Title = base_ + "Solution",
+            Title = prefix + "Solution",
             NoDoubleEquity = request.NoDoubleEquity,
             DoubleTakeEquity = request.DoubleTakeEquity,
             WinPctAfterNoDouble = request.WinPctAfterNoDouble,

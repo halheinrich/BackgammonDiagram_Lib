@@ -7,14 +7,12 @@ public class HitRegionsTests
 {
     private readonly DiagramRenderer _renderer = new();
     private readonly DiagramOptions _defaultOptions = new();
-    private static DiagramRequest MinimalRequest() => new DiagramRequest.Builder
+    private static DiagramRequest MinimalRequest()
     {
-        HomeBoardOnRight = true,
-        Mop = new int[26],
-        IsCube = false,
-        Dice = [3, 1],
-        CubeSize = 1,
-    }.Build();
+        var b = TestFixtures.MinimalBuilder();
+        b.HomeBoardOnRight = true;
+        return b.Build();
+    }
 
     [Fact]
     public void GetHitRegions_Returns24Points()
