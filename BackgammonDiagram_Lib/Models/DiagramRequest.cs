@@ -95,7 +95,7 @@ public class DiagramRequest
         public string OnRollName { get; set; } = string.Empty;
         public string OpponentName { get; set; } = string.Empty;
         public int CubeSize { get; set; } = 1;
-        public CubeOwner CubeOwner { get; set; }
+        public CubeOwner CubeOwner { get; set; } = CubeOwner.Centered;
         public bool IsCube { get; set; }
         public int[] Dice { get; set; } = new int[2];
         public DiagramMode Mode { get; set; }
