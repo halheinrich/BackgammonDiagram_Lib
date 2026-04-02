@@ -63,25 +63,25 @@ Check off items as fixes are committed.
 
 ## Low severity
 
-- [ ] **#8 `DiagramSize` — `static` preset properties allocate a new instance on every access**
+- [x] **#8 `DiagramSize` — `static` preset properties allocate a new instance on every access**
   `Small`, `Medium`, `Large` are `static` properties (`=> new() { ... }`), not fields.
   A new object is allocated on each call. `ThemeRegistry` uses `static readonly` fields
   correctly; `DiagramSize` should match.
   Fix: change to `public static readonly DiagramSize Small = new() { ... };`
 
-- [ ] **#9 `DiagramSize` — `Custom` preset constructible without dimensions**
+- [x] **#9 `DiagramSize` — `Custom` preset constructible without dimensions**
   `new DiagramSize { Preset = DiagramSizePreset.Custom }` produces a broken size with
   null `CustomWidth`/`CustomHeight`; the renderer silently falls back to 1000px.
   Fix: add validation (matching `DiagramRequest.Builder.Build()` style), or make `Custom`
   the only construction path for that preset.
 
-- [ ] **#10 `DiagramOptions` — should be a `record`**
+- [x] **#10 `DiagramOptions` — should be a `record`**
   Pure immutable value object with all `init` properties and no validation. A `record`
   gives value equality and `with`-expression support for free.
   Fix: `public record DiagramOptions { ... }` (update any callers using `==` for
   identity rather than equality).
 
-- [ ] **#15 `DiagramRenderer.Darken()` — fragile hex parsing**
+- [x] **#15 `DiagramRenderer.Darken()` — fragile hex parsing**
   Assumes 6-character uppercase hex after `#`. Will silently corrupt or throw on
   3-char shorthand, lowercase, or RGBA. Safe for now since themes are library-controlled,
   but a custom `ITheme` implementor returning `#rgb` would hit this.
@@ -89,18 +89,18 @@ Check off items as fixes are committed.
   `int.Parse(hex[..2], System.Globalization.NumberStyles.HexNumber)` instead of
   `Convert.ToInt32(hex[..2], 16)`.
 
-- [ ] **#17 `DiagramRenderer` — lazy `IEnumerable` passed to `PptxBuilder.Build` and `PdfBuilder.Build`**
+- [x] **#17 `DiagramRenderer` — lazy `IEnumerable` passed to `PptxBuilder.Build` and `PdfBuilder.Build`**
   `requests.Select(r => (RenderPng(r, options), r.Title))` is passed unevaluated.
   If either builder ever iterates twice, each PNG renders twice. Exceptions from
   `RenderPng` are thrown inside the builder, obscuring the stack trace.
   Fix: add `.ToList()` before passing to the builder.
 
-- [ ] **#18 `SkiaSharpRasterizer` — `Regex.Match` not cached**
+- [x] **#18 `SkiaSharpRasterizer` — `Regex.Match` not cached**
   `ParseViewBox` calls `Regex.Match(string, string)` on every rasterisation.
   Fix: `private static readonly Regex ViewBoxRegex = new(@"...", RegexOptions.Compiled);`
   or use `[GeneratedRegex]` (available .NET 7+).
 
-- [ ] **#27 `DiagramRendererTests` — disk-write tests assert only file existence and byte length**
+- [x] **#27 `DiagramRendererTests` — disk-write tests assert only file existence and byte length**
   Tests like `RenderSvg_WritesProblemModeToDisk` provide no semantic regression protection.
   Fix: mark with `[Trait("Category", "Visual")]` and exclude from CI runs, making clear
   these are for manual inspection only. Ensure every rendering path has at least one
