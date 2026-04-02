@@ -1,13 +1,18 @@
 ﻿using BackgammonDiagram_Lib;
 using BackgammonDiagram_Lib.Rendering;
 using BackgammonDiagram_Lib.Tests;
-using ExCSS;
+using QuestPDF.Infrastructure;
 using System.Text;
 
 namespace BackgammonDiagram_Lib.Tests;
 
 public class DiagramRendererTests
 {
+    static DiagramRendererTests()
+    {
+        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+    }
+
     // -----------------------------------------------------------------------
     //  Shared fixtures
     // -----------------------------------------------------------------------

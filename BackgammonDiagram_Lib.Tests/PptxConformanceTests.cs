@@ -140,8 +140,6 @@ public class PptxConformanceTests
     [Fact]
     public void NamespaceDeclarations_NotScatteredOnChildren()
     {
-        // SDK scatters xmlns:a and xmlns:r on child elements instead of
-        // declaring them on the root. PowerPoint treats this as needing repair.
         using var zip = OpenPptx(GenerateSingleSlidePptx());
 
         var xmlEntries = GetEntriesByExtension(zip, ".xml")
@@ -149,8 +147,11 @@ public class PptxConformanceTests
                         !e.Contains("/_rels/"))
             .ToList();
 
-        var nsA = XNamespace.Get("http://schemas.openxmlformats.org/drawingml/2006/main");
-        var nsR = XNamespace.Get("http://schemas.openxmlformats.org/officeDocument/2006/relationships");
+        var trackedNamespaces = new[]
+        {
+        ("a", "http://schemas.openxmlformats.org/drawingml/2006/main"),
+        ("r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships"),
+        };
 
         foreach (var path in xmlEntries)
         {
@@ -162,29 +163,19 @@ public class PptxConformanceTests
             {
                 foreach (var attr in descendant.Attributes().Where(a => a.IsNamespaceDeclaration))
                 {
-                    if (attr.Value == nsA.NamespaceName || attr.Value == nsR.NamespaceName)
+                    foreach (var (prefix, ns) in trackedNamespaces)
                     {
-                        // Check that the same declaration exists on an ancestor
-                        var prefix = attr.Name.LocalName;
-                        var ancestorHasIt = descendant.Ancestors().Any(anc =>
-                            anc.Attributes().Any(a =>
-                                a.IsNamespaceDeclaration &&
-                                a.Name.LocalName == prefix &&
-                                a.Value == attr.Value));
-
-                        Assert.True(ancestorHasIt,
-                            $"Redundant xmlns:{prefix} on descendant in {path}; should be hoisted to root");
-
-                        // If ancestor has it, then it's redundant and should have been removed
-                        Assert.Fail(
-                            $"Redundant xmlns:{prefix} declaration on child element in {path}; " +
-                            $"should be declared only on root");
+                        if (attr.Name.LocalName == prefix && attr.Value == ns)
+                        {
+                            Assert.Fail(
+                                $"Redundant xmlns:{prefix} on non-root element in {path}; " +
+                                $"expected declaration only on root element");
+                        }
                     }
                 }
             }
         }
     }
-
     [Fact]
     public void RelationshipIds_AreSequential()
     {

@@ -132,6 +132,25 @@ public class DiagramRenderer
         };
     }
 
+    /// <summary>
+    /// Returns true if QuestPDF is correctly licensed and operational.
+    /// Call at application startup before serving PDF requests.
+    /// If false, set QuestPDF.Settings.License in your app startup.
+    /// Also returns false if QuestPDF's native dependencies cannot load
+    /// (e.g. unsupported runtime).
+    /// </summary>
+    public static bool IsPdfSupported()
+    {
+        try
+        {
+            return QuestPDF.Settings.License.HasValue;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     // -----------------------------------------------------------------------
     //  Size resolution
     // -----------------------------------------------------------------------
@@ -297,7 +316,7 @@ public class DiagramRenderer
 
             bool onRoll = count > 0;
             int abs = Math.Abs(count);
-            double cx = layout.ColumnCentreX(pt, panelOnLeft);
+            double cx = layout.ColumnCentreX(pt, panelOnLeft, request.HomeBoardOnRight);
             bool bottom = pt <= 12;  // points 1-12 stack upward from bottom
 
             AppendCheckerStack(sb, layout, theme, cx, abs, onRoll, bottom);
@@ -451,7 +470,7 @@ public class DiagramRenderer
     //  Helpers
     // -----------------------------------------------------------------------
 
-    private static string F(double v) => v.ToString("0.##");
+    private static string F(double v) => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
 
     private static string Escape(string s) => s
         .Replace("&", "&amp;")

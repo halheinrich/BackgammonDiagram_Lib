@@ -21,12 +21,8 @@ internal static class PdfBuilder
     private const float TitleFontSize = 18;
     private const float TitleGapPt = 8;
 
-    private static bool _licenseConfigured;
-
     public static byte[] Build(IEnumerable<(byte[] Png, string? Title)> pages)
     {
-        EnsureLicense();
-
         var pageList = pages.ToList();
 
         var document = Document.Create(container =>
@@ -60,12 +56,5 @@ internal static class PdfBuilder
         });
 
         return document.GeneratePdf();
-    }
-
-    private static void EnsureLicense()
-    {
-        if (_licenseConfigured) return;
-        QuestPDF.Settings.License = LicenseType.Community;
-        _licenseConfigured = true;
     }
 }
