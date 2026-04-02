@@ -8,20 +8,20 @@ Check off items as fixes are committed.
 
 ## Priority — fix before next feature work
 
-- [ ] **#14 `DiagramRenderer` — checker placement bug when `HomeBoardOnRight = false`**
+- [x] **#14 `DiagramRenderer` — checker placement bug when `HomeBoardOnRight = false`**
   `AppendCheckers` calls `layout.ColumnCentreX(pt, panelOnLeft)` without passing
   `request.HomeBoardOnRight`, so the default `true` is always used. Checkers render
   in the wrong columns while point triangles render correctly.
   Fix: pass `request.HomeBoardOnRight` as the third argument, matching `AppendPoints`
   and `AppendPointNumbers`.
 
-- [ ] **#16 `DiagramRenderer.F()` — not locale-safe; produces invalid SVG on non-English Windows**
+- [x] **#16 `DiagramRenderer.F()` — not locale-safe; produces invalid SVG on non-English Windows**
   `v.ToString("0.##")` uses the current thread's culture. On a machine where the
   decimal separator is a comma (e.g. German locale), the SVG contains `"14,5"` instead
   of `"14.5"`, making the viewBox unparseable by SkiaSharp.
   Fix: `v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)`
 
-- [ ] **#25 `PdfBuilder` — library sets QuestPDF license, silently overwriting caller's commercial license**
+- [x] **#25 `PdfBuilder` — library sets QuestPDF license, silently overwriting caller's commercial license**
   `EnsureLicense()` sets `QuestPDF.Settings.License = LicenseType.Community`. A caller
   already holding a commercial QuestPDF license will be silently downgraded.
   Also has a benign race condition (`static bool` flag without synchronisation).
@@ -29,7 +29,7 @@ Check off items as fixes are committed.
   configure the QuestPDF license before use; or (b) only set if not already set, using
   a proper check of the existing license value.
 
-- [ ] **#28 `PptxConformanceTests.NamespaceDeclarations_NotScatteredOnChildren` — always fails**
+- [x] **#28 `PptxConformanceTests.NamespaceDeclarations_NotScatteredOnChildren` — always fails**
   The test calls `Assert.True(ancestorHasIt)` then immediately `Assert.Fail(...)`.
   If the fix worked (`ancestorHasIt == true`), `Assert.Fail` fires. If it didn't
   (`ancestorHasIt == false`), `Assert.True` fires. The test cannot pass either way and
