@@ -326,6 +326,7 @@ BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions options);
 * Spec is expected to evolve during implementation
 * INSTRUCTIONS.md must be updated and committed as the final act of every session
 * Builder.CubeOwner defaults to CubeOwner.Centered — class property has no initializer (always set by Build())
+* Code review findings: see [CodeReview.md](CodeReview.md)
 
 ## Shared rules
 
