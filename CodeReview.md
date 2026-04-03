@@ -110,36 +110,36 @@ Check off items as fixes are committed.
 
 ## Trivial / housekeeping
 
-- [ ] **#4 `DiagramRequest.Validate()` — dead null checks on always-initialised fields**
+- [x] **#4 `DiagramRequest.Validate()` — dead null checks on always-initialised fields**
   `if (Mop == null || ...)` — `Mop` defaults to `new int[26]` on the Builder; the null
   branch is unreachable through normal use. Either remove, or document why it's needed.
 
-- [ ] **#5 `DiagramRequest` — `IsPowerOfTwo` belongs in a utility class, not on `Builder`**
+- [x] **#5 `DiagramRequest` — `IsPowerOfTwo` belongs in a utility class, not on `Builder`**
   Pure mathematical function with no dependency on Builder state.
   Move to an internal `MathUtils` or `ValidationHelpers` static class.
 
-- [ ] **#7 `DiagramRequestExtensions` — `base_` is a poor identifier**
+- [x] **#7 `DiagramRequestExtensions` — `base_` is a poor identifier**
   Trailing underscore used to avoid keyword clash with `base`. Rename to `titlePrefix`
   or `prefix`.
 
-- [ ] **#13 `DiagramRenderer` — dead `using` directives**
+- [x] **#13 `DiagramRenderer` — dead `using` directives**
   `using DocumentFormat.OpenXml.Office2016.Excel;` and
   `using DocumentFormat.OpenXml.Wordprocessing;` are unused. Remove both.
 
-- [ ] **#21 `PptxBuilder` — `TableStylesPart` raw XML declaration not canonical**
+- [x] **#21 `PptxBuilder` — `TableStylesPart` raw XML declaration not canonical**
   Written without `standalone="yes"`, relying on `FixXmlDeclarations` to correct it.
   Write the canonical declaration to begin with so the fix pass is idempotent.
 
-- [ ] **#22 `PptxBuilder` — `CoreFilePropertiesPart` writer uses implicit encoding**
+- [x] **#22 `PptxBuilder` — `CoreFilePropertiesPart` writer uses implicit encoding**
   `new StreamWriter(stream)` defaults to UTF-8 with BOM on Windows. All other writers
   in the file use `new StreamWriter(stream, new UTF8Encoding(false))` explicitly.
   Fix: make this consistent.
 
-- [ ] **#26 `DiagramRendererTests` — dead `using ExCSS`**
+- [x] **#26 `DiagramRendererTests` — dead `using ExCSS`**
   `ExCSS` is imported but nothing in the file uses it. Remove the `using` and verify
   the NuGet reference is also removed if unused elsewhere.
 
-- [ ] **#29 `HitRegionsTests` — inline `DiagramRequest.Builder` construction duplicates `TestFixtures`**
+- [x] **#29 `HitRegionsTests` — inline `DiagramRequest.Builder` construction duplicates `TestFixtures`**
   `MinimalRequest()` is re-implemented inline with different field values rather than
   delegating to `TestFixtures.MinimalBuilder()`.
   Fix: use `TestFixtures.MinimalBuilder()` and override only what the test needs.

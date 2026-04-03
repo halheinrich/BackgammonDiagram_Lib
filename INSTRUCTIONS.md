@@ -7,36 +7,37 @@ Part of the Backgammon tools ecosystem: https://github.com/halheinrich/backgammo
 
 https://github.com/halheinrich/BackgammonDiagram_Lib
 **Branch:** main
-**Current commit:** `dbe4387`
+**Current commit:** `24a9a16`
 
 ## Raw URLs (current commit)
 
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Models/Enums.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Models/DiagramSize.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Models/DiagramRequest.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Models/DiagramOptions.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Models/DiagramRequestExtensions.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Models/PlayCandidate.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Models/AnalysisDepthEntry.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Models/BoardHitRegions.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Themes/ITheme.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Themes/DefaultTheme.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Themes/GreyscaleTheme.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Themes/ThemeRegistry.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Rendering/BoardLayout.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Rendering/ISvgRasterizer.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Rendering/SkiaSharpRasterizer.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Rendering/DiagramRenderer.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Rendering/PptxBuilder.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib/Rendering/PdfBuilder.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib.Tests/BoardLayoutTests.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib.Tests/SvgStructureTests.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib.Tests/VisualOutputTests.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib.Tests/DiagramRequestBuilderTests.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib.Tests/HitRegionsTests.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib.Tests/PptxConformanceTests.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib.Tests/TestFixtures.cs
-* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/dbe4387/BackgammonDiagram_Lib.Tests/TestPaths.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Models/Enums.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Models/DiagramSize.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Models/DiagramRequest.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Models/DiagramOptions.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Models/DiagramRequestExtensions.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Models/PlayCandidate.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Models/AnalysisDepthEntry.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Models/BoardHitRegions.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Models/MathUtils.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Themes/ITheme.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Themes/DefaultTheme.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Themes/GreyscaleTheme.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Themes/ThemeRegistry.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Rendering/BoardLayout.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Rendering/ISvgRasterizer.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Rendering/SkiaSharpRasterizer.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Rendering/DiagramRenderer.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Rendering/PptxBuilder.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib/Rendering/PdfBuilder.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib.Tests/BoardLayoutTests.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib.Tests/SvgStructureTests.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib.Tests/VisualOutputTests.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib.Tests/DiagramRequestBuilderTests.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib.Tests/HitRegionsTests.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib.Tests/PptxConformanceTests.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib.Tests/TestFixtures.cs
+* https://raw.githack.com/halheinrich/BackgammonDiagram_Lib/24a9a16/BackgammonDiagram_Lib.Tests/TestPaths.cs
 
 ## Stack
 
@@ -338,6 +339,7 @@ static bool IsPdfSupported();
 * DiagramRenderer.IsPdfSupported() checks QuestPDF.Settings.License.HasValue; catches native dependency load failures; returns false on unsupported runtimes
 * Test assemblies that call RenderPdf must set QuestPDF.Settings.License in a static constructor
 * DiagramOptions is now a record; DiagramSize presets are static readonly fields; Mop/Dice exposed as IReadOnlyList<int>; Plays/AnalysisDepths as IReadOnlyList<T>; BoardHitRegions.Points as IReadOnlyDictionary; test categories: Visual tests in VisualOutputTests with [Trait("Category", "Visual")]
+* MathUtils.IsPowerOfTwo is internal utility in Models/; HitRegionsTests uses TestFixtures.MinimalBuilder()
 
 ## Shared rules
 
