@@ -1,3 +1,4 @@
+using BgDataTypes_Lib;
 using BackgammonDiagram_Lib.Themes;
 using System.Numerics;
 using System.Text;
@@ -46,23 +47,23 @@ public class DiagramRenderer
     public byte[] RenderPdf(DiagramRequest request, DiagramOptions options)
     {
         var png = RenderPng(request, options);
-        return PdfBuilder.Build([(png, request.Title)]);
+        return PdfBuilder.Build([(png, request.Descriptive.Title)]);
     }
 
     public byte[] RenderPdf(IEnumerable<DiagramRequest> requests, DiagramOptions options)
     {
-        var slides = requests.Select(r => (RenderPng(r, options), r.Title)).ToList();
+        var slides = requests.Select(r => (RenderPng(r, options), r.Descriptive.Title)).ToList();
         return PdfBuilder.Build(slides);
     }
     public byte[] RenderPptx(DiagramRequest request, DiagramOptions options)
     {
         var png = RenderPng(request, options);
-        return PptxBuilder.Build([(png, request.Title)]);
+        return PptxBuilder.Build([(png, request.Descriptive.Title)]);
     }
 
     public byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options)
     {
-        var slides = requests.Select(r => (RenderPng(r, options), r.Title)).ToList();
+        var slides = requests.Select(r => (RenderPng(r, options), r.Descriptive.Title)).ToList();
         return PptxBuilder.Build(slides);
     }
 
@@ -182,7 +183,7 @@ public class DiagramRenderer
         AppendBar(sb, layout, theme, bx);
         AppendPoints(sb, layout, theme, bx, effectivePanelOnLeft, homeBoardOnRight);
         AppendCheckers(sb, layout, theme, request, effectivePanelOnLeft);
-        if (!request.IsCube)
+        if (!request.Decision.IsCube)
             AppendDice(sb, layout, theme, request, effectivePanelOnLeft);
         AppendPointNumbers(sb, layout, theme, bx, effectivePanelOnLeft, homeBoardOnRight);
         AppendTopRail(sb, layout, theme, bx, request);
@@ -221,10 +222,10 @@ public class DiagramRenderer
 
         sb.AppendLine($"""  <rect x="{F(railX)}" y="0" width="{F(railWidth)}" height="{F(layout.TopRailHeight)}" fill="{Darken(theme.BoardColor, 0.2)}"/>""");
 
-        string topName = request.OnRollAtBottom ? request.OpponentName : request.OnRollName;
+        string topName = request.OnRollAtBottom ? request.Descriptive.OpponentName : request.Descriptive.OnRollName;
         string topPip = request.OnRollAtBottom
-            ? $"Pip= {request.OpponentPipCount}"
-            : $"Pip= {request.OnRollPipCount}";
+            ? $"Pip= {request.Position.OpponentPipCount}"
+            : $"Pip= {request.Position.OnRollPipCount}";
 
         sb.AppendLine($"""  <text x="{F(railX + 8)}" y="{F(cy)}" dominant-baseline="central" font-family="sans-serif" font-size="12" fill="{theme.TextColor}">{Escape(topName)}</text>""");
         sb.AppendLine($"""  <text x="{F(railX + railWidth - 8)}" y="{F(cy)}" dominant-baseline="central" text-anchor="end" font-family="sans-serif" font-size="12" fill="{theme.TextColor}">{Escape(topPip)}</text>""");
@@ -239,10 +240,10 @@ public class DiagramRenderer
 
         sb.AppendLine($"""  <rect x="{F(railX)}" y="{F(layout.BottomRailY)}" width="{F(railWidth)}" height="{F(layout.BottomRailHeight)}" fill="{Darken(theme.BoardColor, 0.2)}"/>""");
 
-        string bottomName = request.OnRollAtBottom ? request.OnRollName : request.OpponentName;
+        string bottomName = request.OnRollAtBottom ? request.Descriptive.OnRollName : request.Descriptive.OpponentName;
         string bottomPip = request.OnRollAtBottom
-            ? $"Pip= {request.OnRollPipCount}"
-            : $"Pip= {request.OpponentPipCount}";
+            ? $"Pip= {request.Position.OnRollPipCount}"
+            : $"Pip= {request.Position.OpponentPipCount}";
 
         sb.AppendLine($"""  <text x="{F(railX + 8)}" y="{F(cy)}" dominant-baseline="central" font-family="sans-serif" font-size="12" fill="{theme.TextColor}">{Escape(bottomName)}</text>""");
         sb.AppendLine($"""  <text x="{F(railX + railWidth - 8)}" y="{F(cy)}" dominant-baseline="central" text-anchor="end" font-family="sans-serif" font-size="12" fill="{theme.TextColor}">{Escape(bottomPip)}</text>""");
@@ -310,7 +311,7 @@ public class DiagramRenderer
         // Points 1–24
         for (int pt = 1; pt <= 24; pt++)
         {
-            int count = request.Mop[pt];
+            int count = request.Position.Mop[pt];
             if (count == 0) continue;
 
             bool onRoll = count > 0;
@@ -322,7 +323,7 @@ public class DiagramRenderer
         }
 
         // On-roll bar (Mop[25], always >= 0) — stacks in the bottom half of the bar
-        int onRollBar = request.Mop[25];
+        int onRollBar = request.Position.Mop[25];
         if (onRollBar > 0)
         {
             double cx = layout.BarCentreX(panelOnLeft);
@@ -333,7 +334,7 @@ public class DiagramRenderer
         }
 
         // Opponent bar (Mop[0], always <= 0) — stacks in the top half of the bar
-        int opponentBar = request.Mop[0];
+        int opponentBar = request.Position.Mop[0];
         if (opponentBar < 0)
         {
             double cx = layout.BarCentreX(panelOnLeft);
@@ -402,8 +403,8 @@ public class DiagramRenderer
         double d2X = halfCx - pairW / 2 + size + gap; // right die top-left x
         double dY = cy - size / 2;               // top-left y (same for both)
 
-        AppendDie(sb, theme, d1X, dY, size, rx, request.Dice[0]);
-        AppendDie(sb, theme, d2X, dY, size, rx, request.Dice[1]);
+        AppendDie(sb, theme, d1X, dY, size, rx, request.Decision.Dice[0]);
+        AppendDie(sb, theme, d2X, dY, size, rx, request.Decision.Dice[1]);
     }
 
     private void AppendDie(StringBuilder sb, ITheme theme,
@@ -447,7 +448,7 @@ public class DiagramRenderer
     {
         double cubeSize = layout.LeftRailWidth * 0.7;
         double cubeX = bx + (layout.LeftRailWidth - cubeSize) / 2;
-        double cubeY = request.CubeOwner switch
+        double cubeY = request.Position.CubeOwner switch
         {
             CubeOwner.Centered => layout.BoardHeight / 2 - cubeSize / 2,
             CubeOwner.OnRoll => request.OnRollAtBottom
@@ -462,7 +463,7 @@ public class DiagramRenderer
         sb.AppendLine($"""  <rect x="{F(cubeX)}" y="{F(cubeY)}" width="{F(cubeSize)}" height="{F(cubeSize)}" rx="3" fill="white" stroke="#888" stroke-width="0.5"/>""");
         double fontSize = cubeSize * 0.55;
         double textY = cubeY + cubeSize / 2 + fontSize * 0.35;
-        sb.AppendLine($"""  <text x="{F(cubeX + cubeSize / 2)}" y="{F(textY)}" text-anchor="middle" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="#222">{request.CubeSize}</text>""");
+        sb.AppendLine($"""  <text x="{F(cubeX + cubeSize / 2)}" y="{F(textY)}" text-anchor="middle" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="#222">{request.Position.CubeSize}</text>""");
     }
 
     // -----------------------------------------------------------------------

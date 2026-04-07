@@ -58,7 +58,7 @@ public class DiagramRequestBuilderTests
         b.IsCube = true;
         b.Dice = [0, 0];
         var req = b.Build();
-        Assert.True(req.IsCube);
+        Assert.True(req.Decision.IsCube);
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public class DiagramRequestBuilderTests
         var b = TestFixtures.MinimalBuilder();
         b.CubeSize = 4096;
         var req = b.Build();
-        Assert.Equal(4096, req.CubeSize);
+        Assert.Equal(4096, req.Position.CubeSize);
     }
 
     [Fact]
@@ -100,6 +100,6 @@ public class DiagramRequestBuilderTests
         var b = TestFixtures.MinimalBuilder();
         b.CubeSize = 1;
         var req = b.Build();
-        Assert.Equal(1, req.CubeSize);
+        Assert.Equal(1, req.Position.CubeSize);
     }
 }

@@ -225,6 +225,7 @@ public class VisualOutputTests
     {
         var b1 = TestFixtures.MinimalBuilder(); b1.Title = "Opening";
         var b2 = TestFixtures.MinimalBuilder(); b2.Mode = DiagramMode.Solution; b2.Title = "Opening \u2014 Solution";
+
         var pptx = new DiagramRenderer().RenderPptx([b1.Build(), b2.Build()], TestFixtures.DefaultOptions());
         var path = TestPaths.PptxOutputPath("bg_multi.pptx");
         File.WriteAllBytes(path, pptx);

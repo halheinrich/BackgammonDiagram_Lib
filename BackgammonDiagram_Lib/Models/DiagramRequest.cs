@@ -1,84 +1,20 @@
-// DiagramRequest.cs  (full replacement — record → class + inner Builder)
+using BgDataTypes_Lib;
+
 namespace BackgammonDiagram_Lib;
 
 public class DiagramRequest
 {
-    // Private constructor — callers must use Builder.Build()
     internal DiagramRequest() { }
 
-    // -----------------------------------------------------------------------
-    //  Always required
-    // -----------------------------------------------------------------------
+    public PositionData Position { get; init; } = new();
+    public DecisionData Decision { get; init; } = new();
+    public DescriptiveData Descriptive { get; init; } = new();
 
-    /// <summary>
-    /// Men on Point — 26-element board array.
-    /// [0]    = opponent's bar  (value always &lt;= 0)
-    /// [1-24] = points 1-24 from on-roll player's perspective
-    /// [25]   = on-roll player's bar (value always &gt;= 0)
-    /// Positive = on-roll player's checkers; negative = opponent's.
-    /// </summary>
-    public IReadOnlyList<int> Mop { get; init; } = new int[26];
-    public int OnRollNeeds { get; init; }
-    public int OpponentNeeds { get; init; }
-    public int OnRollPipCount { get; init; }
-    public int OpponentPipCount { get; init; }
-    public string OnRollName { get; init; } = string.Empty;
-    public string OpponentName { get; init; } = string.Empty;
-    public int CubeSize { get; init; } = 1;
-    public CubeOwner CubeOwner { get; init; }
-    public bool IsCube { get; init; }
-
-    /// <summary>Always length 2. Ignored when IsCube is true.</summary>
-    public IReadOnlyList<int> Dice { get; init; } = new int[2];
-
+    // Renderer-specific
     public DiagramMode Mode { get; init; }
     public bool HomeBoardOnRight { get; init; } = true;
-
-    /// <summary>
-    /// True if the on-roll player is shown at the bottom of the diagram.
-    /// False if the opponent is shown at the bottom.
-    /// </summary>
     public bool OnRollAtBottom { get; init; } = true;
-
     public PanelPosition AnalysisPanelPosition { get; init; }
-
-    // -----------------------------------------------------------------------
-    //  Solution — cube fields (IsCube=true, Mode=Solution)
-    // -----------------------------------------------------------------------
-
-    /// <summary>Optional slide title for PowerPoint output. Null = no title rendered.</summary>
-    public string? Title { get; init; }
-    public double NoDoubleEquity { get; init; }
-    public double DoubleTakeEquity { get; init; }
-    public double WinPctAfterNoDouble { get; init; }
-    public double GammonPctAfterNoDouble { get; init; }
-    public double BgPctAfterNoDouble { get; init; }
-    public double LosePctAfterNoDouble { get; init; }
-    public double LoseGammonPctAfterNoDouble { get; init; }
-    public double LoseBgPctAfterNoDouble { get; init; }
-    public double WinPctAfterDoubleTake { get; init; }
-    public double GammonPctAfterDoubleTake { get; init; }
-    public double BgPctAfterDoubleTake { get; init; }
-    public double LosePctAfterDoubleTake { get; init; }
-    public double LoseGammonPctAfterDoubleTake { get; init; }
-    public double LoseBgPctAfterDoubleTake { get; init; }
-    public double ProbOfOpponentErrorJustifyingDouble { get; init; }
-
-    // -----------------------------------------------------------------------
-    //  Solution — play fields (IsCube=false, Mode=Solution)
-    // -----------------------------------------------------------------------
-
-    /// <summary>
-    /// Index into Plays identifying the best play.
-    /// Drives the crown icon in the analysis panel.
-    /// </summary>
-    public int BestPlayIndex { get; init; }
-
-    /// <summary>Index into Plays identifying the user's play. -1 if not applicable.</summary>
-    public int UserPlayIndex { get; init; } = -1;
-
-    public IReadOnlyList<PlayCandidate> Plays { get; init; } = [];
-    public IReadOnlyList<AnalysisDepthEntry> AnalysisDepths { get; init; } = [];
 
     // -----------------------------------------------------------------------
     //  Builder
@@ -86,22 +22,23 @@ public class DiagramRequest
 
     public class Builder
     {
+        // Position
         public int[] Mop { get; set; } = new int[26];
         public int OnRollNeeds { get; set; }
         public int OpponentNeeds { get; set; }
         public int OnRollPipCount { get; set; }
         public int OpponentPipCount { get; set; }
-        public string OnRollName { get; set; } = string.Empty;
-        public string OpponentName { get; set; } = string.Empty;
         public int CubeSize { get; set; } = 1;
         public CubeOwner CubeOwner { get; set; } = CubeOwner.Centered;
+        public bool IsCrawford { get; set; }
+
+        // Decision
         public bool IsCube { get; set; }
         public int[] Dice { get; set; } = new int[2];
-        public DiagramMode Mode { get; set; }
-        public bool HomeBoardOnRight { get; set; } = true;
-        public bool OnRollAtBottom { get; set; } = true;
-        public PanelPosition AnalysisPanelPosition { get; set; }
-        public string? Title { get; set; }
+        public List<PlayCandidate> Plays { get; set; } = [];
+        public List<AnalysisDepthEntry> AnalysisDepths { get; set; } = [];
+        public int BestPlayIndex { get; set; }
+        public int UserPlayIndex { get; set; } = -1;
         public double NoDoubleEquity { get; set; }
         public double DoubleTakeEquity { get; set; }
         public double WinPctAfterNoDouble { get; set; }
@@ -117,51 +54,74 @@ public class DiagramRequest
         public double LoseGammonPctAfterDoubleTake { get; set; }
         public double LoseBgPctAfterDoubleTake { get; set; }
         public double ProbOfOpponentErrorJustifyingDouble { get; set; }
-        public int BestPlayIndex { get; set; }
-        public int UserPlayIndex { get; set; } = -1;
-        public List<PlayCandidate> Plays { get; set; } = [];
-        public List<AnalysisDepthEntry> AnalysisDepths { get; set; } = [];
+
+        // Descriptive
+        public string OnRollName { get; set; } = string.Empty;
+        public string OpponentName { get; set; } = string.Empty;
+        public string? Title { get; set; }
+        public int MatchLength { get; set; }
+        public DateOnly? Date { get; set; }
+        public string? Event { get; set; }
+
+        // Renderer-specific
+        public DiagramMode Mode { get; set; }
+        public bool HomeBoardOnRight { get; set; } = true;
+        public bool OnRollAtBottom { get; set; } = true;
+        public PanelPosition AnalysisPanelPosition { get; set; }
 
         public DiagramRequest Build()
         {
             Validate();
             return new DiagramRequest
             {
-                Mop = Mop.ToArray(),
-                OnRollNeeds = OnRollNeeds,
-                OpponentNeeds = OpponentNeeds,
-                OnRollPipCount = OnRollPipCount,
-                OpponentPipCount = OpponentPipCount,
-                OnRollName = OnRollName,
-                OpponentName = OpponentName,
-                CubeSize = CubeSize,
-                CubeOwner = CubeOwner,
-                IsCube = IsCube,
-                Dice = Dice.ToArray(),
+                Position = new PositionData
+                {
+                    Mop = Mop.ToArray(),
+                    OnRollNeeds = OnRollNeeds,
+                    OpponentNeeds = OpponentNeeds,
+                    OnRollPipCount = OnRollPipCount,
+                    OpponentPipCount = OpponentPipCount,
+                    CubeSize = CubeSize,
+                    CubeOwner = CubeOwner,
+                    IsCrawford = IsCrawford,
+                },
+                Decision = new DecisionData
+                {
+                    IsCube = IsCube,
+                    Dice = Dice.ToArray(),
+                    Plays = new List<PlayCandidate>(Plays),
+                    AnalysisDepths = new List<AnalysisDepthEntry>(AnalysisDepths),
+                    BestPlayIndex = BestPlayIndex,
+                    UserPlayIndex = UserPlayIndex,
+                    NoDoubleEquity = NoDoubleEquity,
+                    DoubleTakeEquity = DoubleTakeEquity,
+                    WinPctAfterNoDouble = WinPctAfterNoDouble,
+                    GammonPctAfterNoDouble = GammonPctAfterNoDouble,
+                    BgPctAfterNoDouble = BgPctAfterNoDouble,
+                    LosePctAfterNoDouble = LosePctAfterNoDouble,
+                    LoseGammonPctAfterNoDouble = LoseGammonPctAfterNoDouble,
+                    LoseBgPctAfterNoDouble = LoseBgPctAfterNoDouble,
+                    WinPctAfterDoubleTake = WinPctAfterDoubleTake,
+                    GammonPctAfterDoubleTake = GammonPctAfterDoubleTake,
+                    BgPctAfterDoubleTake = BgPctAfterDoubleTake,
+                    LosePctAfterDoubleTake = LosePctAfterDoubleTake,
+                    LoseGammonPctAfterDoubleTake = LoseGammonPctAfterDoubleTake,
+                    LoseBgPctAfterDoubleTake = LoseBgPctAfterDoubleTake,
+                    ProbOfOpponentErrorJustifyingDouble = ProbOfOpponentErrorJustifyingDouble,
+                },
+                Descriptive = new DescriptiveData
+                {
+                    OnRollName = OnRollName,
+                    OpponentName = OpponentName,
+                    Title = Title,
+                    MatchLength = MatchLength,
+                    Date = Date,
+                    Event = Event,
+                },
                 Mode = Mode,
                 HomeBoardOnRight = HomeBoardOnRight,
                 OnRollAtBottom = OnRollAtBottom,
                 AnalysisPanelPosition = AnalysisPanelPosition,
-                Title = Title,
-                NoDoubleEquity = NoDoubleEquity,
-                DoubleTakeEquity = DoubleTakeEquity,
-                WinPctAfterNoDouble = WinPctAfterNoDouble,
-                GammonPctAfterNoDouble = GammonPctAfterNoDouble,
-                BgPctAfterNoDouble = BgPctAfterNoDouble,
-                LosePctAfterNoDouble = LosePctAfterNoDouble,
-                LoseGammonPctAfterNoDouble = LoseGammonPctAfterNoDouble,
-                LoseBgPctAfterNoDouble = LoseBgPctAfterNoDouble,
-                WinPctAfterDoubleTake = WinPctAfterDoubleTake,
-                GammonPctAfterDoubleTake = GammonPctAfterDoubleTake,
-                BgPctAfterDoubleTake = BgPctAfterDoubleTake,
-                LosePctAfterDoubleTake = LosePctAfterDoubleTake,
-                LoseGammonPctAfterDoubleTake = LoseGammonPctAfterDoubleTake,
-                LoseBgPctAfterDoubleTake = LoseBgPctAfterDoubleTake,
-                ProbOfOpponentErrorJustifyingDouble = ProbOfOpponentErrorJustifyingDouble,
-                BestPlayIndex = BestPlayIndex,
-                UserPlayIndex = UserPlayIndex,
-                Plays = new List<PlayCandidate>(Plays),
-                AnalysisDepths = new List<AnalysisDepthEntry>(AnalysisDepths),
             };
         }
 
@@ -169,10 +129,8 @@ public class DiagramRequest
         {
             if (Mop.Length != 26)
                 throw new InvalidOperationException("Mop must be a 26-element array.");
-
             if (Dice.Length != 2)
                 throw new InvalidOperationException("Dice must be a 2-element array.");
-
             if (IsCube)
             {
                 if (Dice[0] != 0 || Dice[1] != 0)

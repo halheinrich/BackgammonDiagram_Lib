@@ -12,13 +12,6 @@ public enum PanelPosition
     Right
 }
 
-public enum CubeOwner
-{
-    OnRoll,
-    Opponent,
-    Centered
-}
-
 public enum DiagramSizePreset
 {
     Small,

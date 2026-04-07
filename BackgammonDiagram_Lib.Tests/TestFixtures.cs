@@ -1,4 +1,5 @@
-﻿// TestFixtures.cs  (new file)
+﻿using BgDataTypes_Lib;
+// TestFixtures.cs  (new file)
 using BackgammonDiagram_Lib.Rendering;
 using BackgammonDiagram_Lib.Themes;
 
