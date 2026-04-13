@@ -38,4 +38,12 @@ internal static class TestPaths
         Directory.CreateDirectory(PngDir);
         return Path.Combine(PngDir, filename);
     }
+    public static string DiagramRequestDir => Path.Combine(_root, "DiagramRequest");
+
+    /// <summary>
+    /// Returns a path for a JSON input file in TestData\DiagramRequest\{filename}.
+    /// </summary>
+    public static string DiagramRequestJson(string filename)
+        => Path.Combine(DiagramRequestDir, filename);
+
 }
