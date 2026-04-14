@@ -219,10 +219,10 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
 
         sb.AppendLine($"""  <rect x="{F(railX)}" y="0" width="{F(railWidth)}" height="{F(layout.TopRailHeight)}" fill="{Darken(theme.BoardColor, 0.1)}"/>""");
 
-        string topName = request.OnRollAtBottom ? request.Descriptive.OpponentName : request.Descriptive.OnRollName;
+        string topName = FormatPlayerLabel(request, isOnRoll: !request.OnRollAtBottom);
         string topPip = request.OnRollAtBottom
-            ? $"Pip= {request.Position.OpponentPipCount}"
-            : $"Pip= {request.Position.OnRollPipCount}";
+            ? $"Pip: {request.Position.OpponentPipCount}"
+            : $"Pip: {request.Position.OnRollPipCount}";
 
         string railBg = Darken(theme.BoardColor, 0.1);
         string railText = ContrastText(railBg);
@@ -240,10 +240,10 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
 
         sb.AppendLine($"""  <rect x="{F(railX)}" y="{F(layout.BottomRailY)}" width="{F(railWidth)}" height="{F(layout.BottomRailHeight)}" fill="{Darken(theme.BoardColor, 0.1)}"/>""");
 
-        string bottomName = request.OnRollAtBottom ? request.Descriptive.OnRollName : request.Descriptive.OpponentName;
+        string bottomName = FormatPlayerLabel(request, isOnRoll: request.OnRollAtBottom);
         string bottomPip = request.OnRollAtBottom
-            ? $"Pip= {request.Position.OnRollPipCount}"
-            : $"Pip= {request.Position.OpponentPipCount}";
+            ? $"Pip: {request.Position.OnRollPipCount}"
+            : $"Pip: {request.Position.OpponentPipCount}";
 
         string railBg = Darken(theme.BoardColor, 0.1);
         string railText = ContrastText(railBg);
@@ -722,5 +722,17 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
         // Relative luminance (ITU-R BT.709)
         double luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
         return luminance > 0.5 ? "#1A1A1A" : "#F0F0F0";
+    }
+    private static string FormatPlayerLabel(DiagramRequest request, bool isOnRoll)
+    {
+        string name = isOnRoll ? request.Descriptive.OnRollName : request.Descriptive.OpponentName;
+        int matchLength = request.Descriptive.MatchLength;
+
+        if (matchLength == 0)
+            return $"{name} Money Game";
+
+        int needs = isOnRoll ? request.Position.OnRollNeeds : request.Position.OpponentNeeds;
+        string crawford = request.Position.IsCrawford ? " Crawford" : "";
+        return $"{name} needs {needs}{crawford}";
     }
 }
