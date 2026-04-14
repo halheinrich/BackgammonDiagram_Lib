@@ -6,8 +6,8 @@ namespace BackgammonDiagram_Lib.Rendering;
 
 /// <summary>
 /// Builds a PDF byte array from one or more PNG images.
-/// Each PNG becomes one page. An optional per-page title string
-/// is rendered as centered text above the image.
+/// Each PNG becomes one page, rendered full-bleed.
+/// Title is baked into the PNG by the SVG renderer.
 /// Internal — called only by DiagramRenderer.
 /// </summary>
 internal static class PdfBuilder
@@ -18,34 +18,20 @@ internal static class PdfBuilder
     private const float PageHeightPt = 7.5f * 72;    // 540pt
 
     private const float MarginPt = 36;               // 0.5"
-    private const float TitleFontSize = 18;
-    private const float TitleGapPt = 8;
 
-    public static byte[] Build(IEnumerable<(byte[] Png, string? Title)> pages)
+    public static byte[] Build(IEnumerable<byte[]> pages)
     {
         var pageList = pages.ToList();
 
         var document = Document.Create(container =>
         {
-            foreach (var (png, title) in pageList)
+            foreach (var png in pageList)
             {
                 container.Page(page =>
                 {
                     page.Size(PageWidthPt, PageHeightPt, Unit.Point);
                     page.Margin(MarginPt, Unit.Point);
                     page.PageColor(Colors.White);
-
-                    bool hasTitle = !string.IsNullOrWhiteSpace(title);
-
-                    if (hasTitle)
-                    {
-                        page.Header()
-                            .PaddingBottom(TitleGapPt, Unit.Point)
-                            .AlignCenter()
-                            .Text(title!)
-                            .FontSize(TitleFontSize)
-                            .FontColor(Colors.Black);
-                    }
 
                     page.Content()
                         .AlignCenter()

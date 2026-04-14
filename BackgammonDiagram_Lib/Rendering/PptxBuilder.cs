@@ -12,8 +12,7 @@ namespace BackgammonDiagram_Lib.Rendering;
 
 /// <summary>
 /// Builds a .pptx byte array from one or more PNG images.
-/// Each PNG becomes one slide. An optional per-slide title string
-/// is rendered as a text box below the image.
+/// Each PNG becomes one slide. Title is baked into the PNG by the SVG renderer.
 /// Internal — called only by DiagramRenderer.
 /// </summary>
 internal static class PptxBuilder
@@ -25,10 +24,8 @@ internal static class PptxBuilder
     // Margins (EMUs)
     private const long MarginH = 457200L;  // 0.5"
     private const long MarginV = 457200L;  // 0.5"
-    private const long TitleH = 400000L;  // reserved at bottom when title present
-    private const long TitleGap = 91440L;  // gap between image and title
 
-    public static byte[] Build(IEnumerable<(byte[] Png, string? Title)> slides)
+    public static byte[] Build(IEnumerable<byte[]> slides)
     {
         using var ms = new MemoryStream();
         using (var doc = PresentationDocument.Create(ms, PresentationDocumentType.Presentation))
@@ -65,7 +62,7 @@ internal static class PptxBuilder
             var slideIdList = presentationPart.Presentation.GetFirstChild<SlideIdList>()!;
 
             uint slideId = 256;
-            foreach (var (png, title) in slides)
+            foreach (var png in slides)
             {
                 var slidePart = presentationPart.AddNewPart<SlidePart>();
                 slidePart.AddPart(slideLayoutPart);
@@ -75,7 +72,7 @@ internal static class PptxBuilder
                     imagePart.FeedData(imgStream);
 
                 string rId = slidePart.GetIdOfPart(imagePart);
-                var slide = BuildSlide(rId, png, title);
+                var slide = BuildSlide(rId, png);
                 slidePart.Slide = slide;
                 slide.Save();
 
@@ -229,7 +226,7 @@ internal static class PptxBuilder
                 if (targetAttr is null) continue;
 
                 string target = targetAttr.Value;
-                if (!target.StartsWith("/")) continue;  // already relative
+                if (!target.StartsWith('/')) continue; 
 
                 // Convert absolute → relative to the owning directory
                 string absolute = target.TrimStart('/');
@@ -892,12 +889,10 @@ internal static class PptxBuilder
     //  Slide content
     // -----------------------------------------------------------------------
 
-    private static Slide BuildSlide(string imageRId, byte[] png, string? title)
+    private static Slide BuildSlide(string imageRId, byte[] png)
     {
-        bool hasTitle = !string.IsNullOrWhiteSpace(title);
-
         long availW = SlideWidth - MarginH * 2;
-        long availH = SlideHeight - MarginV * 2 - (hasTitle ? TitleH + TitleGap : 0);
+        long availH = SlideHeight - MarginV * 2;
 
         var (pngW, pngH) = ReadPngDimensions(png);
         double aspect = pngW / (double)pngH;
@@ -924,12 +919,6 @@ internal static class PptxBuilder
                 new ApplicationNonVisualDrawingProperties()),
             new GroupShapeProperties(BuildZeroTransformGroup()),
             BuildPicture(imageRId, imgX, imgY, imgW, imgH));
-
-        if (hasTitle)
-        {
-            long titleY = imgY + imgH + TitleGap;
-            _ = tree.AppendChild(BuildTitleBox(title!, MarginH, titleY, availW, TitleH));
-        }
 
         return new Slide(
             new CommonSlideData(tree),
@@ -958,39 +947,7 @@ internal static class PptxBuilder
                 new A.PresetGeometry(new A.AdjustValueList())
                 { Preset = A.ShapeTypeValues.Rectangle }));
     }
-
-    // -----------------------------------------------------------------------
-    //  Title text box
-    // -----------------------------------------------------------------------
-
-    private static P.Shape BuildTitleBox(string text, long x, long y, long cx, long cy)
-    {
-        return new P.Shape(
-            new P.NonVisualShapeProperties(
-                new P.NonVisualDrawingProperties { Id = 3, Name = "Title" },
-                new P.NonVisualShapeDrawingProperties(),
-                new ApplicationNonVisualDrawingProperties()),
-            new P.ShapeProperties(
-                new A.Transform2D(
-                    new A.Offset { X = x, Y = y },
-                    new A.Extents { Cx = cx, Cy = cy }),
-                new A.PresetGeometry(new A.AdjustValueList())
-                { Preset = A.ShapeTypeValues.Rectangle }),
-            new P.TextBody(
-                new A.BodyProperties(),
-                new A.ListStyle(),
-                new A.Paragraph(
-                    new A.ParagraphProperties { Alignment = A.TextAlignmentTypeValues.Center },
-                    new A.Run(
-                        new A.RunProperties
-                        {
-                            Language = "en-US",
-                            FontSize = 1800,
-                            Bold = false
-                        },
-                        new A.Text(text)))));
-    }
-
+   
     // -----------------------------------------------------------------------
     //  Helpers
     // -----------------------------------------------------------------------

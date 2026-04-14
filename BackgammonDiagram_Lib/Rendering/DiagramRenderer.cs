@@ -8,25 +8,37 @@ namespace BackgammonDiagram_Lib.Rendering;
 public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
 {
     private readonly ISvgRasterizer _rasterizer = rasterizer ?? new SkiaSharpRasterizer();
+    private const double TitleStripHeight = 22;
 
     // -----------------------------------------------------------------------
     //  Public API
     // -----------------------------------------------------------------------
 
-    static public string RenderSvg(DiagramRequest request, DiagramOptions options)
+    public static string RenderSvg(DiagramRequest request, DiagramOptions options)
     {
         var theme = options.Theme;
         var layout = BoardLayout.Default;
         bool hasPanel = request.Mode == DiagramMode.Solution;
         bool panelOnLeft = request.AnalysisPanelPosition == PanelPosition.Left;
+        bool hasTitle = !string.IsNullOrWhiteSpace(request.Descriptive.Title);
+        double titleOffset = hasTitle ? TitleStripHeight : 0;
 
-        double totalWidth = layout.TotalWidth(withPanel: true); // consistent dimensions for Problem and Solution
-        double totalHeight = layout.BoardHeight;
+        double totalWidth = layout.TotalWidth(withPanel: true);
+        double totalHeight = layout.BoardHeight + titleOffset;
 
         var sb = new StringBuilder();
         sb.AppendLine($"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {F(totalWidth)} {F(totalHeight)}" width="100%">""");
 
+        if (hasTitle)
+            AppendTitleStrip(sb, totalWidth, titleOffset, theme, request.Descriptive.Title!);
+
+        if (hasTitle)
+            sb.AppendLine($"""  <g transform="translate(0,{F(titleOffset)})">""");
+
         AppendBoard(sb, layout, theme, request, hasPanel, panelOnLeft);
+
+        if (hasTitle)
+            sb.AppendLine("  </g>");
 
         sb.AppendLine("</svg>");
         return sb.ToString();
@@ -42,24 +54,25 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     public byte[] RenderPdf(DiagramRequest request, DiagramOptions options)
     {
         var png = RenderPng(request, options);
-        return PdfBuilder.Build([(png, request.Descriptive.Title)]);
+        return PdfBuilder.Build([png]);
     }
 
     public byte[] RenderPdf(IEnumerable<DiagramRequest> requests, DiagramOptions options)
     {
-        var slides = requests.Select(r => (RenderPng(r, options), r.Descriptive.Title)).ToList();
-        return PdfBuilder.Build(slides);
+        var pngs = requests.Select(r => RenderPng(r, options)).ToList();
+        return PdfBuilder.Build(pngs);
     }
+
     public byte[] RenderPptx(DiagramRequest request, DiagramOptions options)
     {
         var png = RenderPng(request, options);
-        return PptxBuilder.Build([(png, request.Descriptive.Title)]);
+        return PptxBuilder.Build([png]);
     }
 
     public byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options)
     {
-        var slides = requests.Select(r => (RenderPng(r, options), r.Descriptive.Title)).ToList();
-        return PptxBuilder.Build(slides);
+        var pngs = requests.Select(r => RenderPng(r, options)).ToList();
+        return PptxBuilder.Build(pngs);
     }
 
     /// <summary>
@@ -158,6 +171,20 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
         DiagramSizePreset.Custom => size.CustomWidth ?? 1000,
         _ => 1000   // Medium
     };
+
+    // -----------------------------------------------------------------------
+    //  Title strip
+    // -----------------------------------------------------------------------
+
+    private static void AppendTitleStrip(StringBuilder sb, double totalWidth, double height,
+        ITheme theme, string title)
+    {
+        string bg = theme.PanelBackgroundColor;
+        string textColor = ContrastText(bg);
+        double textY = height / 2;
+        sb.AppendLine($"""  <rect x="0" y="0" width="{F(totalWidth)}" height="{F(height)}" fill="{bg}"/>""");
+        sb.AppendLine($"""  <text x="8" y="{F(textY)}" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(title)}</text>""");
+    }
 
     // -----------------------------------------------------------------------
     //  Board
