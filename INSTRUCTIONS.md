@@ -160,7 +160,9 @@ bar, cube, tray regions. DiagramRequest required for correct orientation mapping
 
 ## Current status
 
-🔧 In progress — SVG, PNG, PDF, PPTX rendering functional; BgDataTypes_Lib refactor complete;
+🔧 🔧 In progress — SVG, PNG, PDF, PPTX rendering functional; analysis panel implemented
+(play and cube); title baked into SVG; PanelBackgroundColor added to ITheme;
+rail text shows away scores and Crawford; BgDataTypes_Lib refactor complete;
 hit regions implemented; Builder pattern adopted
 
 ## Deferred
@@ -187,3 +189,7 @@ hit regions implemented; Builder pattern adopted
 * `AppendCheckers` passes `request.HomeBoardOnRight` to `ColumnCentreX`
 * DiagramRequest is not produced by ConvertXgToJson_Lib — constructed by clients from BgDecisionData + rendering options
 * Avoid CSS stylesheets and complex SVG filters — Svg.Skia has limited support
+* Title rendered in SVG title strip (not by PptxBuilder/PdfBuilder) — single source of truth
+* `PanelBackgroundColor` added to `ITheme`; DefaultTheme uses white
+* `RenderSvg` and `GetHitRegions` are static methods; other `Render*` methods are instance (need rasterizer)
+* Problem and Solution diagrams have identical dimensions (panel space always allocated)
