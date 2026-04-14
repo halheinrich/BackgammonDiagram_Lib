@@ -37,6 +37,7 @@ or PowerPoint. No user interaction, no game state — the caller owns all of tha
 * BgDataTypes_Lib/CubeOwner.cs
 * BgDataTypes_Lib/PlayCandidate.cs
 * BgDataTypes_Lib/AnalysisDepthEntry.cs
+* BgDataTypes_Lib/BgDecisionData.cs
 
 ## Directory tree
 

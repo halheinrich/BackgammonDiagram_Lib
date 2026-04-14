@@ -17,7 +17,7 @@ public class HitRegionsTests
     [Fact]
     public void GetHitRegions_Returns24Points()
     {
-        var regions = _renderer.GetHitRegions(MinimalRequest(), _defaultOptions);
+        var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
 
         Assert.Equal(24, regions.Points.Count);
         for (int pt = 1; pt <= 24; pt++)
@@ -28,7 +28,7 @@ public class HitRegionsTests
     public void GetHitRegions_ViewBoxMatchesBoardOnly()
     {
         var layout = BoardLayout.Default;
-        var regions = _renderer.GetHitRegions(MinimalRequest(), _defaultOptions);
+        var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
 
         Assert.Equal(0, regions.ViewBox.X);
         Assert.Equal(0, regions.ViewBox.Y);
@@ -39,11 +39,10 @@ public class HitRegionsTests
     [Fact]
     public void GetHitRegions_PointColumnsAreOneCheckerDiameterWide()
     {
-        var layout = BoardLayout.Default;
-        var regions = _renderer.GetHitRegions(MinimalRequest(), _defaultOptions);
-        double expectedWidth = layout.ColumnWidth;
+        var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
+        double expectedWidth = BoardLayout.Default.ColumnWidth;
 
-        foreach (var (pt, rect) in regions.Points)
+        foreach (var (_, rect) in regions.Points)
             Assert.Equal(expectedWidth, rect.Width, 2);
     }
 
@@ -51,7 +50,7 @@ public class HitRegionsTests
     public void GetHitRegions_TopPointsSpanTopTriangleArea()
     {
         var layout = BoardLayout.Default;
-        var regions = _renderer.GetHitRegions(MinimalRequest(), _defaultOptions);
+        var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
 
         for (int pt = 13; pt <= 24; pt++)
         {
@@ -65,7 +64,7 @@ public class HitRegionsTests
     public void GetHitRegions_BottomPointsSpanBottomTriangleArea()
     {
         var layout = BoardLayout.Default;
-        var regions = _renderer.GetHitRegions(MinimalRequest(), _defaultOptions);
+        var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
 
         for (int pt = 1; pt <= 12; pt++)
         {
@@ -79,7 +78,7 @@ public class HitRegionsTests
     public void GetHitRegions_Point1IsRightmostBottomColumn()
     {
         var layout = BoardLayout.Default;
-        var regions = _renderer.GetHitRegions(MinimalRequest(), _defaultOptions);
+        var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
 
         // Point 1 should be the rightmost column in the inner (right) half
         double expectedCx = layout.ColumnCentreX(1, panelOnLeft: false, homeBoardOnRight: true);
@@ -92,7 +91,7 @@ public class HitRegionsTests
     [Fact]
     public void GetHitRegions_AdjacentPointsDoNotOverlap()
     {
-        var regions = _renderer.GetHitRegions(MinimalRequest(), _defaultOptions);
+        var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
 
         // Check adjacent points within same half don't overlap in X
         // Points 1-6 are in the inner half, right to left
@@ -113,7 +112,7 @@ public class HitRegionsTests
     public void GetHitRegions_BarCoversBarStrip()
     {
         var layout = BoardLayout.Default;
-        var regions = _renderer.GetHitRegions(MinimalRequest(), _defaultOptions);
+        var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
 
         Assert.Equal(layout.BarX(panelOnLeft: false), regions.Bar.X, 2);
         Assert.Equal(layout.BarWidth, regions.Bar.Width, 2);
@@ -125,7 +124,7 @@ public class HitRegionsTests
     public void GetHitRegions_CubeCoversLeftRail()
     {
         var layout = BoardLayout.Default;
-        var regions = _renderer.GetHitRegions(MinimalRequest(), _defaultOptions);
+        var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
 
         Assert.NotNull(regions.Cube);
         Assert.Equal(layout.LeftRailX(panelOnLeft: false), regions.Cube.X, 2);
@@ -135,7 +134,7 @@ public class HitRegionsTests
     [Fact]
     public void GetHitRegions_OnRollTrayIsNull()
     {
-        var regions = _renderer.GetHitRegions(MinimalRequest(), _defaultOptions);
+        var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
         Assert.Null(regions.OnRollTray);
     }
 }

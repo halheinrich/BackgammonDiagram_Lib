@@ -10,4 +10,5 @@ public interface ITheme
     string CheckerColorOpponent { get; }
     string DiceColor { get; }
     string TextColor { get; }
+    string PanelBackgroundColor { get; }
 }

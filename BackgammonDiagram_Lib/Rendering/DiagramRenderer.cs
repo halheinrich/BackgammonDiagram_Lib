@@ -5,27 +5,22 @@ using System.Text;
 
 namespace BackgammonDiagram_Lib.Rendering;
 
-public class DiagramRenderer
+public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
 {
-    private readonly ISvgRasterizer _rasterizer;
-
-    public DiagramRenderer(ISvgRasterizer? rasterizer = null)
-    {
-        _rasterizer = rasterizer ?? new SkiaSharpRasterizer();
-    }
+    private readonly ISvgRasterizer _rasterizer = rasterizer ?? new SkiaSharpRasterizer();
 
     // -----------------------------------------------------------------------
     //  Public API
     // -----------------------------------------------------------------------
 
-    public string RenderSvg(DiagramRequest request, DiagramOptions options)
+    static public string RenderSvg(DiagramRequest request, DiagramOptions options)
     {
         var theme = options.Theme;
         var layout = BoardLayout.Default;
         bool hasPanel = request.Mode == DiagramMode.Solution;
         bool panelOnLeft = request.AnalysisPanelPosition == PanelPosition.Left;
 
-        double totalWidth = layout.TotalWidth(hasPanel);
+        double totalWidth = layout.TotalWidth(withPanel: true); // consistent dimensions for Problem and Solution
         double totalHeight = layout.BoardHeight;
 
         var sb = new StringBuilder();
@@ -72,8 +67,9 @@ public class DiagramRenderer
     /// Coordinates are in SVG viewBox space matching RenderSvg() output
     /// for a Problem-mode (no panel) diagram.
     /// </summary>
-    public BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions options)
+    static public BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions options)
     {
+        _ = options; // reserved for future use (e.g. theme-aware hit region sizing)
         var layout = BoardLayout.Default;
         bool homeBoardOnRight = request.HomeBoardOnRight;
 
@@ -167,10 +163,10 @@ public class DiagramRenderer
     //  Board
     // -----------------------------------------------------------------------
 
-    private void AppendBoard(StringBuilder sb, BoardLayout layout, ITheme theme,
+    static private void AppendBoard(StringBuilder sb, BoardLayout layout, ITheme theme,
         DiagramRequest request, bool hasPanel, bool panelOnLeft)
     {
-        bool effectivePanelOnLeft = hasPanel && panelOnLeft;
+        bool effectivePanelOnLeft = panelOnLeft;
         bool homeBoardOnRight = request.HomeBoardOnRight;
         double bx = layout.BoardOffsetX(effectivePanelOnLeft);
 
@@ -181,80 +177,86 @@ public class DiagramRenderer
 
         AppendLeftRail(sb, layout, theme, bx);
         AppendBar(sb, layout, theme, bx);
-        AppendPoints(sb, layout, theme, bx, effectivePanelOnLeft, homeBoardOnRight);
+        AppendPoints(sb, layout, theme, effectivePanelOnLeft, homeBoardOnRight);
         AppendCheckers(sb, layout, theme, request, effectivePanelOnLeft);
         if (!request.Decision.IsCube)
             AppendDice(sb, layout, theme, request, effectivePanelOnLeft);
-        AppendPointNumbers(sb, layout, theme, bx, effectivePanelOnLeft, homeBoardOnRight);
+        AppendPointNumbers(sb, layout, theme, effectivePanelOnLeft, homeBoardOnRight);
         AppendTopRail(sb, layout, theme, bx, request);
         AppendBottomRail(sb, layout, theme, bx, request);
         AppendCube(sb, layout, theme, bx, request);
         AppendRightRail(sb, layout, theme, bx);  // last — draws over any overflowing content
+        AppendAnalysisPanel(sb, layout, theme, request, panelOnLeft);
     }
 
     // -----------------------------------------------------------------------
     //  Rails
     // -----------------------------------------------------------------------
 
-    private void AppendLeftRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx)
+    static private void AppendLeftRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx)
     {
         sb.AppendLine($"""  <rect x="{F(bx)}" y="0" width="{F(layout.LeftRailWidth)}" height="{F(layout.BoardHeight)}" fill="{Darken(theme.BoardColor, 0.15)}"/>""");
     }
 
-    private void AppendRightRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx)
+    static private void AppendRightRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx)
     {
         double rx = bx + layout.LeftRailWidth + layout.HalfWidth * 2 + layout.BarWidth;
         sb.AppendLine($"""  <rect x="{F(rx)}" y="0" width="{F(layout.RightRailWidth)}" height="{F(layout.BoardHeight)}" fill="{Darken(theme.BoardColor, 0.15)}"/>""");
     }
 
-    private void AppendBar(StringBuilder sb, BoardLayout layout, ITheme theme, double bx)
+    static private void AppendBar(StringBuilder sb, BoardLayout layout, ITheme theme, double bx)
     {
         double barX = bx + layout.LeftRailWidth + layout.HalfWidth;
         sb.AppendLine($"""  <rect x="{F(barX)}" y="0" width="{F(layout.BarWidth)}" height="{F(layout.BoardHeight)}" fill="{Darken(theme.BoardColor, 0.10)}"/>""");
     }
 
-    private void AppendTopRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx,
+    static private void AppendTopRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx,
         DiagramRequest request)
     {
         double railWidth = layout.BoardWidth - layout.LeftRailWidth - layout.RightRailWidth;
         double railX = bx + layout.LeftRailWidth;
         double cy = layout.TopRailHeight / 2;
 
-        sb.AppendLine($"""  <rect x="{F(railX)}" y="0" width="{F(railWidth)}" height="{F(layout.TopRailHeight)}" fill="{Darken(theme.BoardColor, 0.2)}"/>""");
+        sb.AppendLine($"""  <rect x="{F(railX)}" y="0" width="{F(railWidth)}" height="{F(layout.TopRailHeight)}" fill="{Darken(theme.BoardColor, 0.1)}"/>""");
 
         string topName = request.OnRollAtBottom ? request.Descriptive.OpponentName : request.Descriptive.OnRollName;
         string topPip = request.OnRollAtBottom
             ? $"Pip= {request.Position.OpponentPipCount}"
             : $"Pip= {request.Position.OnRollPipCount}";
 
-        sb.AppendLine($"""  <text x="{F(railX + 8)}" y="{F(cy)}" dominant-baseline="central" font-family="sans-serif" font-size="12" fill="{theme.TextColor}">{Escape(topName)}</text>""");
-        sb.AppendLine($"""  <text x="{F(railX + railWidth - 8)}" y="{F(cy)}" dominant-baseline="central" text-anchor="end" font-family="sans-serif" font-size="12" fill="{theme.TextColor}">{Escape(topPip)}</text>""");
+        string railBg = Darken(theme.BoardColor, 0.1);
+        string railText = ContrastText(railBg);
+
+        sb.AppendLine($"""  <text x="{F(railX + 8)}" y="{F(cy)}" dominant-baseline="central" font-family="sans-serif" font-size="12" fill="{railText}">{Escape(topName)}</text>""");
+        sb.AppendLine($"""  <text x="{F(railX + railWidth - 8)}" y="{F(cy)}" dominant-baseline="central" text-anchor="end" font-family="sans-serif" font-size="12" fill="{railText}">{Escape(topPip)}</text>""");
     }
 
-    private void AppendBottomRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx,
+    static private void AppendBottomRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx,
         DiagramRequest request)
     {
         double railWidth = layout.BoardWidth - layout.LeftRailWidth - layout.RightRailWidth;
         double railX = bx + layout.LeftRailWidth;
         double cy = layout.BottomRailY + layout.BottomRailHeight / 2;
 
-        sb.AppendLine($"""  <rect x="{F(railX)}" y="{F(layout.BottomRailY)}" width="{F(railWidth)}" height="{F(layout.BottomRailHeight)}" fill="{Darken(theme.BoardColor, 0.2)}"/>""");
+        sb.AppendLine($"""  <rect x="{F(railX)}" y="{F(layout.BottomRailY)}" width="{F(railWidth)}" height="{F(layout.BottomRailHeight)}" fill="{Darken(theme.BoardColor, 0.1)}"/>""");
 
         string bottomName = request.OnRollAtBottom ? request.Descriptive.OnRollName : request.Descriptive.OpponentName;
         string bottomPip = request.OnRollAtBottom
             ? $"Pip= {request.Position.OnRollPipCount}"
             : $"Pip= {request.Position.OpponentPipCount}";
 
-        sb.AppendLine($"""  <text x="{F(railX + 8)}" y="{F(cy)}" dominant-baseline="central" font-family="sans-serif" font-size="12" fill="{theme.TextColor}">{Escape(bottomName)}</text>""");
-        sb.AppendLine($"""  <text x="{F(railX + railWidth - 8)}" y="{F(cy)}" dominant-baseline="central" text-anchor="end" font-family="sans-serif" font-size="12" fill="{theme.TextColor}">{Escape(bottomPip)}</text>""");
+        string railBg = Darken(theme.BoardColor, 0.1);
+        string railText = ContrastText(railBg);
+
+        sb.AppendLine($"""  <text x="{F(railX + 8)}" y="{F(cy)}" dominant-baseline="central" font-family="sans-serif" font-size="12" fill="{railText}">{Escape(bottomName)}</text>""");
+        sb.AppendLine($"""  <text x="{F(railX + railWidth - 8)}" y="{F(cy)}" dominant-baseline="central" text-anchor="end" font-family="sans-serif" font-size="12" fill="{railText}">{Escape(bottomPip)}</text>""");
     }
 
     // -----------------------------------------------------------------------
     //  Points (triangles)
     // -----------------------------------------------------------------------
 
-    private void AppendPoints(StringBuilder sb, BoardLayout layout, ITheme theme,
-            double bx, bool panelOnLeft, bool homeBoardOnRight)
+    static private void AppendPoints(StringBuilder sb, BoardLayout layout, ITheme theme, bool panelOnLeft, bool homeBoardOnRight)
     {
         for (int pt = 1; pt <= 24; pt++)
         {
@@ -281,8 +283,7 @@ public class DiagramRenderer
     //  Point numbers
     // -----------------------------------------------------------------------
 
-    private void AppendPointNumbers(StringBuilder sb, BoardLayout layout, ITheme theme,
-            double bx, bool panelOnLeft, bool homeBoardOnRight)
+    static private void AppendPointNumbers(StringBuilder sb, BoardLayout layout, ITheme theme, bool panelOnLeft, bool homeBoardOnRight)
     {
         for (int pt = 1; pt <= 24; pt++)
         {
@@ -305,7 +306,7 @@ public class DiagramRenderer
     //  Checkers
     // -----------------------------------------------------------------------
 
-    private void AppendCheckers(StringBuilder sb, BoardLayout layout, ITheme theme,
+    static private void AppendCheckers(StringBuilder sb, BoardLayout layout, ITheme theme,
         DiagramRequest request, bool panelOnLeft)
     {
         // Points 1–24
@@ -346,7 +347,7 @@ public class DiagramRenderer
         }
     }
 
-    private void AppendCheckerStack(StringBuilder sb, BoardLayout layout, ITheme theme,
+    static private void AppendCheckerStack(StringBuilder sb, BoardLayout layout, ITheme theme,
             double cx, int abs, bool onRoll, bool bottomHalf,
             double? anchorCy = null, bool labelAtBase = false)
     {
@@ -382,7 +383,7 @@ public class DiagramRenderer
     //  Dice
     // -----------------------------------------------------------------------
 
-    private void AppendDice(StringBuilder sb, BoardLayout layout, ITheme theme,
+    static private void AppendDice(StringBuilder sb, BoardLayout layout, ITheme theme,
         DiagramRequest request, bool panelOnLeft)
     {
         double r = layout.CheckerRadius;
@@ -407,7 +408,7 @@ public class DiagramRenderer
         AppendDie(sb, theme, d2X, dY, size, rx, request.Decision.Dice[1]);
     }
 
-    private void AppendDie(StringBuilder sb, ITheme theme,
+    static private void AppendDie(StringBuilder sb, ITheme theme,
         double x, double y, double size, double rx, int value)
     {
         // Face
@@ -443,7 +444,7 @@ public class DiagramRenderer
     //  Cube
     // -----------------------------------------------------------------------
 
-    private void AppendCube(StringBuilder sb, BoardLayout layout, ITheme theme,
+    static private void AppendCube(StringBuilder sb, BoardLayout layout, ITheme theme,
         double bx, DiagramRequest request)
     {
         double cubeSize = layout.LeftRailWidth * 0.7;
@@ -459,11 +460,235 @@ public class DiagramRenderer
                 : layout.BottomCheckerBaseY + layout.PointHeight / 2 - cubeSize / 2,
             _ => layout.BoardHeight / 2 - cubeSize / 2
         };
-
-        sb.AppendLine($"""  <rect x="{F(cubeX)}" y="{F(cubeY)}" width="{F(cubeSize)}" height="{F(cubeSize)}" rx="3" fill="white" stroke="#888" stroke-width="0.5"/>""");
+        sb.AppendLine($"""  <rect x="{F(cubeX)}" y="{F(cubeY)}" width="{F(cubeSize)}" height="{F(cubeSize)}" rx="3" fill="{theme.DiceColor}" stroke="#888" stroke-width="0.5"/>""");
         double fontSize = cubeSize * 0.55;
         double textY = cubeY + cubeSize / 2 + fontSize * 0.35;
-        sb.AppendLine($"""  <text x="{F(cubeX + cubeSize / 2)}" y="{F(textY)}" text-anchor="middle" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="#222">{request.Position.CubeSize}</text>""");
+        string cubeText = request.Position.CubeSize == 1 ? "64" : request.Position.CubeSize.ToString();
+        string cubeTextColor = ContrastText(theme.DiceColor);
+        sb.AppendLine($"""  <text x="{F(cubeX + cubeSize / 2)}" y="{F(textY)}" text-anchor="middle" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{cubeTextColor}">{cubeText}</text>""");
+    }
+
+    // -----------------------------------------------------------------------
+    //  Analysis panel
+    // -----------------------------------------------------------------------
+
+    static private void AppendAnalysisPanel(StringBuilder sb, BoardLayout layout, ITheme theme,
+        DiagramRequest request, bool panelOnLeft)
+    {
+        double px = layout.PanelX(panelOnLeft);
+        double pw = layout.PanelWidth;
+        double ph = layout.BoardHeight;
+        string panelBg = theme.PanelBackgroundColor;
+        string panelText = ContrastText(panelBg);
+        string dimText = Darken(panelText, -0.3);
+
+        // Panel background
+        sb.AppendLine($"""  <rect x="{F(px)}" y="0" width="{F(pw)}" height="{F(ph)}" fill="{panelBg}"/>""");
+
+        if (request.Mode != DiagramMode.Solution)
+            return; // Problem mode: blank panel
+
+        if (request.Decision.IsCube)
+            AppendCubePanel(sb, px, pw, ph, panelText, dimText, request);
+        else
+            AppendPlayPanel(sb, px, pw, ph, panelText, dimText, request);
+    }
+
+    // -----------------------------------------------------------------------
+    //  Play analysis panel
+    // -----------------------------------------------------------------------
+
+    static private void AppendPlayPanel(StringBuilder sb, double px, double pw, double ph,
+        string textColor, string dimColor, DiagramRequest request)
+    {
+        double margin = 6;
+        double innerW = pw - margin * 2;
+        double y = margin;
+        double lineH = 13;
+        double boxH = lineH * 2 + 6; // two lines + padding
+        double boxGap = 3;
+        double fontSize = 9;
+
+        // Header
+        sb.AppendLine($"""  <text x="{F(px + pw / 2)}" y="{F(y + lineH * 0.8)}" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="{textColor}">Checker Play</text>""");
+        y += lineH + 4;
+
+        var plays = request.Decision.Plays;
+        if (plays.Count == 0) return;
+
+        for (int i = 0; i < plays.Count; i++)
+        {
+            if (y + boxH > ph - margin) break; // stop if no room
+
+            var play = plays[i];
+            bool isBest = i == request.Decision.BestPlayIndex;
+            bool isUser = i == request.Decision.UserPlayIndex;
+
+            // Box background
+            string boxBg = isBest ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+            sb.AppendLine($"""  <rect x="{F(px + margin)}" y="{F(y)}" width="{F(innerW)}" height="{F(boxH)}" rx="2" fill="{boxBg}"/>""");
+
+            double textX = px + margin + 4;
+            double rightX = px + pw - margin - 4;
+
+            // Line 1: rank + move notation + equity
+            double line1Y = y + lineH;
+            string rankPrefix = isBest ? "\u265B " : isUser ? "\u2713 " : $"{i + 1}. ";
+            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(line1Y)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{textColor}">{Escape(rankPrefix + play.MoveNotation)}</text>""");
+            sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(line1Y)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{textColor}">{FormatEquity(play.Equity)}</text>""");
+
+            // Line 2: equity loss (right-aligned)
+            double line2Y = y + lineH * 2;
+            if (play.EquityLoss.HasValue && play.EquityLoss.Value > 0)
+            {
+                sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(line2Y)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">{FormatEquityLoss(play.EquityLoss.Value)}</text>""");
+            }
+
+            y += boxH + boxGap;
+        }
+
+        // Analysis depth at bottom if room
+        AppendAnalysisDepths(sb, px, pw, ph, dimColor, request, fontSize);
+    }
+
+    // -----------------------------------------------------------------------
+    //  Cube analysis panel
+    // -----------------------------------------------------------------------
+
+    static private void AppendCubePanel(StringBuilder sb, double px, double pw, double ph,
+        string textColor, string dimColor, DiagramRequest request)
+    {
+        double margin = 6;
+        double y = margin;
+        double lineH = 13;
+        double fontSize = 9;
+        double labelFontSize = 8;
+        double textX = px + margin + 4;
+        double rightX = px + pw - margin - 4;
+        double centreX = px + pw / 2;
+
+        // Header
+        sb.AppendLine($"""  <text x="{F(centreX)}" y="{F(y + lineH * 0.8)}" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="{textColor}">Cube Decision</text>""");
+        y += lineH + 6;
+
+        // Proper cube action
+        string action = DetermineCubeAction(request.Decision);
+        sb.AppendLine($"""  <text x="{F(centreX)}" y="{F(y + lineH * 0.8)}" text-anchor="middle" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{textColor}">{Escape(action)}</text>""");
+        y += lineH + 8;
+
+        // ── No Double section ──────────────────────────────────────────
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + lineH * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{textColor}">No Double</text>""");
+        sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(y + lineH * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{textColor}">{FormatEquity(request.Decision.NoDoubleEquity)}</text>""");
+        y += lineH + 2;
+
+        y = AppendCubePercentages(sb, textX, y, lineH, labelFontSize, dimColor,
+            request.Decision.WinPctAfterNoDouble,
+            request.Decision.GammonPctAfterNoDouble,
+            request.Decision.BgPctAfterNoDouble,
+            request.Decision.LosePctAfterNoDouble,
+            request.Decision.LoseGammonPctAfterNoDouble,
+            request.Decision.LoseBgPctAfterNoDouble);
+
+        y += 6;
+
+        // ── Double/Take section ────────────────────────────────────────
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + lineH * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{textColor}">Double/Take</text>""");
+        sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(y + lineH * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{textColor}">{FormatEquity(request.Decision.DoubleTakeEquity)}</text>""");
+        y += lineH + 2;
+
+        y = AppendCubePercentages(sb, textX, y, lineH, labelFontSize, dimColor,
+            request.Decision.WinPctAfterDoubleTake,
+            request.Decision.GammonPctAfterDoubleTake,
+            request.Decision.BgPctAfterDoubleTake,
+            request.Decision.LosePctAfterDoubleTake,
+            request.Decision.LoseGammonPctAfterDoubleTake,
+            request.Decision.LoseBgPctAfterDoubleTake);
+
+        y += 8;
+
+        // ── Probability of opponent error ──────────────────────────────
+        double probErr = request.Decision.ProbOfOpponentErrorJustifyingDouble;
+        if (probErr > 0)
+        {
+            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + lineH * 0.8)}" font-family="sans-serif" font-size="{F(labelFontSize)}" fill="{dimColor}">Opp. Error to Justify Double</text>""");
+            y += lineH;
+            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + lineH * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{textColor}">{F(probErr * 100)}%</text>""");
+        }
+
+        // Analysis depth
+        AppendAnalysisDepths(sb, px, pw, ph, dimColor, request, labelFontSize);
+    }
+
+    static private double AppendCubePercentages(StringBuilder sb, double textX, 
+        double y, double lineH, double fontSize, string color,
+        double win, double gammon, double bg,
+        double lose, double loseGammon, double loseBg)
+    {
+        // Win line
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + lineH * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">Win  {win:F1}%   G {gammon:F1}%   BG {bg:F1}%</text>""");
+        y += lineH;
+
+        // Lose line
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + lineH * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">Lose {lose:F1}%   G {loseGammon:F1}%   BG {loseBg:F1}%</text>""");
+        y += lineH;
+
+        return y;
+    }
+
+    // -----------------------------------------------------------------------
+    //  Cube action determination
+    // -----------------------------------------------------------------------
+
+    private static string DetermineCubeAction(DecisionData d)
+    {
+        double nd = d.NoDoubleEquity;
+        double dt = d.DoubleTakeEquity;
+        const double dp = 1.0; // Double/Pass equity is always 1.0
+
+        if (nd >= dp)
+            return "Too Good to Double";
+        if (dt > nd && dt >= dp)
+            return "Double, Pass";
+        if (dt > nd)
+            return "Double, Take";
+        return "No Double";
+    }
+
+    // -----------------------------------------------------------------------
+    //  Analysis depths (shared by play and cube panels)
+    // -----------------------------------------------------------------------
+
+    static private void AppendAnalysisDepths(StringBuilder sb, double px, double pw, double? ph,
+        string color, DiagramRequest request, double fontSize)
+    {
+        var depths = request.Decision.AnalysisDepths;
+        if (depths.Count == 0) return;
+
+        // Position at bottom of panel if ph is provided, otherwise at current y
+        double y = ph.HasValue ? ph.Value - 6 - depths.Count * 12 : 0;
+        if (y < 0) return;
+
+        double centreX = px + pw / 2;
+        foreach (var depth in depths)
+        {
+            sb.AppendLine($"""  <text x="{F(centreX)}" y="{F(y + 10)}" text-anchor="middle" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{Escape(depth.Label)}</text>""");
+            y += 12;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    //  Equity formatting
+    // -----------------------------------------------------------------------
+
+    private static string FormatEquity(double equity)
+    {
+        string sign = equity >= 0 ? "+" : "";
+        return $"{sign}{equity:F3}";
+    }
+
+    private static string FormatEquityLoss(double loss)
+    {
+        return $"-{loss:F3}";
     }
 
     // -----------------------------------------------------------------------
@@ -483,9 +708,19 @@ public class DiagramRenderer
         hex = hex.TrimStart('#');
         if (hex.Length != 6)
             throw new ArgumentException($"Theme color must be a 6-character hex value, got '{hex}'.");
-        int r = (int)(int.Parse(hex[..2], System.Globalization.NumberStyles.HexNumber) * (1 - factor));
-        int g = (int)(int.Parse(hex[2..4], System.Globalization.NumberStyles.HexNumber) * (1 - factor));
-        int b = (int)(int.Parse(hex[4..6], System.Globalization.NumberStyles.HexNumber) * (1 - factor));
+        int r = Math.Clamp((int)(int.Parse(hex[..2], System.Globalization.NumberStyles.HexNumber) * (1 - factor)), 0, 255);
+        int g = Math.Clamp((int)(int.Parse(hex[2..4], System.Globalization.NumberStyles.HexNumber) * (1 - factor)), 0, 255);
+        int b = Math.Clamp((int)(int.Parse(hex[4..6], System.Globalization.NumberStyles.HexNumber) * (1 - factor)), 0, 255);
         return $"#{r:X2}{g:X2}{b:X2}";
+    }
+    private static string ContrastText(string bgHex)
+    {
+        bgHex = bgHex.TrimStart('#');
+        int r = int.Parse(bgHex[..2], System.Globalization.NumberStyles.HexNumber);
+        int g = int.Parse(bgHex[2..4], System.Globalization.NumberStyles.HexNumber);
+        int b = int.Parse(bgHex[4..6], System.Globalization.NumberStyles.HexNumber);
+        // Relative luminance (ITU-R BT.709)
+        double luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
+        return luminance > 0.5 ? "#1A1A1A" : "#F0F0F0";
     }
 }

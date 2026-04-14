@@ -34,7 +34,7 @@ public class DecisionDataDiagramTests
         var play = decisions.First(d => !d.Decision.IsCube);
         var cube = decisions.First(d => d.Decision.IsCube);
 
-        // ── Build DiagramRequests ──────────────────────────────────────
+        // ── Build DiagramRequests (panel left — default) ──────────────
         var playRequest = FromDecisionData(play);
         var cubeRequest = FromDecisionData(cube);
 
@@ -45,21 +45,40 @@ public class DecisionDataDiagramTests
         var names = new[] { "ajhh_play_problem", "ajhh_play_solution",
                             "ajhh_cube_problem", "ajhh_cube_solution" };
 
-        var renderer = new DiagramRenderer();
+        // ── Build DiagramRequests (panel right) ───────────────────────
+        var playRequestR = FromDecisionData(play, analysisPanelPosition: PanelPosition.Right);
+        var cubeRequestR = FromDecisionData(cube, analysisPanelPosition: PanelPosition.Right);
+
+        var (playProblemR, playSolutionR) = playRequestR.ToProblemSolutionPair();
+        var (cubeProblemR, cubeSolutionR) = cubeRequestR.ToProblemSolutionPair();
+
+        var rightRequests = new[] { playProblemR, playSolutionR, cubeProblemR, cubeSolutionR };
+        var rightNames = new[] { "ajhh_play_problem_right", "ajhh_play_solution_right",
+                                 "ajhh_cube_problem_right", "ajhh_cube_solution_right" };
+
         var options = TestFixtures.DefaultOptions();
 
         // ── SVG output ─────────────────────────────────────────────────
         for (int i = 0; i < allRequests.Length; i++)
         {
-            var svg = renderer.RenderSvg(allRequests[i], options);
+            var svg = DiagramRenderer.RenderSvg(allRequests[i], options);
             Assert.Contains("<svg", svg);
             Assert.Contains("<circle", svg);
             var path = TestPaths.SvgOutputPath($"{names[i]}.svg");
             File.WriteAllText(path, svg);
             Assert.True(File.Exists(path));
         }
+        for (int i = 0; i < rightRequests.Length; i++)
+        {
+            var svg = DiagramRenderer.RenderSvg(rightRequests[i], options);
+            Assert.Contains("<svg", svg);
+            var path = TestPaths.SvgOutputPath($"{rightNames[i]}.svg");
+            File.WriteAllText(path, svg);
+            Assert.True(File.Exists(path));
+        }
 
         // ── PNG output ─────────────────────────────────────────────────
+        var renderer = new DiagramRenderer();
         for (int i = 0; i < allRequests.Length; i++)
         {
             var png = renderer.RenderPng(allRequests[i], options);
@@ -68,15 +87,24 @@ public class DecisionDataDiagramTests
             File.WriteAllBytes(path, png);
             Assert.True(File.Exists(path));
         }
+        for (int i = 0; i < rightRequests.Length; i++)
+        {
+            var png = renderer.RenderPng(rightRequests[i], options);
+            Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
+            var path = TestPaths.PngOutputPath($"{rightNames[i]}.png");
+            File.WriteAllBytes(path, png);
+            Assert.True(File.Exists(path));
+        }
 
-        // ── PPTX output (all 4 slides) ────────────────────────────────
-        var pptx = renderer.RenderPptx(allRequests, options);
+        // ── PPTX output (all 8 slides) ────────────────────────────────
+        var allCombined = allRequests.Concat(rightRequests).ToArray();
+        var pptx = renderer.RenderPptx(allCombined, options);
         var pptxPath = TestPaths.PptxOutputPath("ajhh_all.pptx");
         File.WriteAllBytes(pptxPath, pptx);
         Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
 
-        // ── PDF output (all 4 pages) ───────────────────────────────────
-        var pdf = renderer.RenderPdf(allRequests, options);
+        // ── PDF output (all 8 pages) ───────────────────────────────────
+        var pdf = renderer.RenderPdf(allCombined, options);
         var pdfPath = TestPaths.PdfOutputPath("ajhh_all.pdf");
         File.WriteAllBytes(pdfPath, pdf);
         Assert.True(pdf.Length > 1_000, $"PDF too small: {pdf.Length} bytes");

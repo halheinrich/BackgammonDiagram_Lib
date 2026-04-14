@@ -10,4 +10,5 @@ public class GreyscaleTheme : ITheme
     public string CheckerColorOpponent => "#EEEEEE";
     public string DiceColor => "#FFFFFF";
     public string TextColor => "#000000";
+    public string PanelBackgroundColor => "#E8E8E8";
 }

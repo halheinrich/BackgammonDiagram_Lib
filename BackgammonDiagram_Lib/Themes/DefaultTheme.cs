@@ -10,4 +10,5 @@ public class DefaultTheme : ITheme
     public string CheckerColorOpponent => "#F0F0F0";
     public string DiceColor          => "#FFFFFF";
     public string TextColor          => "#000000";
+    public string PanelBackgroundColor => "#FFFFFF";
 }

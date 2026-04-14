@@ -147,7 +147,7 @@ public class VisualOutputTests
     {
         var b = new DiagramRequest.Builder { HomeBoardOnRight = true, Dice = [1, 1] };
         var path = TestPaths.SvgOutputPath("cube_default_centered.svg");
-        File.WriteAllText(path, new DiagramRenderer().RenderSvg(b.Build(), TestFixtures.DefaultOptions()));
+        File.WriteAllText(path, DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions()));
         Assert.True(File.Exists(path));
     }
 

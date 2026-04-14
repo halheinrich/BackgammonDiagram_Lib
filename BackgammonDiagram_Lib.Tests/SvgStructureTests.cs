@@ -83,7 +83,7 @@ public class SvgStructureTests
     public void CubeOwnerDefault_IsCentered()
     {
         var b = new DiagramRequest.Builder { HomeBoardOnRight = true, Dice = [1, 1] };
-        var svg = new DiagramRenderer().RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        var svg =  DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
         var layout = BoardLayout.Default;
         double cubeSize = layout.LeftRailWidth * 0.7;
         double expectedY = layout.BoardHeight / 2 - cubeSize / 2;

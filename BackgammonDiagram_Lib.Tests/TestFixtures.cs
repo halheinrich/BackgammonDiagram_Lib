@@ -39,7 +39,7 @@ internal static class TestFixtures
         Theme = ThemeRegistry.Greyscale
     };
     public static string Render(DiagramRequest? req = null, DiagramOptions? opts = null)
-        => new DiagramRenderer().RenderSvg(req ?? MinimalRequest(), opts ?? DefaultOptions());
+        => DiagramRenderer.RenderSvg(req ?? MinimalRequest(), opts ?? DefaultOptions());
 
     public static int[] StartingMop()
     {
