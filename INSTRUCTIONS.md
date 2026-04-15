@@ -1,195 +1,252 @@
-# BackgammonDiagram_Lib — Project Instructions
+# BackgammonDiagram_Lib
 
-Part of the Backgammon tools ecosystem: https://github.com/halheinrich/backgammon
-
-## Repo
-
-https://github.com/halheinrich/BackgammonDiagram_Lib
-**Branch:** main
+> Session conventions: [`../CLAUDE.md`](../CLAUDE.md)
+> Umbrella status & dependency graph: [`../INSTRUCTIONS.md`](../INSTRUCTIONS.md)
+> Mission & principles: [`../VISION.md`](../VISION.md)
 
 ## Stack
 
-C# / .NET 10 / Class Library / Visual Studio 2026 / Windows
+C# / .NET 10 / Class Library / xUnit. Pure rendering — no user interaction, no game state.
 
 ## Solution
 
 `D:\Users\Hal\Documents\Visual Studio 2026\Projects\backgammon\BackgammonDiagram_Lib\BackgammonDiagram_Lib.slnx`
 
-## Purpose
+## Repo
 
-Pure rendering library. Takes a `DiagramRequest` and returns a board diagram as SVG, PNG, PDF,
-or PowerPoint. No user interaction, no game state — the caller owns all of that.
+https://github.com/halheinrich/BackgammonDiagram_Lib — branch `main`.
 
 ## Depends on
 
-* **BgDataTypes_Lib** — PositionData, DecisionData, DescriptiveData, CubeOwner, PlayCandidate, AnalysisDepthEntry
-* **SkiaSharp 3.119.2** — PNG rendering
-* **Svg.Skia 3.6.0** — SVG parsing/drawing for PNG pipeline
-* **QuestPDF 2026.2.3** — PDF rendering (MIT licensed)
-* **DocumentFormat.OpenXml 3.5.1** — PowerPoint output
-
-## Dependency files
-
-### BgDataTypes_Lib
-* BgDataTypes_Lib/PositionData.cs
-* BgDataTypes_Lib/DecisionData.cs
-* BgDataTypes_Lib/DescriptiveData.cs
-* BgDataTypes_Lib/CubeOwner.cs
-* BgDataTypes_Lib/PlayCandidate.cs
-* BgDataTypes_Lib/AnalysisDepthEntry.cs
-* BgDataTypes_Lib/BgDecisionData.cs
+- **BgDataTypes_Lib** — `PositionData`, `DecisionData`, `DescriptiveData`,
+  `CubeOwner`, `PlayCandidate`, `AnalysisDepthEntry`, `BgDecisionData`. The
+  whole shared type layer this library renders from.
+- **SkiaSharp** — PNG rasterization backend.
+- **Svg.Skia** — SVG parse/draw path used by the PNG pipeline.
+- **QuestPDF** — PDF layout and output (MIT licensed; license set by caller,
+  not this library).
+- **DocumentFormat.OpenXml** — PPTX generation.
 
 ## Directory tree
 
 ```
+BackgammonDiagram_Lib.slnx
 BackgammonDiagram_Lib/
-  BackgammonDiagram_Lib/
-    BackgammonDiagram_Lib.csproj
-    Models/
-      BoardHitRegions.cs
-      DiagramOptions.cs
-      DiagramRequest.cs
-      DiagramRequestExtensions.cs
-      DiagramSize.cs
-      Enums.cs
-      MathUtils.cs
-    Rendering/
-      BoardLayout.cs
-      DiagramRenderer.cs
-      ISvgRasterizer.cs
-      PdfBuilder.cs
-      PptxBuilder.cs
-      SkiaSharpRasterizer.cs
-    Themes/
-      CustomTheme.cs
-      DefaultTheme.cs
-      GreyscaleTheme.cs
-      ITheme.cs
-      ThemeRegistry.cs
-  BackgammonDiagram_Lib.Tests/
-    BackgammonDiagram_Lib.Tests.csproj
-    BoardLayoutTests.cs
-    ColourSchemeTests.cs
-    DiagramRequestBuilderTests.cs
-    HitRegionsTests.cs
-    PptxConformanceTests.cs
-    SvgStructureTests.cs
-    TestFixtures.cs
-    TestPaths.cs
-    VisualOutputTests.cs
-  BackgammonDiagram_Lib.slnx
-  CodeReview.md
+  BackgammonDiagram_Lib.csproj
+  Models/
+    BoardHitRegions.cs        — point/bar/cube/tray hit regions
+    DiagramOptions.cs         — record: ShowPipCount, Size, WatermarkText, Theme
+    DiagramRequest.cs         — immutable class + inner Builder
+    DiagramRequestExtensions.cs
+    DiagramSize.cs
+    Enums.cs                  — DiagramMode, AnalysisPanelPosition
+    MathUtils.cs
+  Rendering/
+    BoardLayout.cs            — geometry derived from CheckerRadius
+    DiagramRenderer.cs        — public entry points (RenderSvg/Png/Pdf/Pptx, GetHitRegions)
+    ISvgRasterizer.cs         — PNG backend abstraction
+    PdfBuilder.cs             — internal, QuestPDF-based
+    PptxBuilder.cs            — internal, OpenXml-based
+    SkiaSharpRasterizer.cs    — default ISvgRasterizer implementation
+  Themes/
+    CustomTheme.cs
+    DefaultTheme.cs
+    GreyscaleTheme.cs
+    ITheme.cs
+    ThemeRegistry.cs          — static Default / Greyscale
+BackgammonDiagram_Lib.Tests/
+  BackgammonDiagram_Lib.Tests.csproj
+  BoardLayoutTests.cs
+  ColourSchemeTests.cs
+  DiagramRequestBuilderTests.cs
+  HitRegionsTests.cs
+  PptxConformanceTests.cs
+  SvgStructureTests.cs
+  TestFixtures.cs
+  TestPaths.cs
+  VisualOutputTests.cs
 ```
 
 ## Architecture
 
 ### DiagramRequest
 
-Immutable class with inner `Builder`. Callers set flat fields on Builder; `Build()` constructs
-nested `PositionData`/`DecisionData`/`DescriptiveData` internally.
+Immutable class with a nested `Builder`. Callers set flat fields on the
+Builder; `Build()` constructs the nested `PositionData` / `DecisionData` /
+`DescriptiveData` internally, then validates:
 
-Validation at `Build()`:
-- Mop must be length 26
-- Dice must be length 2
-- IsCube=true → Dice must be [0,0]; IsCube=false → each die 1–6
-- CubeSize must be power of 2, 1–4096
+- `Mop` must be length 26.
+- `Dice` must be length 2.
+- `IsCube == true` → `Dice` must be `[0, 0]`.
+- `IsCube == false` → each die in `1..6`.
+- `CubeSize` must be a power of 2 in `1..4096`.
 
-Exposes: `Position` (PositionData), `Decision` (DecisionData), `Descriptive` (DescriptiveData),
-plus rendering fields: `HomeBoardOnRight`, `Mode`, `AnalysisPanelPosition`.
+Exposed properties: `Position` (PositionData), `Decision` (DecisionData),
+`Descriptive` (DescriptiveData), plus rendering-shape fields `HomeBoardOnRight`
+(bool, default `true`), `Mode` (DiagramMode), `AnalysisPanelPosition`.
 
-### DiagramOptions
+`Mop`, `Dice`, `Plays`, `AnalysisDepths` are defensively copied in and
+exposed as `IReadOnlyList<T>`. `BoardHitRegions.Points` is exposed as
+`IReadOnlyDictionary`. Builder's `CubeOwner` defaults to `CubeOwner.Centered`.
 
-Record: `ShowPipCount`, `DiagramSize Size`, `WatermarkText`, `ITheme Theme` (direct reference,
-no string lookup).
+`DiagramRequest` is constructed by clients from `BgDecisionData` plus
+rendering options — it is intentionally *not* produced by `ConvertXgToJson_Lib`.
 
 ### Diagram types
 
-- **Checker play** — board with dice; play list panel in Solution mode
-- **Cube decision** — board with cube indicator (no dice); cube analysis panel in Solution mode
-- Determined by `Decision.IsCube`
+Selected by `Decision.IsCube`:
+
+- **Checker play** — board with dice; play list panel in Solution mode.
+- **Cube decision** — board with cube indicator (no dice); cube analysis
+  panel in Solution mode.
 
 ### DiagramMode
 
-- `Problem` — board only
-- `Solution` — board + analysis panel always shown
+- `Problem` — board only.
+- `Solution` — board plus analysis panel.
 
-### Rendering API
+Problem and Solution diagrams have **identical overall dimensions**: the
+analysis panel region is always allocated, so swapping modes never reflows
+surrounding content.
 
-`RenderSvg`, `RenderPng`, `RenderPdf`, `RenderPptx` — each takes `(DiagramRequest, DiagramOptions)`.
-PDF and PPTX also accept `IEnumerable<DiagramRequest>` for multi-page/slide output.
+### BoardLayout
 
-### Board layout (BoardLayout struct)
+All geometry constants derive from `CheckerRadius` (default 14 px). The SVG
+viewBox is derived from layout totals. `HomeBoardOnRight` is a purely
+geometric reflection applied in `ColumnCentreX` — no data is flipped. Hot-path
+formatting uses `InvariantCulture` throughout `DiagramRenderer` to stay
+locale-safe.
 
-All constants derive from `CheckerRadius` (default 14px). ViewBox derived from layout totals.
-`HomeBoardOnRight` (bool, default true) — geometric reflection in `ColumnCentreX`.
+### Title and analysis panel
 
-### Hit regions
+The diagram title is rendered into the SVG itself as a title strip — a
+single source of truth. Neither `PdfBuilder` nor `PptxBuilder` stamps a
+title on top of the rendered page; they consume the SVG/PNG as-is.
 
-`GetHitRegions(DiagramRequest, DiagramOptions)` — returns `BoardHitRegions` with points,
-bar, cube, tray regions. DiagramRequest required for correct orientation mapping.
+`PanelBackgroundColor` is part of `ITheme`; `DefaultTheme` uses white.
+
+### Rail text
+
+The bottom/top rail shows away scores, the Crawford indicator when
+applicable, and "Money game" labels.
 
 ### Themes
 
-- `DefaultTheme`, `GreyscaleTheme`, `CustomTheme`
-- `ThemeRegistry`: static instances `Default` and `Greyscale`
-- `ITheme` interface
+`ITheme` interface, concrete implementations `DefaultTheme`, `GreyscaleTheme`,
+`CustomTheme`. `ThemeRegistry` exposes `Default` and `Greyscale` as static
+instances. `DiagramOptions.Theme` is a direct `ITheme` reference — there is
+no string-based lookup.
 
 ### PNG rasterization
 
-- `ISvgRasterizer` interface isolates SkiaSharp
-- `Svg.Skia`'s `Drawable.Bounds` unreliable — use `ParseViewBox` + `ClipRect`
-- `SKSvg` not IDisposable — never use `using`
-- `dominant-baseline` ignored — use `textY = centreY + fontSize * 0.35`
-
-### PPTX
-
-- `sldLayoutId` must be ≥ 2147483648 per OOXML spec
-- Post-processing fixes five OpenXml SDK quirks; six regression tests
+- `ISvgRasterizer` is the pluggable backend; `SkiaSharpRasterizer` is the
+  default implementation.
+- `Svg.Skia`'s `Drawable.Bounds` is unreliable — the rasterizer parses the
+  viewBox explicitly and uses `ClipRect` instead.
+- Layout avoids CSS stylesheets and complex SVG filters because `Svg.Skia`
+  has limited support for them.
+- Text vertical placement uses `textY = centreY + fontSize * 0.35` because
+  `dominant-baseline` is ignored by `Svg.Skia`.
 
 ### PDF
 
-- Each DiagramRequest → one page (PNG embedded via QuestPDF `FitArea()`)
-- Widescreen landscape 13.33" × 7.5" matching PPTX
-- `PdfBuilder` is internal static; callers set QuestPDF license themselves
+- Each `DiagramRequest` becomes one page; the page embeds the rendered PNG
+  via QuestPDF `FitArea()`.
+- Page size is widescreen landscape 13.33" × 7.5", matching the PPTX slide.
+- `PdfBuilder` is `internal static`. Callers own the QuestPDF license.
+  `DiagramRenderer.IsPdfSupported()` lets callers probe whether a license
+  has been configured before invoking `RenderPdf`.
+
+### PPTX
+
+- Each `DiagramRequest` becomes one slide.
+- `sldLayoutId` values must be `>= 2147483648` per the OOXML spec.
+- The builder post-processes the file to correct a handful of OpenXml SDK
+  quirks. Conformance regressions are guarded by `PptxConformanceTests`.
+
+### Hit regions
+
+`DiagramRenderer.GetHitRegions(DiagramRequest, DiagramOptions)` returns a
+`BoardHitRegions` with point, bar, cube, and tray rectangles. The
+`DiagramRequest` is required (not just `DiagramOptions`) because
+`HomeBoardOnRight` controls the orientation mapping.
 
 ### TestData
 
-- Shared at `backgammon\TestData`; `TestPaths._root` resolves 5 × `..`
-- SVG/PNG output to `TestData\svg\`, PPTX to `TestData\pptx\`, PDF to `TestData\pdf\`
-- Visual tests tagged `[Trait("Category", "Visual")]`
+Shared at `backgammon\TestData`. `TestPaths._root` resolves with five `..`
+segments from the test assembly. Output layout used by visual tests:
+`TestData\svg\`, `TestData\png\`, `TestData\pptx\`, `TestData\pdf\`. Visual
+tests carry `[Trait("Category", "Visual")]`.
 
-## Current status
+## Public API
 
-🔧 🔧 In progress — SVG, PNG, PDF, PPTX rendering functional; analysis panel implemented
-(play and cube); title baked into SVG; PanelBackgroundColor added to ITheme;
-rail text shows away scores and Crawford; BgDataTypes_Lib refactor complete;
-hit regions implemented; Builder pattern adopted
+### `DiagramRenderer`
 
-## Deferred
+```csharp
+// Static — no rasterizer needed.
+static string  RenderSvg   (DiagramRequest request, DiagramOptions options);
+static BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions options);
+static bool    IsPdfSupported();
 
-- Additional themes beyond Default and Greyscale
-- `FromBoard` / `FromXgid` factory methods on DiagramRequest
-- Animation
+// Instance — require an ISvgRasterizer.
+byte[] RenderPng (DiagramRequest  request,  DiagramOptions options);
+byte[] RenderPdf (DiagramRequest  request,  DiagramOptions options);
+byte[] RenderPdf (IEnumerable<DiagramRequest> requests, DiagramOptions options);
+byte[] RenderPptx(DiagramRequest  request,  DiagramOptions options);
+byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
+```
 
-## Key decisions
+PDF and PPTX accept `IEnumerable<DiagramRequest>` for multi-page / multi-slide
+output; a single request is handled by the scalar overload.
 
-* SVG is hand-rolled (no SVG library)
-* PNG uses SkiaSharp + Svg.Skia (NOT SkiaSharp.Svg)
-* `DiagramRequest` converted from `record` to immutable `class` with inner `Builder`
-* `DiagramOptions` is a record; `ITheme Theme` direct reference (no string lookup)
-* `ThemeRegistry` simplified to static instances; `Resolve(string)` removed
-* `HomeBoardOnRight` (bool) replaced `DiagramOrientation` enum
-* `HomeBoardOnRight` mirror is purely geometric reflection in `ColumnCentreX`
-* `Builder.CubeOwner` defaults to `CubeOwner.Centered` (enum zero `OnRoll` was wrong default)
-* `Mop`, `Dice`, `Plays`, `AnalysisDepths` defensively copied, exposed as `IReadOnlyList<T>`
-* `BoardHitRegions.Points` → `IReadOnlyDictionary`
-* `GetHitRegions` takes `(DiagramRequest, DiagramOptions)` — DiagramRequest needed for orientation
-* `EnsureLicense` removed from PdfBuilder; `IsPdfSupported()` added to DiagramRenderer
-* `F()` locale-safe via `InvariantCulture` throughout DiagramRenderer
-* `AppendCheckers` passes `request.HomeBoardOnRight` to `ColumnCentreX`
-* DiagramRequest is not produced by ConvertXgToJson_Lib — constructed by clients from BgDecisionData + rendering options
-* Avoid CSS stylesheets and complex SVG filters — Svg.Skia has limited support
-* Title rendered in SVG title strip (not by PptxBuilder/PdfBuilder) — single source of truth
-* `PanelBackgroundColor` added to `ITheme`; DefaultTheme uses white
-* `RenderSvg` and `GetHitRegions` are static methods; other `Render*` methods are instance (need rasterizer)
-* Problem and Solution diagrams have identical dimensions (panel space always allocated)
+### `DiagramRequest.Builder`
+
+Flat property setters for position, dice, cube, scores, plays, analysis
+depths, plus `HomeBoardOnRight`, `Mode`, `AnalysisPanelPosition`. `Build()`
+constructs the nested `BgDataTypes_Lib` records and validates. Throws on
+validation failure.
+
+### `DiagramOptions`
+
+```csharp
+record DiagramOptions(
+    bool         ShowPipCount,
+    DiagramSize  Size,
+    string?      WatermarkText,
+    ITheme       Theme);
+```
+
+### `ITheme` and `ThemeRegistry`
+
+`ITheme` exposes the palette consumed by `DiagramRenderer`, including
+`PanelBackgroundColor`. `ThemeRegistry.Default` and `ThemeRegistry.Greyscale`
+are singleton instances; `CustomTheme` is available for callers that want
+to supply their own palette.
+
+## Pitfalls
+
+- **QuestPDF license is the caller's responsibility.** `PdfBuilder` does not
+  call `EnsureLicense`. Use `DiagramRenderer.IsPdfSupported()` to probe before
+  `RenderPdf` in environments where the license may not be set.
+- **`Svg.Skia.Drawable.Bounds` lies.** Anywhere you need the SVG's visible
+  extent in the PNG path, parse the viewBox yourself and `ClipRect`.
+- **`SKSvg` is not `IDisposable`.** Never wrap it in `using` — the compiler
+  will not stop you, but disposal will break.
+- **`dominant-baseline` is ignored by Svg.Skia.** Compute text vertical
+  placement manually (`centreY + fontSize * 0.35`).
+- **CSS stylesheets and complex SVG filters are unsupported by Svg.Skia.**
+  Keep the generated SVG using inline attributes and primitive shapes.
+- **`sldLayoutId < 2147483648` produces invalid PPTX.** The OOXML spec
+  requires values in the reserved range; OpenXml SDK will not enforce it.
+- **`HomeBoardOnRight` is geometry, not data.** The board array is never
+  flipped; only `ColumnCentreX` mirrors. Anything that reaches into `Points`
+  by index must use the unflipped convention.
+- **Locale-dependent `ToString`.** All numeric formatting in the renderer
+  must go through `InvariantCulture` — commas for decimals in some locales
+  would produce broken SVG.
+
+## Subproject-internal next steps
+
+- Additional themes beyond `Default` and `Greyscale`.
+- `FromBoard` / `FromXgid` factory methods on `DiagramRequest`.
+- Animation support.
