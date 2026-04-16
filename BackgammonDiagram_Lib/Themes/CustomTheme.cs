@@ -1,7 +1,7 @@
 ﻿namespace BackgammonDiagram_Lib.Themes;
 
 /// <summary>
-/// A caller-supplied colour palette. All seven colours are required.
+/// A caller-supplied colour palette. All eight colours are required.
 /// Each value must be a valid CSS hex colour: #RGB or #RRGGBB.
 /// </summary>
 public partial record CustomTheme : ITheme
@@ -27,7 +27,7 @@ public partial record CustomTheme : ITheme
         string checkerColorOpponent,
         string diceColor,
         string textColor,
-        string panelBackgroundColor = "#FFFFFF",
+        string panelBackgroundColor,
         string name = "Custom")
     {
         Name = name;

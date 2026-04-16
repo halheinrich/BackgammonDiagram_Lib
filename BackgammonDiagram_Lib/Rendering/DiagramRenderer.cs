@@ -526,7 +526,7 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
         double ph = layout.BoardHeight;
         string panelBg = theme.PanelBackgroundColor;
         string panelText = ContrastText(panelBg);
-        string dimText = Darken(panelText, -0.3);
+        string dimText = Lighten(panelText, 0.3);
 
         // Panel background
         sb.AppendLine($"""  <rect x="{F(px)}" y="0" width="{F(pw)}" height="{F(ph)}" fill="{panelBg}"/>""");
@@ -747,14 +747,30 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
         .Replace(">", "&gt;")
         .Replace("\"", "&quot;");
 
+    /// <summary>Darken a 6-char hex colour by the given factor (0..1).</summary>
     private static string Darken(string hex, double factor)
+    {
+        if (factor < 0)
+            throw new ArgumentOutOfRangeException(nameof(factor), "Use Lighten() for negative factors.");
+        return ScaleRgb(hex, 1.0 - factor);
+    }
+
+    /// <summary>Lighten a 6-char hex colour by the given factor (0..).</summary>
+    private static string Lighten(string hex, double factor)
+    {
+        if (factor < 0)
+            throw new ArgumentOutOfRangeException(nameof(factor), "Use Darken() for negative factors.");
+        return ScaleRgb(hex, 1.0 + factor);
+    }
+
+    private static string ScaleRgb(string hex, double scale)
     {
         hex = hex.TrimStart('#');
         if (hex.Length != 6)
             throw new ArgumentException($"Theme color must be a 6-character hex value, got '{hex}'.");
-        int r = Math.Clamp((int)(int.Parse(hex[..2], System.Globalization.NumberStyles.HexNumber) * (1 - factor)), 0, 255);
-        int g = Math.Clamp((int)(int.Parse(hex[2..4], System.Globalization.NumberStyles.HexNumber) * (1 - factor)), 0, 255);
-        int b = Math.Clamp((int)(int.Parse(hex[4..6], System.Globalization.NumberStyles.HexNumber) * (1 - factor)), 0, 255);
+        int r = Math.Clamp((int)(int.Parse(hex[..2], System.Globalization.NumberStyles.HexNumber) * scale), 0, 255);
+        int g = Math.Clamp((int)(int.Parse(hex[2..4], System.Globalization.NumberStyles.HexNumber) * scale), 0, 255);
+        int b = Math.Clamp((int)(int.Parse(hex[4..6], System.Globalization.NumberStyles.HexNumber) * scale), 0, 255);
         return $"#{r:X2}{g:X2}{b:X2}";
     }
     private static string ContrastText(string bgHex)

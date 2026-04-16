@@ -105,7 +105,8 @@ public class ColourSchemeTests
             checkerColorOnRoll: "#111111",
             checkerColorOpponent: "#EEEEEE",
             diceColor: "#FFFFFF",
-            textColor: "#000000"));
+            textColor: "#000000",
+            panelBackgroundColor: "#FFFFFF"));
     }
 
     [Fact]
@@ -119,7 +120,8 @@ public class ColourSchemeTests
             checkerColorOnRoll: "#000",
             checkerColorOpponent: "#FFF",
             diceColor: "#FFF",
-            textColor: "#000");
+            textColor: "#000",
+            panelBackgroundColor: "#FFF");
         Assert.Equal("Custom", theme.Name);
     }
 
@@ -136,6 +138,7 @@ public class ColourSchemeTests
             checkerColorOpponent: "#F39C12",
             diceColor: "#FFFFFF",
             textColor: "#000000",
+            panelBackgroundColor: "#FFFFFF",
             name: "TestPalette");
 
         var svg = RenderWithCheckers(theme);
@@ -157,6 +160,7 @@ public class ColourSchemeTests
             checkerColorOpponent: "#F39C12",
             diceColor: "#FFFFFF",
             textColor: "#000000",
+            panelBackgroundColor: "#FFFFFF",
             name: "TestPalette");
 
         var b = TestFixtures.MinimalBuilder();

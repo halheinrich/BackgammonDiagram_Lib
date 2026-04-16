@@ -226,7 +226,7 @@ internal static class PptxBuilder
                 if (targetAttr is null) continue;
 
                 string target = targetAttr.Value;
-                if (!target.StartsWith('/')) continue; 
+                if (!target.StartsWith('/')) continue;  // already relative
 
                 // Convert absolute → relative to the owning directory
                 string absolute = target.TrimStart('/');
@@ -947,7 +947,7 @@ internal static class PptxBuilder
                 new A.PresetGeometry(new A.AdjustValueList())
                 { Preset = A.ShapeTypeValues.Rectangle }));
     }
-   
+
     // -----------------------------------------------------------------------
     //  Helpers
     // -----------------------------------------------------------------------
