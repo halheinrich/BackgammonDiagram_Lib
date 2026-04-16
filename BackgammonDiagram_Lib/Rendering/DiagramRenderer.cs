@@ -10,6 +10,18 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     private readonly ISvgRasterizer _rasterizer = rasterizer ?? new SkiaSharpRasterizer();
     private const double TitleStripHeight = 22;
 
+    /// <summary>
+    /// Equity when the opponent passes a double. Always 1.0 because cube
+    /// equities are normalised per cube — a pass forfeits exactly one cube
+    /// by definition, independent of match score or cube value.
+    /// </summary>
+    private const double PassEquity = 1.0;
+
+    // Analysis-panel layout constants (shared between play and cube panels)
+    private const double PanelMargin = 6;
+    private const double PanelLineHeight = 13;
+    private const double PanelFontSize = 9;
+
     // -----------------------------------------------------------------------
     //  Public API
     // -----------------------------------------------------------------------
@@ -18,7 +30,6 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     {
         var theme = options.Theme;
         var layout = BoardLayout.Default;
-        bool hasPanel = request.Mode == DiagramMode.Solution;
         bool panelOnLeft = request.AnalysisPanelPosition == PanelPosition.Left;
         bool hasTitle = !string.IsNullOrWhiteSpace(request.Descriptive.Title);
         double titleOffset = hasTitle ? TitleStripHeight : 0;
@@ -35,7 +46,7 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
         if (hasTitle)
             sb.AppendLine($"""  <g transform="translate(0,{F(titleOffset)})">""");
 
-        AppendBoard(sb, layout, theme, request, hasPanel, panelOnLeft);
+        AppendBoard(sb, layout, theme, request, panelOnLeft);
 
         if (hasTitle)
             sb.AppendLine("  </g>");
@@ -80,7 +91,7 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     /// Coordinates are in SVG viewBox space matching RenderSvg() output
     /// for a Problem-mode (no panel) diagram.
     /// </summary>
-    static public BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions options)
+    public static BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions options)
     {
         _ = options; // reserved for future use (e.g. theme-aware hit region sizing)
         var layout = BoardLayout.Default;
@@ -88,8 +99,14 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
 
         // No panel — hit regions are for interactive (Problem-mode) use
         const bool panelOnLeft = false;
+
+        // Title strip, if present, offsets all board-relative Y coords in the
+        // rendered SVG — hit regions must match.
+        bool hasTitle = !string.IsNullOrWhiteSpace(request.Descriptive.Title);
+        double titleOffset = hasTitle ? TitleStripHeight : 0;
+
         double totalWidth = layout.TotalWidth(withPanel: false);
-        double totalHeight = layout.BoardHeight;
+        double totalHeight = layout.BoardHeight + titleOffset;
 
         // --- Points 1–24 ---
         var points = new Dictionary<int, HitRect>(24);
@@ -104,13 +121,13 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
             if (pt >= 13)
             {
                 // Top points: triangle area only
-                y = layout.TopCheckerBaseY;
+                y = layout.TopCheckerBaseY + titleOffset;
                 h = layout.PointHeight;
             }
             else
             {
                 // Bottom points: triangle area only
-                y = layout.BottomCheckerBaseY;
+                y = layout.BottomCheckerBaseY + titleOffset;
                 h = layout.PointHeight;
             }
 
@@ -120,16 +137,16 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
         // --- Bar ---
         var bar = new HitRect(
             layout.BarX(panelOnLeft),
-            0,
+            titleOffset,
             layout.BarWidth,
-            totalHeight);
+            layout.BoardHeight);
 
         // --- Cube: full left-rail column (covers all possible cube positions) ---
         var cube = new HitRect(
             layout.LeftRailX(panelOnLeft),
-            0,
+            titleOffset,
             layout.LeftRailWidth,
-            totalHeight);
+            layout.BoardHeight);
 
         return new BoardHitRegions
         {
@@ -190,15 +207,17 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     //  Board
     // -----------------------------------------------------------------------
 
-    static private void AppendBoard(StringBuilder sb, BoardLayout layout, ITheme theme,
-        DiagramRequest request, bool hasPanel, bool panelOnLeft)
+    private static void AppendBoard(StringBuilder sb, BoardLayout layout, ITheme theme,
+        DiagramRequest request, bool panelOnLeft)
     {
         bool effectivePanelOnLeft = panelOnLeft;
         bool homeBoardOnRight = request.HomeBoardOnRight;
         double bx = layout.BoardOffsetX(effectivePanelOnLeft);
 
-        // Full canvas background — prevents transparent edges showing in PNG
-        sb.AppendLine($"""  <rect x="0" y="0" width="{F(layout.TotalWidth(hasPanel))}" height="{F(layout.BoardHeight)}" fill="{Darken(theme.BoardColor, 0.15)}"/>""");
+        // Full canvas background — prevents transparent edges showing in PNG.
+        // Must match viewBox width (always withPanel: true); in Problem mode the
+        // panel region is allocated but blank, and needs a background fill too.
+        sb.AppendLine($"""  <rect x="0" y="0" width="{F(layout.TotalWidth(withPanel: true))}" height="{F(layout.BoardHeight)}" fill="{Darken(theme.BoardColor, 0.15)}"/>""");
 
         sb.AppendLine($"""  <rect x="{F(bx)}" y="0" width="{F(layout.BoardWidth)}" height="{F(layout.BoardHeight)}" fill="{theme.BoardColor}"/>""");
 
@@ -220,24 +239,24 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     //  Rails
     // -----------------------------------------------------------------------
 
-    static private void AppendLeftRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx)
+    private static void AppendLeftRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx)
     {
         sb.AppendLine($"""  <rect x="{F(bx)}" y="0" width="{F(layout.LeftRailWidth)}" height="{F(layout.BoardHeight)}" fill="{Darken(theme.BoardColor, 0.15)}"/>""");
     }
 
-    static private void AppendRightRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx)
+    private static void AppendRightRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx)
     {
         double rx = bx + layout.LeftRailWidth + layout.HalfWidth * 2 + layout.BarWidth;
         sb.AppendLine($"""  <rect x="{F(rx)}" y="0" width="{F(layout.RightRailWidth)}" height="{F(layout.BoardHeight)}" fill="{Darken(theme.BoardColor, 0.15)}"/>""");
     }
 
-    static private void AppendBar(StringBuilder sb, BoardLayout layout, ITheme theme, double bx)
+    private static void AppendBar(StringBuilder sb, BoardLayout layout, ITheme theme, double bx)
     {
         double barX = bx + layout.LeftRailWidth + layout.HalfWidth;
         sb.AppendLine($"""  <rect x="{F(barX)}" y="0" width="{F(layout.BarWidth)}" height="{F(layout.BoardHeight)}" fill="{Darken(theme.BoardColor, 0.10)}"/>""");
     }
 
-    static private void AppendTopRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx,
+    private static void AppendTopRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx,
         DiagramRequest request)
     {
         double railWidth = layout.BoardWidth - layout.LeftRailWidth - layout.RightRailWidth;
@@ -258,7 +277,7 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
         sb.AppendLine($"""  <text x="{F(railX + railWidth - 8)}" y="{F(cy)}" dominant-baseline="central" text-anchor="end" font-family="sans-serif" font-size="12" fill="{railText}">{Escape(topPip)}</text>""");
     }
 
-    static private void AppendBottomRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx,
+    private static void AppendBottomRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx,
         DiagramRequest request)
     {
         double railWidth = layout.BoardWidth - layout.LeftRailWidth - layout.RightRailWidth;
@@ -283,7 +302,7 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     //  Points (triangles)
     // -----------------------------------------------------------------------
 
-    static private void AppendPoints(StringBuilder sb, BoardLayout layout, ITheme theme, bool panelOnLeft, bool homeBoardOnRight)
+    private static void AppendPoints(StringBuilder sb, BoardLayout layout, ITheme theme, bool panelOnLeft, bool homeBoardOnRight)
     {
         for (int pt = 1; pt <= 24; pt++)
         {
@@ -310,7 +329,7 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     //  Point numbers
     // -----------------------------------------------------------------------
 
-    static private void AppendPointNumbers(StringBuilder sb, BoardLayout layout, ITheme theme, bool panelOnLeft, bool homeBoardOnRight)
+    private static void AppendPointNumbers(StringBuilder sb, BoardLayout layout, ITheme theme, bool panelOnLeft, bool homeBoardOnRight)
     {
         for (int pt = 1; pt <= 24; pt++)
         {
@@ -333,7 +352,7 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     //  Checkers
     // -----------------------------------------------------------------------
 
-    static private void AppendCheckers(StringBuilder sb, BoardLayout layout, ITheme theme,
+    private static void AppendCheckers(StringBuilder sb, BoardLayout layout, ITheme theme,
         DiagramRequest request, bool panelOnLeft)
     {
         // Points 1–24
@@ -374,7 +393,7 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
         }
     }
 
-    static private void AppendCheckerStack(StringBuilder sb, BoardLayout layout, ITheme theme,
+    private static void AppendCheckerStack(StringBuilder sb, BoardLayout layout, ITheme theme,
             double cx, int abs, bool onRoll, bool bottomHalf,
             double? anchorCy = null, bool labelAtBase = false)
     {
@@ -410,7 +429,7 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     //  Dice
     // -----------------------------------------------------------------------
 
-    static private void AppendDice(StringBuilder sb, BoardLayout layout, ITheme theme,
+    private static void AppendDice(StringBuilder sb, BoardLayout layout, ITheme theme,
         DiagramRequest request, bool panelOnLeft)
     {
         double r = layout.CheckerRadius;
@@ -435,7 +454,7 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
         AppendDie(sb, theme, d2X, dY, size, rx, request.Decision.Dice[1]);
     }
 
-    static private void AppendDie(StringBuilder sb, ITheme theme,
+    private static void AppendDie(StringBuilder sb, ITheme theme,
         double x, double y, double size, double rx, int value)
     {
         // Face
@@ -471,7 +490,7 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     //  Cube
     // -----------------------------------------------------------------------
 
-    static private void AppendCube(StringBuilder sb, BoardLayout layout, ITheme theme,
+    private static void AppendCube(StringBuilder sb, BoardLayout layout, ITheme theme,
         double bx, DiagramRequest request)
     {
         double cubeSize = layout.LeftRailWidth * 0.7;
@@ -499,7 +518,7 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     //  Analysis panel
     // -----------------------------------------------------------------------
 
-    static private void AppendAnalysisPanel(StringBuilder sb, BoardLayout layout, ITheme theme,
+    private static void AppendAnalysisPanel(StringBuilder sb, BoardLayout layout, ITheme theme,
         DiagramRequest request, bool panelOnLeft)
     {
         double px = layout.PanelX(panelOnLeft);
@@ -525,27 +544,24 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     //  Play analysis panel
     // -----------------------------------------------------------------------
 
-    static private void AppendPlayPanel(StringBuilder sb, double px, double pw, double ph,
+    private static void AppendPlayPanel(StringBuilder sb, double px, double pw, double ph,
         string textColor, string dimColor, DiagramRequest request)
     {
-        double margin = 6;
-        double innerW = pw - margin * 2;
-        double y = margin;
-        double lineH = 13;
-        double boxH = lineH * 2 + 6; // two lines + padding
+        double innerW = pw - PanelMargin * 2;
+        double y = PanelMargin;
+        double boxH = PanelLineHeight * 2 + 6; // two lines + padding
         double boxGap = 3;
-        double fontSize = 9;
 
         // Header
-        sb.AppendLine($"""  <text x="{F(px + pw / 2)}" y="{F(y + lineH * 0.8)}" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="{textColor}">Checker Play</text>""");
-        y += lineH + 4;
+        sb.AppendLine($"""  <text x="{F(px + pw / 2)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="{textColor}">Checker Play</text>""");
+        y += PanelLineHeight + 4;
 
         var plays = request.Decision.Plays;
         if (plays.Count == 0) return;
 
         for (int i = 0; i < plays.Count; i++)
         {
-            if (y + boxH > ph - margin) break; // stop if no room
+            if (y + boxH > ph - PanelMargin) break; // stop if no room
 
             var play = plays[i];
             bool isBest = i == request.Decision.BestPlayIndex;
@@ -553,62 +569,60 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
 
             // Box background
             string boxBg = isBest ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
-            sb.AppendLine($"""  <rect x="{F(px + margin)}" y="{F(y)}" width="{F(innerW)}" height="{F(boxH)}" rx="2" fill="{boxBg}"/>""");
+            sb.AppendLine($"""  <rect x="{F(px + PanelMargin)}" y="{F(y)}" width="{F(innerW)}" height="{F(boxH)}" rx="2" fill="{boxBg}"/>""");
 
-            double textX = px + margin + 4;
-            double rightX = px + pw - margin - 4;
+            double textX = px + PanelMargin + 4;
+            double rightX = px + pw - PanelMargin - 4;
 
             // Line 1: rank + move notation + equity
-            double line1Y = y + lineH;
+            double line1Y = y + PanelLineHeight;
             string rankPrefix = isBest ? "\u265B " : isUser ? "\u2713 " : $"{i + 1}. ";
-            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(line1Y)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{textColor}">{Escape(rankPrefix + play.MoveNotation)}</text>""");
-            sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(line1Y)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{textColor}">{FormatEquity(play.Equity)}</text>""");
+            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(line1Y)}" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{textColor}">{Escape(rankPrefix + play.MoveNotation)}</text>""");
+            sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(line1Y)}" text-anchor="end" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{textColor}">{FormatEquity(play.Equity)}</text>""");
 
             // Line 2: equity loss (right-aligned)
-            double line2Y = y + lineH * 2;
+            double line2Y = y + PanelLineHeight * 2;
             if (play.EquityLoss.HasValue && play.EquityLoss.Value > 0)
             {
-                sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(line2Y)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">{FormatEquityLoss(play.EquityLoss.Value)}</text>""");
+                sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(line2Y)}" text-anchor="end" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{dimColor}">{FormatEquityLoss(play.EquityLoss.Value)}</text>""");
             }
 
             y += boxH + boxGap;
         }
 
         // Analysis depth at bottom if room
-        AppendAnalysisDepths(sb, px, pw, ph, dimColor, request, fontSize);
+        AppendAnalysisDepths(sb, px, pw, ph, dimColor, request, PanelFontSize);
     }
 
     // -----------------------------------------------------------------------
     //  Cube analysis panel
     // -----------------------------------------------------------------------
 
-    static private void AppendCubePanel(StringBuilder sb, double px, double pw, double ph,
+    private static void AppendCubePanel(StringBuilder sb, double px, double pw, double ph,
         string textColor, string dimColor, DiagramRequest request)
     {
-        double margin = 6;
-        double y = margin;
-        double lineH = 13;
-        double fontSize = 9;
-        double labelFontSize = 8;
-        double textX = px + margin + 4;
-        double rightX = px + pw - margin - 4;
+        const double LabelFontSize = 8;
+
+        double y = PanelMargin;
+        double textX = px + PanelMargin + 4;
+        double rightX = px + pw - PanelMargin - 4;
         double centreX = px + pw / 2;
 
         // Header
-        sb.AppendLine($"""  <text x="{F(centreX)}" y="{F(y + lineH * 0.8)}" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="{textColor}">Cube Decision</text>""");
-        y += lineH + 6;
+        sb.AppendLine($"""  <text x="{F(centreX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="{textColor}">Cube Decision</text>""");
+        y += PanelLineHeight + 6;
 
         // Proper cube action
         string action = DetermineCubeAction(request.Decision);
-        sb.AppendLine($"""  <text x="{F(centreX)}" y="{F(y + lineH * 0.8)}" text-anchor="middle" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{textColor}">{Escape(action)}</text>""");
-        y += lineH + 8;
+        sb.AppendLine($"""  <text x="{F(centreX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="middle" font-family="sans-serif" font-size="{F(PanelFontSize)}" font-weight="bold" fill="{textColor}">{Escape(action)}</text>""");
+        y += PanelLineHeight + 8;
 
         // ── No Double section ──────────────────────────────────────────
-        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + lineH * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{textColor}">No Double</text>""");
-        sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(y + lineH * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{textColor}">{FormatEquity(request.Decision.NoDoubleEquity)}</text>""");
-        y += lineH + 2;
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(PanelFontSize)}" font-weight="bold" fill="{textColor}">No Double</text>""");
+        sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{textColor}">{FormatEquity(request.Decision.NoDoubleEquity)}</text>""");
+        y += PanelLineHeight + 2;
 
-        y = AppendCubePercentages(sb, textX, y, lineH, labelFontSize, dimColor,
+        y = AppendCubePercentages(sb, textX, y, LabelFontSize, dimColor,
             request.Decision.WinPctAfterNoDouble,
             request.Decision.GammonPctAfterNoDouble,
             request.Decision.BgPctAfterNoDouble,
@@ -619,11 +633,11 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
         y += 6;
 
         // ── Double/Take section ────────────────────────────────────────
-        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + lineH * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{textColor}">Double/Take</text>""");
-        sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(y + lineH * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{textColor}">{FormatEquity(request.Decision.DoubleTakeEquity)}</text>""");
-        y += lineH + 2;
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(PanelFontSize)}" font-weight="bold" fill="{textColor}">Double/Take</text>""");
+        sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{textColor}">{FormatEquity(request.Decision.DoubleTakeEquity)}</text>""");
+        y += PanelLineHeight + 2;
 
-        y = AppendCubePercentages(sb, textX, y, lineH, labelFontSize, dimColor,
+        y = AppendCubePercentages(sb, textX, y, LabelFontSize, dimColor,
             request.Decision.WinPctAfterDoubleTake,
             request.Decision.GammonPctAfterDoubleTake,
             request.Decision.BgPctAfterDoubleTake,
@@ -637,27 +651,27 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
         double probErr = request.Decision.ProbOfOpponentErrorJustifyingDouble;
         if (probErr > 0)
         {
-            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + lineH * 0.8)}" font-family="sans-serif" font-size="{F(labelFontSize)}" fill="{dimColor}">Opp. Error to Justify Double</text>""");
-            y += lineH;
-            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + lineH * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{textColor}">{F(probErr * 100)}%</text>""");
+            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(LabelFontSize)}" fill="{dimColor}">Opp. Error to Justify Double</text>""");
+            y += PanelLineHeight;
+            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{textColor}">{F1(probErr * 100)}%</text>""");
         }
 
         // Analysis depth
-        AppendAnalysisDepths(sb, px, pw, ph, dimColor, request, labelFontSize);
+        AppendAnalysisDepths(sb, px, pw, ph, dimColor, request, LabelFontSize);
     }
 
-    static private double AppendCubePercentages(StringBuilder sb, double textX, 
-        double y, double lineH, double fontSize, string color,
+    private static double AppendCubePercentages(StringBuilder sb, double textX,
+        double y, double fontSize, string color,
         double win, double gammon, double bg,
         double lose, double loseGammon, double loseBg)
     {
         // Win line
-        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + lineH * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">Win  {win:F1}%   G {gammon:F1}%   BG {bg:F1}%</text>""");
-        y += lineH;
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">Win  {F1(win)}%   G {F1(gammon)}%   BG {F1(bg)}%</text>""");
+        y += PanelLineHeight;
 
         // Lose line
-        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + lineH * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">Lose {lose:F1}%   G {loseGammon:F1}%   BG {loseBg:F1}%</text>""");
-        y += lineH;
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">Lose {F1(lose)}%   G {F1(loseGammon)}%   BG {F1(loseBg)}%</text>""");
+        y += PanelLineHeight;
 
         return y;
     }
@@ -670,11 +684,10 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     {
         double nd = d.NoDoubleEquity;
         double dt = d.DoubleTakeEquity;
-        const double dp = 1.0; // Double/Pass equity is always 1.0
 
-        if (nd >= dp)
+        if (nd >= PassEquity)
             return "Too Good to Double";
-        if (dt > nd && dt >= dp)
+        if (dt > nd && dt >= PassEquity)
             return "Double, Pass";
         if (dt > nd)
             return "Double, Take";
@@ -685,15 +698,15 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     //  Analysis depths (shared by play and cube panels)
     // -----------------------------------------------------------------------
 
-    static private void AppendAnalysisDepths(StringBuilder sb, double px, double pw, double? ph,
+    private static void AppendAnalysisDepths(StringBuilder sb, double px, double pw, double ph,
         string color, DiagramRequest request, double fontSize)
     {
         var depths = request.Decision.AnalysisDepths;
         if (depths.Count == 0) return;
 
-        // Position at bottom of panel if ph is provided, otherwise at current y
-        double y = ph.HasValue ? ph.Value - 6 - depths.Count * 12 : 0;
-        if (y < 0) return;
+        // Position at bottom of panel, stacked upward.
+        double y = ph - 6 - depths.Count * 12;
+        if (y < 0) return; // panel too short — skip rather than overlap
 
         double centreX = px + pw / 2;
         foreach (var depth in depths)
@@ -710,12 +723,12 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     private static string FormatEquity(double equity)
     {
         string sign = equity >= 0 ? "+" : "";
-        return $"{sign}{equity:F3}";
+        return sign + equity.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static string FormatEquityLoss(double loss)
     {
-        return $"-{loss:F3}";
+        return "-" + loss.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     // -----------------------------------------------------------------------
@@ -723,6 +736,10 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
     // -----------------------------------------------------------------------
 
     private static string F(double v) => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    // Invariant 1-decimal format, used for percentages where "42.0%" looks
+    // better than the trimmed "42%" that F() would produce.
+    private static string F1(double v) => v.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
 
     private static string Escape(string s) => s
         .Replace("&", "&amp;")
@@ -755,8 +772,9 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
         string name = isOnRoll ? request.Descriptive.OnRollName : request.Descriptive.OpponentName;
         int matchLength = request.Descriptive.MatchLength;
 
+        // MatchLength == 0 is the money-game sentinel from DescriptiveData.
         if (matchLength == 0)
-            return $"{name} Money Game";
+            return $"{name} (money game)";
 
         int needs = isOnRoll ? request.Position.OnRollNeeds : request.Position.OpponentNeeds;
         string crawford = request.Position.IsCrawford ? " Crawford" : "";
