@@ -182,18 +182,26 @@ tests carry `[Trait("Category", "Visual")]`.
 
 ### `DiagramRenderer`
 
+`DiagramRenderer` is a `static class`. Every method is `public static`.
+There is no constructor; no instance state is held.
+
 ```csharp
-// Static — no rasterizer needed.
 static string  RenderSvg   (DiagramRequest request, DiagramOptions options);
 static BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions options);
 static bool    IsPdfSupported();
 
-// Instance — require an ISvgRasterizer.
-byte[] RenderPng (DiagramRequest  request,  DiagramOptions options);
-byte[] RenderPdf (DiagramRequest  request,  DiagramOptions options);
-byte[] RenderPdf (IEnumerable<DiagramRequest> requests, DiagramOptions options);
-byte[] RenderPptx(DiagramRequest  request,  DiagramOptions options);
-byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options);
+// Rasterization-backed formats take an optional ISvgRasterizer. When null
+// (the default), a shared SkiaSharpRasterizer is used.
+static byte[] RenderPng (DiagramRequest  request,  DiagramOptions options,
+                         ISvgRasterizer? rasterizer = null);
+static byte[] RenderPdf (DiagramRequest  request,  DiagramOptions options,
+                         ISvgRasterizer? rasterizer = null);
+static byte[] RenderPdf (IEnumerable<DiagramRequest> requests, DiagramOptions options,
+                         ISvgRasterizer? rasterizer = null);
+static byte[] RenderPptx(DiagramRequest  request,  DiagramOptions options,
+                         ISvgRasterizer? rasterizer = null);
+static byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options,
+                         ISvgRasterizer? rasterizer = null);
 ```
 
 PDF and PPTX accept `IEnumerable<DiagramRequest>` for multi-page / multi-slide

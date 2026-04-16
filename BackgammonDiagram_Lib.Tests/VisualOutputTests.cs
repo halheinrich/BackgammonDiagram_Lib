@@ -158,7 +158,7 @@ public class VisualOutputTests
     [Fact]
     public void Png_Default()
     {
-        var png = new DiagramRenderer().RenderPng(TestFixtures.MinimalRequest(), TestFixtures.DefaultOptions());
+        var png = DiagramRenderer.RenderPng(TestFixtures.MinimalRequest(), TestFixtures.DefaultOptions());
         var path = TestPaths.PngOutputPath("bg_default.png");
         File.WriteAllBytes(path, png);
         Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
@@ -167,7 +167,7 @@ public class VisualOutputTests
     [Fact]
     public void Png_Greyscale()
     {
-        var png = new DiagramRenderer().RenderPng(TestFixtures.MinimalRequest(), TestFixtures.GreyscaleOptions());
+        var png = DiagramRenderer.RenderPng(TestFixtures.MinimalRequest(), TestFixtures.GreyscaleOptions());
         var path = TestPaths.PngOutputPath("bg_greyscale.png");
         File.WriteAllBytes(path, png);
         Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
@@ -178,7 +178,7 @@ public class VisualOutputTests
     {
         var b = TestFixtures.MinimalBuilder();
         b.HomeBoardOnRight = false;
-        var png = new DiagramRenderer().RenderPng(b.Build(), TestFixtures.DefaultOptions());
+        var png = DiagramRenderer.RenderPng(b.Build(), TestFixtures.DefaultOptions());
         var path = TestPaths.PngOutputPath("bg_homeboardleft.png");
         File.WriteAllBytes(path, png);
         Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
@@ -189,7 +189,7 @@ public class VisualOutputTests
     {
         var b = TestFixtures.MinimalBuilder();
         b.Mop = TestFixtures.StartingMop();
-        var png = new DiagramRenderer().RenderPng(b.Build(), TestFixtures.DefaultOptions());
+        var png = DiagramRenderer.RenderPng(b.Build(), TestFixtures.DefaultOptions());
         var path = TestPaths.PngOutputPath("checkers_starting.png");
         File.WriteAllBytes(path, png);
         Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
@@ -201,7 +201,7 @@ public class VisualOutputTests
         var b = TestFixtures.MinimalBuilder();
         b.Mop = TestFixtures.StartingMop();
         b.Dice = [3, 1];
-        var png = new DiagramRenderer().RenderPng(b.Build(), TestFixtures.DefaultOptions());
+        var png = DiagramRenderer.RenderPng(b.Build(), TestFixtures.DefaultOptions());
         var path = TestPaths.PngOutputPath("dice_31.png");
         File.WriteAllBytes(path, png);
         Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
@@ -214,7 +214,7 @@ public class VisualOutputTests
     [Fact]
     public void Pptx_SingleSlide()
     {
-        var pptx = new DiagramRenderer().RenderPptx(TestFixtures.MinimalRequest(), TestFixtures.DefaultOptions());
+        var pptx = DiagramRenderer.RenderPptx(TestFixtures.MinimalRequest(), TestFixtures.DefaultOptions());
         var path = TestPaths.PptxOutputPath("bg_single.pptx");
         File.WriteAllBytes(path, pptx);
         Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
@@ -226,7 +226,7 @@ public class VisualOutputTests
         var b1 = TestFixtures.MinimalBuilder(); b1.Title = "Opening";
         var b2 = TestFixtures.MinimalBuilder(); b2.Mode = DiagramMode.Solution; b2.Title = "Opening \u2014 Solution";
 
-        var pptx = new DiagramRenderer().RenderPptx([b1.Build(), b2.Build()], TestFixtures.DefaultOptions());
+        var pptx = DiagramRenderer.RenderPptx([b1.Build(), b2.Build()], TestFixtures.DefaultOptions());
         var path = TestPaths.PptxOutputPath("bg_multi.pptx");
         File.WriteAllBytes(path, pptx);
         Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
@@ -237,7 +237,7 @@ public class VisualOutputTests
     {
         var b = TestFixtures.MinimalBuilder(); b.Title = "Position 1";
         var (problem, solution) = b.Build().ToProblemSolutionPair();
-        var pptx = new DiagramRenderer().RenderPptx([problem, solution], TestFixtures.DefaultOptions());
+        var pptx = DiagramRenderer.RenderPptx([problem, solution], TestFixtures.DefaultOptions());
         var path = TestPaths.PptxOutputPath("bg_pair.pptx");
         File.WriteAllBytes(path, pptx);
         Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
@@ -250,7 +250,7 @@ public class VisualOutputTests
     [Fact]
     public void Pdf_SinglePage()
     {
-        var pdf = new DiagramRenderer().RenderPdf(TestFixtures.MinimalRequest(), TestFixtures.DefaultOptions());
+        var pdf = DiagramRenderer.RenderPdf(TestFixtures.MinimalRequest(), TestFixtures.DefaultOptions());
         var path = TestPaths.PdfOutputPath("bg_single.pdf");
         File.WriteAllBytes(path, pdf);
         Assert.True(pdf.Length > 1_000, $"PDF too small: {pdf.Length} bytes");
@@ -261,7 +261,7 @@ public class VisualOutputTests
     {
         var b1 = TestFixtures.MinimalBuilder(); b1.Title = "Opening";
         var b2 = TestFixtures.MinimalBuilder(); b2.Mode = DiagramMode.Solution; b2.Title = "Opening \u2014 Solution";
-        var pdf = new DiagramRenderer().RenderPdf([b1.Build(), b2.Build()], TestFixtures.DefaultOptions());
+        var pdf = DiagramRenderer.RenderPdf([b1.Build(), b2.Build()], TestFixtures.DefaultOptions());
         var path = TestPaths.PdfOutputPath("bg_multi.pdf");
         File.WriteAllBytes(path, pdf);
         Assert.True(pdf.Length > 1_000, $"PDF too small: {pdf.Length} bytes");
@@ -272,7 +272,7 @@ public class VisualOutputTests
     {
         var b = TestFixtures.MinimalBuilder(); b.Title = "Position 1";
         var (problem, solution) = b.Build().ToProblemSolutionPair();
-        var pdf = new DiagramRenderer().RenderPdf([problem, solution], TestFixtures.DefaultOptions());
+        var pdf = DiagramRenderer.RenderPdf([problem, solution], TestFixtures.DefaultOptions());
         var path = TestPaths.PdfOutputPath("bg_pair.pdf");
         File.WriteAllBytes(path, pdf);
         Assert.True(pdf.Length > 1_000, $"PDF too small: {pdf.Length} bytes");

@@ -43,8 +43,7 @@ public class PptxConformanceTests
             Size = DiagramSize.Medium
         };
 
-        var renderer = new DiagramRenderer();
-        return renderer.RenderPptx(request, options);
+        return DiagramRenderer.RenderPptx(request, options);
     }
 
     private static ZipArchive OpenPptx(byte[] pptx)

@@ -87,11 +87,10 @@ public class DecisionDataDiagramTests
 
         var (requests, names) = LoadAndBuild(filename);
         var options = TestFixtures.DefaultOptions();
-        var renderer = new DiagramRenderer();
 
         for (int i = 0; i < requests.Length; i++)
         {
-            var png = renderer.RenderPng(requests[i], options);
+            var png = DiagramRenderer.RenderPng(requests[i], options);
             Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
             var path = TestPaths.PngOutputPath($"{names[i]}.png");
             File.WriteAllBytes(path, png);
@@ -107,9 +106,8 @@ public class DecisionDataDiagramTests
 
         var (requests, _) = LoadAndBuild(filename);
         var options = TestFixtures.DefaultOptions();
-        var renderer = new DiagramRenderer();
 
-        var pptx = renderer.RenderPptx(requests, options);
+        var pptx = DiagramRenderer.RenderPptx(requests, options);
         var outputName = Path.GetFileNameWithoutExtension(filename) + "_all.pptx";
         var path = TestPaths.PptxOutputPath(outputName);
         File.WriteAllBytes(path, pptx);
@@ -124,9 +122,8 @@ public class DecisionDataDiagramTests
 
         var (requests, _) = LoadAndBuild(filename);
         var options = TestFixtures.DefaultOptions();
-        var renderer = new DiagramRenderer();
 
-        var pdf = renderer.RenderPdf(requests, options);
+        var pdf = DiagramRenderer.RenderPdf(requests, options);
         var outputName = Path.GetFileNameWithoutExtension(filename) + "_all.pdf";
         var path = TestPaths.PdfOutputPath(outputName);
         File.WriteAllBytes(path, pdf);

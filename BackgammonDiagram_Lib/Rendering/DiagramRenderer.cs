@@ -5,9 +5,13 @@ using System.Text;
 
 namespace BackgammonDiagram_Lib.Rendering;
 
-public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
+public static class DiagramRenderer
 {
-    private readonly ISvgRasterizer _rasterizer = rasterizer ?? new SkiaSharpRasterizer();
+    // Built-in rasterizer used when callers don't supply one. SkiaSharpRasterizer
+    // construction is cheap (native Skia libs load lazily on first rasterize);
+    // a single shared readonly instance is safe — rasterization is stateless.
+    private static readonly SkiaSharpRasterizer s_defaultRasterizer = new();
+
     private const double TitleStripHeight = 22;
 
     /// <summary>
@@ -55,34 +59,39 @@ public class DiagramRenderer(ISvgRasterizer? rasterizer = null)
         return sb.ToString();
     }
 
-    public byte[] RenderPng(DiagramRequest request, DiagramOptions options)
+    public static byte[] RenderPng(DiagramRequest request, DiagramOptions options,
+        ISvgRasterizer? rasterizer = null)
     {
         var svg = RenderSvg(request, options);
         int targetWidth = ResolveTargetWidth(options.Size);
-        return _rasterizer.Rasterize(svg, targetWidth);
+        return (rasterizer ?? s_defaultRasterizer).Rasterize(svg, targetWidth);
     }
 
-    public byte[] RenderPdf(DiagramRequest request, DiagramOptions options)
+    public static byte[] RenderPdf(DiagramRequest request, DiagramOptions options,
+        ISvgRasterizer? rasterizer = null)
     {
-        var png = RenderPng(request, options);
+        var png = RenderPng(request, options, rasterizer);
         return PdfBuilder.Build([png]);
     }
 
-    public byte[] RenderPdf(IEnumerable<DiagramRequest> requests, DiagramOptions options)
+    public static byte[] RenderPdf(IEnumerable<DiagramRequest> requests, DiagramOptions options,
+        ISvgRasterizer? rasterizer = null)
     {
-        var pngs = requests.Select(r => RenderPng(r, options)).ToList();
+        var pngs = requests.Select(r => RenderPng(r, options, rasterizer)).ToList();
         return PdfBuilder.Build(pngs);
     }
 
-    public byte[] RenderPptx(DiagramRequest request, DiagramOptions options)
+    public static byte[] RenderPptx(DiagramRequest request, DiagramOptions options,
+        ISvgRasterizer? rasterizer = null)
     {
-        var png = RenderPng(request, options);
+        var png = RenderPng(request, options, rasterizer);
         return PptxBuilder.Build([png]);
     }
 
-    public byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options)
+    public static byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options,
+        ISvgRasterizer? rasterizer = null)
     {
-        var pngs = requests.Select(r => RenderPng(r, options)).ToList();
+        var pngs = requests.Select(r => RenderPng(r, options, rasterizer)).ToList();
         return PptxBuilder.Build(pngs);
     }
 

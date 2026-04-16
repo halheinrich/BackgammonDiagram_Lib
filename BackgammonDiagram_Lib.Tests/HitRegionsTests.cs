@@ -5,7 +5,6 @@ namespace BackgammonDiagram_Lib.Tests;
 
 public class HitRegionsTests
 {
-    private readonly DiagramRenderer _renderer = new();
     private readonly DiagramOptions _defaultOptions = new();
     private static DiagramRequest MinimalRequest()
     {
