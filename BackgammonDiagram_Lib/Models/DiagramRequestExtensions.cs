@@ -1,105 +1,29 @@
-﻿using BgDataTypes_Lib;
-
 namespace BackgammonDiagram_Lib;
 
 public static class DiagramRequestExtensions
 {
+    /// <summary>
+    /// Expands a single request into a matched Problem/Solution pair. Titles
+    /// are suffixed with " — Problem" / " — Solution" if the source request
+    /// has a non-empty Title; otherwise the suffix stands alone.
+    /// </summary>
     public static (DiagramRequest Problem, DiagramRequest Solution)
         ToProblemSolutionPair(this DiagramRequest request)
     {
         string? title = request.Descriptive.Title;
         string prefix = string.IsNullOrWhiteSpace(title) ? "" : title + " \u2014 ";
 
-        var problem = new DiagramRequest.Builder
-        {
-            Mop = request.Position.Mop.ToArray(),
-            OnRollNeeds = request.Position.OnRollNeeds,
-            OpponentNeeds = request.Position.OpponentNeeds,
-            OnRollPipCount = request.Position.OnRollPipCount,
-            OpponentPipCount = request.Position.OpponentPipCount,
-            CubeSize = request.Position.CubeSize,
-            CubeOwner = request.Position.CubeOwner,
-            IsCrawford = request.Position.IsCrawford,
-            IsCube = request.Decision.IsCube,
-            Dice = request.Decision.Dice.ToArray(),
-            Plays = new List<PlayCandidate>(request.Decision.Plays),
-            AnalysisDepths = new List<AnalysisDepthEntry>(request.Decision.AnalysisDepths),
-            BestPlayIndex = request.Decision.BestPlayIndex,
-            UserPlayIndex = request.Decision.UserPlayIndex,
-            NoDoubleEquity = request.Decision.NoDoubleEquity,
-            DoubleTakeEquity = request.Decision.DoubleTakeEquity,
-            WinPctAfterNoDouble = request.Decision.WinPctAfterNoDouble,
-            GammonPctAfterNoDouble = request.Decision.GammonPctAfterNoDouble,
-            BgPctAfterNoDouble = request.Decision.BgPctAfterNoDouble,
-            LosePctAfterNoDouble = request.Decision.LosePctAfterNoDouble,
-            LoseGammonPctAfterNoDouble = request.Decision.LoseGammonPctAfterNoDouble,
-            LoseBgPctAfterNoDouble = request.Decision.LoseBgPctAfterNoDouble,
-            WinPctAfterDoubleTake = request.Decision.WinPctAfterDoubleTake,
-            GammonPctAfterDoubleTake = request.Decision.GammonPctAfterDoubleTake,
-            BgPctAfterDoubleTake = request.Decision.BgPctAfterDoubleTake,
-            LosePctAfterDoubleTake = request.Decision.LosePctAfterDoubleTake,
-            LoseGammonPctAfterDoubleTake = request.Decision.LoseGammonPctAfterDoubleTake,
-            LoseBgPctAfterDoubleTake = request.Decision.LoseBgPctAfterDoubleTake,
-            ProbOfOpponentErrorJustifyingDouble = request.Decision.ProbOfOpponentErrorJustifyingDouble,
-            UserDoubleError = request.Decision.UserDoubleError,
-            UserTakeError = request.Decision.UserTakeError,
-            OnRollName = request.Descriptive.OnRollName,
-            OpponentName = request.Descriptive.OpponentName,
-            MatchLength = request.Descriptive.MatchLength,
-            Date = request.Descriptive.Date,
-            Event = request.Descriptive.Event,
-            HomeBoardOnRight = request.HomeBoardOnRight,
-            OnRollAtBottom = request.OnRollAtBottom,
-            AnalysisPanelPosition = request.AnalysisPanelPosition,
-            Mode = DiagramMode.Problem,
-            Title = prefix + "Problem",
-        }.Build();
+        // Builder.From handles the full field mapping — this extension just
+        // flips the Mode and swaps the Title. Adding a new DiagramRequest
+        // field only requires updating Builder.From, not this method.
+        var problemBuilder = DiagramRequest.Builder.From(request);
+        problemBuilder.Mode = DiagramMode.Problem;
+        problemBuilder.Title = prefix + "Problem";
 
-        var solution = new DiagramRequest.Builder
-        {
-            Mop = request.Position.Mop.ToArray(),
-            OnRollNeeds = request.Position.OnRollNeeds,
-            OpponentNeeds = request.Position.OpponentNeeds,
-            OnRollPipCount = request.Position.OnRollPipCount,
-            OpponentPipCount = request.Position.OpponentPipCount,
-            CubeSize = request.Position.CubeSize,
-            CubeOwner = request.Position.CubeOwner,
-            IsCrawford = request.Position.IsCrawford,
-            IsCube = request.Decision.IsCube,
-            Dice = request.Decision.Dice.ToArray(),
-            Plays = new List<PlayCandidate>(request.Decision.Plays),
-            AnalysisDepths = new List<AnalysisDepthEntry>(request.Decision.AnalysisDepths),
-            BestPlayIndex = request.Decision.BestPlayIndex,
-            UserPlayIndex = request.Decision.UserPlayIndex,
-            NoDoubleEquity = request.Decision.NoDoubleEquity,
-            DoubleTakeEquity = request.Decision.DoubleTakeEquity,
-            WinPctAfterNoDouble = request.Decision.WinPctAfterNoDouble,
-            GammonPctAfterNoDouble = request.Decision.GammonPctAfterNoDouble,
-            BgPctAfterNoDouble = request.Decision.BgPctAfterNoDouble,
-            LosePctAfterNoDouble = request.Decision.LosePctAfterNoDouble,
-            LoseGammonPctAfterNoDouble = request.Decision.LoseGammonPctAfterNoDouble,
-            LoseBgPctAfterNoDouble = request.Decision.LoseBgPctAfterNoDouble,
-            WinPctAfterDoubleTake = request.Decision.WinPctAfterDoubleTake,
-            GammonPctAfterDoubleTake = request.Decision.GammonPctAfterDoubleTake,
-            BgPctAfterDoubleTake = request.Decision.BgPctAfterDoubleTake,
-            LosePctAfterDoubleTake = request.Decision.LosePctAfterDoubleTake,
-            LoseGammonPctAfterDoubleTake = request.Decision.LoseGammonPctAfterDoubleTake,
-            LoseBgPctAfterDoubleTake = request.Decision.LoseBgPctAfterDoubleTake,
-            ProbOfOpponentErrorJustifyingDouble = request.Decision.ProbOfOpponentErrorJustifyingDouble,
-            UserDoubleError = request.Decision.UserDoubleError,
-            UserTakeError = request.Decision.UserTakeError,
-            OnRollName = request.Descriptive.OnRollName,
-            OpponentName = request.Descriptive.OpponentName,
-            MatchLength = request.Descriptive.MatchLength,
-            Date = request.Descriptive.Date,
-            Event = request.Descriptive.Event,
-            HomeBoardOnRight = request.HomeBoardOnRight,
-            OnRollAtBottom = request.OnRollAtBottom,
-            AnalysisPanelPosition = request.AnalysisPanelPosition,
-            Mode = DiagramMode.Solution,
-            Title = prefix + "Solution",
-        }.Build();
+        var solutionBuilder = DiagramRequest.Builder.From(request);
+        solutionBuilder.Mode = DiagramMode.Solution;
+        solutionBuilder.Title = prefix + "Solution";
 
-        return (problem, solution);
+        return (problemBuilder.Build(), solutionBuilder.Build());
     }
 }

@@ -17,6 +17,28 @@ public class DiagramRequest
     public PanelPosition AnalysisPanelPosition { get; init; }
 
     // -----------------------------------------------------------------------
+    //  Factory: BgDecisionData → DiagramRequest
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Builds a DiagramRequest from a <see cref="BgDecisionData"/> plus the
+    /// renderer-specific parameters that aren't carried by the data layer
+    /// (display mode, board orientation, panel side). This is the single
+    /// canonical mapping — callers (tests, Blazor apps, PPTX exporters)
+    /// should use this rather than open-coding the field-for-field copy.
+    /// </summary>
+    public static DiagramRequest FromDecisionData(
+        BgDecisionData data,
+        DiagramMode mode = DiagramMode.Solution,
+        bool homeBoardOnRight = true,
+        bool onRollAtBottom = true,
+        PanelPosition analysisPanelPosition = PanelPosition.Left)
+    {
+        return Builder.From(data.Position, data.Decision, data.Descriptive,
+            mode, homeBoardOnRight, onRollAtBottom, analysisPanelPosition).Build();
+    }
+
+    // -----------------------------------------------------------------------
     //  Builder
     // -----------------------------------------------------------------------
 
@@ -82,6 +104,91 @@ public class DiagramRequest
         public bool HomeBoardOnRight { get; set; } = true;
         public bool OnRollAtBottom { get; set; } = true;
         public PanelPosition AnalysisPanelPosition { get; set; }
+
+        // -------------------------------------------------------------------
+        //  Factories — single field-mapping site for data → builder
+        // -------------------------------------------------------------------
+
+        /// <summary>
+        /// Starts a Builder pre-populated from the three BgDataTypes_Lib
+        /// records plus renderer-specific parameters. This is the single
+        /// canonical site for the data-layer → rendering-layer field
+        /// mapping — every field BackgammonDiagram_Lib cares about is set
+        /// here, so adding a new DecisionData/PositionData field only
+        /// requires one edit.
+        /// </summary>
+        public static Builder From(
+            PositionData position,
+            DecisionData decision,
+            DescriptiveData descriptive,
+            DiagramMode mode = DiagramMode.Solution,
+            bool homeBoardOnRight = true,
+            bool onRollAtBottom = true,
+            PanelPosition analysisPanelPosition = PanelPosition.Left)
+        {
+            return new Builder
+            {
+                // Position
+                Mop = position.Mop.ToArray(),
+                OnRollNeeds = position.OnRollNeeds,
+                OpponentNeeds = position.OpponentNeeds,
+                OnRollPipCount = position.OnRollPipCount,
+                OpponentPipCount = position.OpponentPipCount,
+                CubeSize = position.CubeSize,
+                CubeOwner = position.CubeOwner,
+                IsCrawford = position.IsCrawford,
+
+                // Decision
+                IsCube = decision.IsCube,
+                Dice = decision.Dice.ToArray(),
+                Plays = new List<PlayCandidate>(decision.Plays),
+                AnalysisDepths = new List<AnalysisDepthEntry>(decision.AnalysisDepths),
+                BestPlayIndex = decision.BestPlayIndex,
+                UserPlayIndex = decision.UserPlayIndex,
+                NoDoubleEquity = decision.NoDoubleEquity,
+                DoubleTakeEquity = decision.DoubleTakeEquity,
+                WinPctAfterNoDouble = decision.WinPctAfterNoDouble,
+                GammonPctAfterNoDouble = decision.GammonPctAfterNoDouble,
+                BgPctAfterNoDouble = decision.BgPctAfterNoDouble,
+                LosePctAfterNoDouble = decision.LosePctAfterNoDouble,
+                LoseGammonPctAfterNoDouble = decision.LoseGammonPctAfterNoDouble,
+                LoseBgPctAfterNoDouble = decision.LoseBgPctAfterNoDouble,
+                WinPctAfterDoubleTake = decision.WinPctAfterDoubleTake,
+                GammonPctAfterDoubleTake = decision.GammonPctAfterDoubleTake,
+                BgPctAfterDoubleTake = decision.BgPctAfterDoubleTake,
+                LosePctAfterDoubleTake = decision.LosePctAfterDoubleTake,
+                LoseGammonPctAfterDoubleTake = decision.LoseGammonPctAfterDoubleTake,
+                LoseBgPctAfterDoubleTake = decision.LoseBgPctAfterDoubleTake,
+                ProbOfOpponentErrorJustifyingDouble = decision.ProbOfOpponentErrorJustifyingDouble,
+                UserDoubleError = decision.UserDoubleError,
+                UserTakeError = decision.UserTakeError,
+
+                // Descriptive
+                OnRollName = descriptive.OnRollName,
+                OpponentName = descriptive.OpponentName,
+                Title = descriptive.Title,
+                MatchLength = descriptive.MatchLength,
+                Date = descriptive.Date,
+                Event = descriptive.Event,
+
+                // Renderer-specific
+                Mode = mode,
+                HomeBoardOnRight = homeBoardOnRight,
+                OnRollAtBottom = onRollAtBottom,
+                AnalysisPanelPosition = analysisPanelPosition,
+            };
+        }
+
+        /// <summary>
+        /// Starts a Builder pre-populated from an existing DiagramRequest.
+        /// Forwards to the three-record overload so both factories share
+        /// one field-mapping site — enables ToProblemSolutionPair and any
+        /// other "tweak a request" caller to be drift-free.
+        /// </summary>
+        public static Builder From(DiagramRequest existing) =>
+            From(existing.Position, existing.Decision, existing.Descriptive,
+                existing.Mode, existing.HomeBoardOnRight, existing.OnRollAtBottom,
+                existing.AnalysisPanelPosition);
 
         public DiagramRequest Build()
         {

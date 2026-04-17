@@ -181,66 +181,16 @@ public class DecisionDataDiagramTests
     }
 
     // -----------------------------------------------------------------------
-    //  BgDecisionData → DiagramRequest
+    //  BgDecisionData → DiagramRequest — thin wrapper that just delegates
+    //  to the library factory. Kept for call-site readability; could be
+    //  inlined if preferred.
     // -----------------------------------------------------------------------
 
     private static DiagramRequest FromDecisionData(
         BgDecisionData data,
-        DiagramMode mode = DiagramMode.Solution,
-        bool homeBoardOnRight = true,
-        bool onRollAtBottom = true,
         PanelPosition analysisPanelPosition = PanelPosition.Left)
     {
-        return new DiagramRequest.Builder
-        {
-            // Position
-            Mop = [.. data.Position.Mop],
-            OnRollNeeds = data.Position.OnRollNeeds,
-            OpponentNeeds = data.Position.OpponentNeeds,
-            OnRollPipCount = data.Position.OnRollPipCount,
-            OpponentPipCount = data.Position.OpponentPipCount,
-            CubeSize = data.Position.CubeSize,
-            CubeOwner = data.Position.CubeOwner,
-            IsCrawford = data.Position.IsCrawford,
-
-            // Decision
-            IsCube = data.Decision.IsCube,
-            Dice = [.. data.Decision.Dice],
-            Plays = [.. data.Decision.Plays],
-            AnalysisDepths = [.. data.Decision.AnalysisDepths],
-            BestPlayIndex = data.Decision.BestPlayIndex,
-            UserPlayIndex = data.Decision.UserPlayIndex,
-            NoDoubleEquity = data.Decision.NoDoubleEquity,
-            DoubleTakeEquity = data.Decision.DoubleTakeEquity,
-            WinPctAfterNoDouble = data.Decision.WinPctAfterNoDouble,
-            GammonPctAfterNoDouble = data.Decision.GammonPctAfterNoDouble,
-            BgPctAfterNoDouble = data.Decision.BgPctAfterNoDouble,
-            LosePctAfterNoDouble = data.Decision.LosePctAfterNoDouble,
-            LoseGammonPctAfterNoDouble = data.Decision.LoseGammonPctAfterNoDouble,
-            LoseBgPctAfterNoDouble = data.Decision.LoseBgPctAfterNoDouble,
-            WinPctAfterDoubleTake = data.Decision.WinPctAfterDoubleTake,
-            GammonPctAfterDoubleTake = data.Decision.GammonPctAfterDoubleTake,
-            BgPctAfterDoubleTake = data.Decision.BgPctAfterDoubleTake,
-            LosePctAfterDoubleTake = data.Decision.LosePctAfterDoubleTake,
-            LoseGammonPctAfterDoubleTake = data.Decision.LoseGammonPctAfterDoubleTake,
-            LoseBgPctAfterDoubleTake = data.Decision.LoseBgPctAfterDoubleTake,
-            ProbOfOpponentErrorJustifyingDouble = data.Decision.ProbOfOpponentErrorJustifyingDouble,
-            UserDoubleError = data.Decision.UserDoubleError,
-            UserTakeError = data.Decision.UserTakeError,
-
-            // Descriptive
-            OnRollName = data.Descriptive.OnRollName,
-            OpponentName = data.Descriptive.OpponentName,
-            Title = data.Descriptive.Title,
-            MatchLength = data.Descriptive.MatchLength,
-            Date = data.Descriptive.Date,
-            Event = data.Descriptive.Event,
-
-            // Diagram-specific
-            Mode = mode,
-            HomeBoardOnRight = homeBoardOnRight,
-            OnRollAtBottom = onRollAtBottom,
-            AnalysisPanelPosition = analysisPanelPosition,
-        }.Build();
+        return DiagramRequest.FromDecisionData(data,
+            analysisPanelPosition: analysisPanelPosition);
     }
 }
