@@ -22,10 +22,11 @@ public record DiagramOptions
     /// Target overall aspect ratio (total width / total height) of the
     /// rendered diagram. Board geometry is fixed by CheckerRadius to keep
     /// checkers perfectly round; the analysis panel's width adjusts to hit
-    /// the target. Defaults to <see cref="AspectPreset.Natural"/> — whatever
-    /// panel width BoardLayout chooses intrinsically.
+    /// the target. Defaults to <see cref="AspectPreset.Widescreen16x9"/> —
+    /// the primary use case is slide-show display, where 16:9 fills a
+    /// modern projector / PPTX slide edge-to-edge.
     /// </summary>
-    public AspectPreset Aspect { get; init; } = AspectPreset.Natural;
+    public AspectPreset Aspect { get; init; } = AspectPreset.Widescreen16x9;
 }
 
 /// <summary>
