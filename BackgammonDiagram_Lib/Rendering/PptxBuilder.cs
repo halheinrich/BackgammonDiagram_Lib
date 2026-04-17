@@ -17,9 +17,14 @@ namespace BackgammonDiagram_Lib.Rendering;
 /// </summary>
 internal static class PptxBuilder
 {
-    // Slide canvas: 13.33" × 7.5" at 914400 EMUs/inch
-    private const int SlideWidth = 12192000;
-    private const int SlideHeight = 6858000;
+    // EMU-per-inch constant from the OOXML spec.
+    private const int EmuPerInch = 914400;
+
+    // Slide height is fixed (landscape presentation, slide-sized for a
+    // reader). Width is derived from the first PNG's aspect so the diagram
+    // fills the slide without white bars. All subsequent slides in the same
+    // deck must match the first — PPTX slides share one size.
+    private const int SlideHeight = (int)(7.5 * EmuPerInch);   // 6,858,000
 
     // Margins (EMUs)
     private const long MarginH = 457200L;  // 0.5"
@@ -27,11 +32,38 @@ internal static class PptxBuilder
 
     public static byte[] Build(IEnumerable<byte[]> slides)
     {
+        var slideList = slides.ToList();
+        if (slideList.Count == 0)
+            throw new ArgumentException("At least one slide PNG is required.", nameof(slides));
+
+        // First PNG fixes the slide dimensions. Subsequent PNGs must match
+        // exactly — PPTX allows only one slide size per deck, so silently
+        // using the first would let odd-sized images overflow or float in
+        // whitespace. Fail fast instead.
+        var (firstW, firstH) = ReadPngDimensions(slideList[0]);
+        for (int i = 1; i < slideList.Count; i++)
+        {
+            var (w, h) = ReadPngDimensions(slideList[i]);
+            if (w != firstW || h != firstH)
+            {
+                throw new InvalidOperationException(
+                    $"PPTX slides must share one size (OOXML constraint); slide {i} " +
+                    $"is {w}x{h} but slide 0 is {firstW}x{firstH}. Render all " +
+                    $"DiagramRequests in the batch with the same DiagramOptions.");
+            }
+        }
+
+        // Slide width: height × image aspect, with margins absorbed on each
+        // side. Solves (SlideWidth - 2·MarginH) / (SlideHeight - 2·MarginV)
+        // = firstW / firstH — so the image fits the available area exactly.
+        double aspect = firstW / (double)firstH;
+        int slideWidth = (int)((SlideHeight - 2 * MarginV) * aspect + 2 * MarginH);
+
         using var ms = new MemoryStream();
         using (var doc = PresentationDocument.Create(ms, PresentationDocumentType.Presentation))
         {
             var presentationPart = doc.AddPresentationPart();
-            presentationPart.Presentation = BuildPresentation();
+            presentationPart.Presentation = BuildPresentation(slideWidth);
 
             // --- Required parts that PowerPoint expects ---
 
@@ -72,7 +104,7 @@ internal static class PptxBuilder
                     imagePart.FeedData(imgStream);
 
                 string rId = slidePart.GetIdOfPart(imagePart);
-                var slide = BuildSlide(rId, png);
+                var slide = BuildSlide(rId, png, slideWidth);
                 slidePart.Slide = slide;
                 slide.Save();
 
@@ -600,12 +632,12 @@ internal static class PptxBuilder
     //  Presentation skeleton
     // -----------------------------------------------------------------------
 
-    private static Presentation BuildPresentation()
+    private static Presentation BuildPresentation(int slideWidth)
     {
         var pres = new Presentation();
         pres.AppendChild(new SlideMasterIdList());
         pres.AppendChild(new SlideIdList());          // must come before SldSz
-        pres.AppendChild(new SlideSize { Cx = SlideWidth, Cy = SlideHeight });
+        pres.AppendChild(new SlideSize { Cx = slideWidth, Cy = SlideHeight });
         pres.AppendChild(new NotesSize { Cx = 6858000, Cy = 9144000 });
         pres.AppendChild(BuildDefaultTextStyle());
         return pres;
@@ -889,14 +921,19 @@ internal static class PptxBuilder
     //  Slide content
     // -----------------------------------------------------------------------
 
-    private static Slide BuildSlide(string imageRId, byte[] png)
+    private static Slide BuildSlide(string imageRId, byte[] png, int slideWidth)
     {
-        long availW = SlideWidth - MarginH * 2;
+        long availW = slideWidth - MarginH * 2;
         long availH = SlideHeight - MarginV * 2;
 
         var (pngW, pngH) = ReadPngDimensions(png);
         double aspect = pngW / (double)pngH;
 
+        // Slide width was computed from the first PNG's aspect, so in the
+        // normal case availW / availH == aspect and the image fills exactly.
+        // The Min() pair here keeps the placement defensive against tiny
+        // rounding drift (EMU integers vs. double aspect) without letting
+        // either dimension spill past the available area.
         long imgW, imgH;
         if (availW / (double)availH >= aspect)
         {
@@ -909,8 +946,9 @@ internal static class PptxBuilder
             imgH = (long)(availW / aspect);
         }
 
+        // Center both axes — previously imgY was pinned to MarginV.
         long imgX = MarginH + (availW - imgW) / 2;
-        long imgY = MarginV;
+        long imgY = MarginV + (availH - imgH) / 2;
 
         var tree = new ShapeTree(
             new P.NonVisualGroupShapeProperties(

@@ -41,7 +41,21 @@ public readonly struct BoardLayout
     // -----------------------------------------------------------------------
     //  Analysis panel
     // -----------------------------------------------------------------------
-    public double PanelWidth => D * 5.5;        // ~30% of total width at default size
+
+    /// <summary>
+    /// Intrinsic panel width when no aspect override is applied. Scales with
+    /// CheckerRadius like the rest of the board.
+    /// </summary>
+    public double DefaultPanelWidth => D * 5.5;   // ~30% of total width at default size
+
+    /// <summary>
+    /// Optional override. When set, used verbatim as PanelWidth — enables
+    /// aspect-targeted rendering without touching board geometry (so checkers
+    /// stay round). When null, falls back to DefaultPanelWidth.
+    /// </summary>
+    public double? PanelWidthOverride { get; init; }
+
+    public double PanelWidth => PanelWidthOverride ?? DefaultPanelWidth;
 
     // -----------------------------------------------------------------------
     //  Derived totals

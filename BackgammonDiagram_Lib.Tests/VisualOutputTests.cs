@@ -17,6 +17,18 @@ public class VisualOutputTests
     // -----------------------------------------------------------------------
 
     [Fact]
+    public void Svg_Widescreen16x9()
+    {
+        var b = TestFixtures.MinimalBuilder();
+        b.Mop = TestFixtures.StartingMop();
+        b.Mode = DiagramMode.Solution;
+        var options = new DiagramOptions { Aspect = AspectPreset.Widescreen16x9 };
+        var path = TestPaths.SvgOutputPath("bg_widescreen_16x9.svg");
+        File.WriteAllText(path, DiagramRenderer.RenderSvg(b.Build(), options));
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
     public void Svg_ProblemMode()
     {
         var path = TestPaths.SvgOutputPath("bg_problem.svg");

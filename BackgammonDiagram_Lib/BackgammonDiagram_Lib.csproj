@@ -17,4 +17,8 @@
     <ProjectReference Include="..\..\BgDataTypes_Lib\BgDataTypes_Lib\BgDataTypes_Lib.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="BackgammonDiagram_Lib.Tests" />
+  </ItemGroup>
+
 </Project>

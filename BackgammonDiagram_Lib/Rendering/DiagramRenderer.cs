@@ -33,10 +33,10 @@ public static class DiagramRenderer
     public static string RenderSvg(DiagramRequest request, DiagramOptions options)
     {
         var theme = options.Theme;
-        var layout = BoardLayout.Default;
         bool panelOnLeft = request.AnalysisPanelPosition == PanelPosition.Left;
         bool hasTitle = !string.IsNullOrWhiteSpace(request.Descriptive.Title);
         double titleOffset = hasTitle ? TitleStripHeight : 0;
+        var layout = BuildLayout(options.Aspect, titleOffset);
 
         double totalWidth = layout.TotalWidth(withPanel: true);
         double totalHeight = layout.BoardHeight + titleOffset;
@@ -197,6 +197,39 @@ public static class DiagramRenderer
         DiagramSizePreset.Custom => size.CustomWidth ?? 1000,
         _ => 1000   // Medium
     };
+
+    /// <summary>
+    /// Builds the board layout, widening the analysis panel (if necessary) to
+    /// hit the aspect preset. Board geometry stays derived from CheckerRadius
+    /// so checkers remain round; only PanelWidth is adjusted. Title strip
+    /// height is included so the total SVG (title + board) matches the target
+    /// aspect, not just the board portion.
+    ///
+    /// If the target aspect is narrower than the board alone (i.e. requires a
+    /// negative panel width), the override is dropped and the intrinsic panel
+    /// width is used. This is a safety floor for unusual CheckerRadius values;
+    /// in practice the board is near-square so all common presets fit.
+    /// </summary>
+    private static BoardLayout BuildLayout(AspectPreset preset, double titleOffset)
+    {
+        var baseLayout = BoardLayout.Default;
+        double? targetAspect = preset switch
+        {
+            AspectPreset.Widescreen16x9 => 16.0 / 9.0,
+            AspectPreset.Standard4x3    => 4.0 / 3.0,
+            _                           => null,
+        };
+        if (targetAspect is not double aspect)
+            return baseLayout;
+
+        double totalHeight = baseLayout.BoardHeight + titleOffset;
+        double desiredTotalWidth = totalHeight * aspect;
+        double desiredPanelWidth = desiredTotalWidth - baseLayout.BoardWidth;
+        if (desiredPanelWidth <= 0)
+            return baseLayout;
+
+        return baseLayout with { PanelWidthOverride = desiredPanelWidth };
+    }
 
     // -----------------------------------------------------------------------
     //  Title strip
@@ -691,7 +724,7 @@ public static class DiagramRenderer
         y += 6;
 
         // ── Percentages tables (No Double, Take) ───────────────────────
-        y = AppendPctTable(sb, textX, y, LabelFontSize, textColor, dimColor,
+        y = AppendPctTable(sb, textX, rightX, y, LabelFontSize, textColor, dimColor,
             decisionLabel: "No Double",
             onRollWin: d.WinPctAfterNoDouble,
             onRollGammon: d.GammonPctAfterNoDouble,
@@ -702,7 +735,7 @@ public static class DiagramRenderer
 
         y += 6;
 
-        y = AppendPctTable(sb, textX, y, LabelFontSize, textColor, dimColor,
+        y = AppendPctTable(sb, textX, rightX, y, LabelFontSize, textColor, dimColor,
             decisionLabel: "Take",
             onRollWin: d.WinPctAfterDoubleTake,
             onRollGammon: d.GammonPctAfterDoubleTake,
@@ -743,18 +776,17 @@ public static class DiagramRenderer
         return y + PanelLineHeight + 2;
     }
 
-    private static double AppendPctTable(StringBuilder sb, double textX, double y,
+    private static double AppendPctTable(StringBuilder sb, double textX, double rightX, double y,
         double fontSize, string textColor, string dimColor, string decisionLabel,
         double onRollWin, double onRollGammon, double onRollBg,
         double oppWin, double oppGammon, double oppBg)
     {
-        // Column anchors (right-anchored numeric cells). textX + 134 aligns
-        // with rightX computed in AppendCubePanel — keeps this table's right
-        // edge flush with the equity/loss table above.
-        double rightEdge = textX + 134;
-        double bgX       = rightEdge;
-        double gammonX   = rightEdge - 30;
-        double winX      = rightEdge - 62;
+        // Right-anchored numeric cells. Columns count back from rightX so the
+        // pct table's right edge stays flush with the equity/loss table above
+        // regardless of panel width.
+        double bgX     = rightX;
+        double gammonX = rightX - 30;
+        double winX    = rightX - 62;
 
         // Header row: decision label on the left, column headers right-anchored.
         sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{textColor}">{Escape(decisionLabel)}</text>""");

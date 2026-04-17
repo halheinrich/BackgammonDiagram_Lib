@@ -234,8 +234,103 @@ public class RendererPanelContentTests
     }
 
     // -----------------------------------------------------------------------
+    //  Aspect preset — board geometry fixed, panel widens to hit target
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void AspectPreset_Natural_UsesIntrinsicPanelWidth()
+    {
+        // Regression guard: with Natural, viewBox width must equal what the
+        // renderer produced before the aspect feature existed.
+        var svg = DiagramRenderer.RenderSvg(
+            TestFixtures.MinimalRequest(),
+            new DiagramOptions { Aspect = AspectPreset.Natural });
+
+        double aspect = ExtractViewBoxAspect(svg);
+        // BoardLayout.Default: BoardWidth ≈ 429.8, PanelWidth = 154,
+        // BoardHeight = 446, no title → aspect = 583.8 / 446 ≈ 1.309.
+        Assert.InRange(aspect, 1.30, 1.32);
+    }
+
+    [Fact]
+    public void AspectPreset_Widescreen16x9_ForcesViewBoxTo16x9()
+    {
+        var svg = DiagramRenderer.RenderSvg(
+            TestFixtures.MinimalRequest(),
+            new DiagramOptions { Aspect = AspectPreset.Widescreen16x9 });
+
+        double aspect = ExtractViewBoxAspect(svg);
+        Assert.InRange(aspect, 16.0 / 9.0 - 0.01, 16.0 / 9.0 + 0.01);
+    }
+
+    [Fact]
+    public void AspectPreset_Standard4x3_ForcesViewBoxTo4x3()
+    {
+        var svg = DiagramRenderer.RenderSvg(
+            TestFixtures.MinimalRequest(),
+            new DiagramOptions { Aspect = AspectPreset.Standard4x3 });
+
+        double aspect = ExtractViewBoxAspect(svg);
+        Assert.InRange(aspect, 4.0 / 3.0 - 0.01, 4.0 / 3.0 + 0.01);
+    }
+
+    [Fact]
+    public void AspectPreset_Widescreen_BoardWidthUnchanged_OnlyPanelGrows()
+    {
+        // Checker radius drives board width; the aspect change must only
+        // grow the panel. Board rects keep their natural size → checkers
+        // stay perfectly round.
+        string natural = DiagramRenderer.RenderSvg(
+            TestFixtures.MinimalRequest(),
+            new DiagramOptions { Aspect = AspectPreset.Natural });
+        string wide = DiagramRenderer.RenderSvg(
+            TestFixtures.MinimalRequest(),
+            new DiagramOptions { Aspect = AspectPreset.Widescreen16x9 });
+
+        // The inner <rect> painted immediately after the dark outer rect is
+        // the board-proper rect with width="<BoardWidth>". It must be
+        // identical across aspect presets.
+        var boardNatural = ExtractInnerBoardRectWidth(natural);
+        var boardWide = ExtractInnerBoardRectWidth(wide);
+        Assert.Equal(boardNatural, boardWide, precision: 4);
+
+        // But the viewBox total width must differ.
+        Assert.NotEqual(ExtractViewBoxWidth(natural), ExtractViewBoxWidth(wide));
+    }
+
+    // -----------------------------------------------------------------------
     //  Helpers
     // -----------------------------------------------------------------------
+
+    private static double ExtractViewBoxAspect(string svg)
+    {
+        (double w, double h) = ExtractViewBox(svg);
+        return w / h;
+    }
+
+    private static double ExtractViewBoxWidth(string svg) => ExtractViewBox(svg).w;
+
+    private static (double w, double h) ExtractViewBox(string svg)
+    {
+        // viewBox="0 0 W H"
+        var m = System.Text.RegularExpressions.Regex.Match(svg,
+            "viewBox=\"0 0 ([0-9.]+) ([0-9.]+)\"");
+        Assert.True(m.Success, "viewBox not found in SVG");
+        double w = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
+        double h = double.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture);
+        return (w, h);
+    }
+
+    private static double ExtractInnerBoardRectWidth(string svg)
+    {
+        // In AppendBoard, the second <rect> is the board-proper: its width
+        // is the intrinsic BoardWidth and must not depend on Aspect preset.
+        var matches = System.Text.RegularExpressions.Regex.Matches(svg,
+            "<rect x=\"[0-9.]+\" y=\"0\" width=\"([0-9.]+)\" height=\"[0-9.]+\"");
+        Assert.True(matches.Count >= 2, "expected at least two root-level rects");
+        return double.Parse(matches[1].Groups[1].Value, CultureInfo.InvariantCulture);
+    }
+
 
     /// <summary>Builds a Solution-mode cube decision with the given equities.</summary>
     private static DiagramRequest.Builder MinimalCubeBuilder(
