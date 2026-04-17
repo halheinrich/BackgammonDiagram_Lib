@@ -607,104 +607,183 @@ public static class DiagramRenderer
     //  Cube analysis panel
     // -----------------------------------------------------------------------
 
+    // Cube panel layout:
+    //   Best Decision (two centered lines: "Best Decision" / "<doubler> / <opp>")
+    //   Equity/Loss table (header + 4 rows: No Double, Double, Take, Pass)
+    //   Percentages table for No Double (played-out stats)
+    //   Percentages table for Take (played-out stats)
+    //   Footer lines: Analysis Level, Pass Prob Justifying Dbl
+    //
+    // Two decisions are surfaced: the doubler's (Double vs. No Double) and
+    // the opponent's (Take vs. Pass). Losses are mistake costs measured
+    // against the decider's correct play.
     private static void AppendCubePanel(StringBuilder sb, double px, double pw, double ph,
         string textColor, string dimColor, DiagramRequest request)
     {
-        const double LabelFontSize = 8;
+        const double LabelFontSize = 8;   // used for pct-table rows and footer
 
         double y = PanelMargin;
         double textX = px + PanelMargin + 4;
         double rightX = px + pw - PanelMargin - 4;
+        // Equity/Loss columns: Loss rightmost, Equity left of it.
+        double lossX = rightX;
+        double equityX = rightX - 45;
         double centreX = px + pw / 2;
 
-        // Header
-        sb.AppendLine($"""  <text x="{F(centreX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="{textColor}">Cube Decision</text>""");
-        y += PanelLineHeight + 6;
+        var d = request.Decision;
+        double nd = d.NoDoubleEquity;
+        double dt = d.DoubleTakeEquity;
+        double pass = PassEquity;
+        // What the doubler actually earns by doubling against a rational
+        // opponent: the opponent picks the response that's least bad for them,
+        // which minimises the doubler's equity.
+        double doubleEquity = Math.Min(dt, pass);
 
-        // Proper cube action
-        string action = DetermineCubeAction(request.Decision);
-        sb.AppendLine($"""  <text x="{F(centreX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="middle" font-family="sans-serif" font-size="{F(PanelFontSize)}" font-weight="bold" fill="{textColor}">{Escape(action)}</text>""");
-        y += PanelLineHeight + 8;
+        // Loss = mistake cost for the decider of that row.
+        double doubleLoss   = Math.Max(0, nd - doubleEquity);
+        double noDoubleLoss = Math.Max(0, doubleEquity - nd);
+        double takeLoss     = Math.Max(0, dt - pass);
+        double passLoss     = Math.Max(0, pass - dt);
 
-        // ── No Double section ──────────────────────────────────────────
-        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(PanelFontSize)}" font-weight="bold" fill="{textColor}">No Double</text>""");
-        sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{textColor}">{FormatEquity(request.Decision.NoDoubleEquity)}</text>""");
-        y += PanelLineHeight + 2;
+        // ── Best / Actual banner ───────────────────────────────────────
+        // "Best" is the correct play at both decision points assuming both
+        // sides are rational. "Actual" is what the user played, derived from
+        // UserDoubleError / UserTakeError (0 = correct, >0 = wrong). Actual
+        // labels never carry the "Too Good to Double" flavor — the user chose
+        // plain "Double" or "No Double".
+        string bestDoubler = nd >= pass
+            ? "Too Good to Double"
+            : (doubleEquity > nd ? "Double" : "No Double");
+        string bestOpp = dt < pass ? "Take" : "Pass";
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="9" fill="{textColor}">{Escape($"Best:   {bestDoubler} / {bestOpp}")}</text>""");
+        y += PanelLineHeight;
 
-        y = AppendCubePercentages(sb, textX, y, LabelFontSize, dimColor,
-            request.Decision.WinPctAfterNoDouble,
-            request.Decision.GammonPctAfterNoDouble,
-            request.Decision.BgPctAfterNoDouble,
-            request.Decision.LosePctAfterNoDouble,
-            request.Decision.LoseGammonPctAfterNoDouble,
-            request.Decision.LoseBgPctAfterNoDouble);
+        string correctDoublerAction = doubleEquity > nd ? "Double" : "No Double";  // flat form for Actual
+        string? actualDoubler = d.UserDoubleError is double ude
+            ? (ude > 0 ? (correctDoublerAction == "Double" ? "No Double" : "Double") : correctDoublerAction)
+            : null;
+        string? actualOpp = d.UserTakeError is double ute
+            ? (ute > 0 ? (bestOpp == "Take" ? "Pass" : "Take") : bestOpp)
+            : null;
+        if (actualDoubler != null || actualOpp != null)
+        {
+            string actualLine = $"Actual: {actualDoubler ?? "?"} / {actualOpp ?? "?"}";
+            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="9" fill="{textColor}">{Escape(actualLine)}</text>""");
+            y += PanelLineHeight;
+        }
+        y += 6;
+
+        // ── Equity/Loss table ──────────────────────────────────────────
+        // Column headers
+        sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="8" fill="{dimColor}">Equity</text>""");
+        sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="8" fill="{dimColor}">Loss</text>""");
+        y += PanelLineHeight;
+
+        y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
+            label: "No Double", equity: nd, loss: noDoubleLoss);
+        y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
+            label: "Double",    equity: doubleEquity, loss: doubleLoss);
+        y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
+            label: "Take",      equity: dt, loss: takeLoss);
+        y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
+            label: "Pass",      equity: pass, loss: passLoss);
 
         y += 6;
 
-        // ── Double/Take section ────────────────────────────────────────
-        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(PanelFontSize)}" font-weight="bold" fill="{textColor}">Double/Take</text>""");
-        sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{textColor}">{FormatEquity(request.Decision.DoubleTakeEquity)}</text>""");
-        y += PanelLineHeight + 2;
+        // ── Percentages tables (No Double, Take) ───────────────────────
+        y = AppendPctTable(sb, textX, y, LabelFontSize, textColor, dimColor,
+            decisionLabel: "No Double",
+            onRollWin: d.WinPctAfterNoDouble,
+            onRollGammon: d.GammonPctAfterNoDouble,
+            onRollBg: d.BgPctAfterNoDouble,
+            oppWin: d.LosePctAfterNoDouble,
+            oppGammon: d.LoseGammonPctAfterNoDouble,
+            oppBg: d.LoseBgPctAfterNoDouble);
 
-        y = AppendCubePercentages(sb, textX, y, LabelFontSize, dimColor,
-            request.Decision.WinPctAfterDoubleTake,
-            request.Decision.GammonPctAfterDoubleTake,
-            request.Decision.BgPctAfterDoubleTake,
-            request.Decision.LosePctAfterDoubleTake,
-            request.Decision.LoseGammonPctAfterDoubleTake,
-            request.Decision.LoseBgPctAfterDoubleTake);
+        y += 6;
 
-        y += 8;
+        y = AppendPctTable(sb, textX, y, LabelFontSize, textColor, dimColor,
+            decisionLabel: "Take",
+            onRollWin: d.WinPctAfterDoubleTake,
+            onRollGammon: d.GammonPctAfterDoubleTake,
+            onRollBg: d.BgPctAfterDoubleTake,
+            oppWin: d.LosePctAfterDoubleTake,
+            oppGammon: d.LoseGammonPctAfterDoubleTake,
+            oppBg: d.LoseBgPctAfterDoubleTake);
 
-        // ── Probability of opponent error ──────────────────────────────
-        double probErr = request.Decision.ProbOfOpponentErrorJustifyingDouble;
-        if (probErr > 0)
+        y += 6;
+
+        // ── Footer lines ───────────────────────────────────────────────
+        var depths = d.AnalysisDepths;
+        if (depths.Count > 0)
         {
-            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(LabelFontSize)}" fill="{dimColor}">Opp. Error to Justify Double</text>""");
+            string depthLabels = string.Join(", ", depths.Select(static a => a.Label));
+            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(LabelFontSize)}" fill="{dimColor}">{Escape($"Analysis Level: {depthLabels}")}</text>""");
             y += PanelLineHeight;
-            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{textColor}">{F1(probErr * 100)}%</text>""");
         }
 
-        // Analysis depth
-        AppendAnalysisDepths(sb, px, pw, ph, dimColor, request, LabelFontSize);
+        double probErr = d.ProbOfOpponentErrorJustifyingDouble;
+        if (probErr > 0)
+        {
+            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(LabelFontSize)}" fill="{dimColor}">{Escape($"Pass Justifying Dbl: {F1(probErr * 100)}%")}</text>""");
+            y += PanelLineHeight;
+        }
     }
 
-    private static double AppendCubePercentages(StringBuilder sb, double textX,
-        double y, double fontSize, string color,
-        double win, double gammon, double bg,
-        double lose, double loseGammon, double loseBg)
+    private static double AppendCubeRow(StringBuilder sb, double textX, double equityX, double lossX,
+        double y, string textColor, string dimColor, string label, double equity, double loss)
     {
-        // Win line
-        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">Win  {F1(win)}%   G {F1(gammon)}%   BG {F1(bg)}%</text>""");
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(PanelFontSize)}" font-weight="bold" fill="{textColor}">{Escape(label)}</text>""");
+        // Equity as its own text element so invariant-culture format tests can
+        // assert ">+0.XXXX<" directly.
+        sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{textColor}">{FormatEquity(equity)}</text>""");
+        // Loss shown unconditionally — "0.0000" for the correct option, a
+        // positive magnitude for the wrong option. Always four decimal places.
+        sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{dimColor}">{FormatEquityLoss(loss)}</text>""");
+        return y + PanelLineHeight + 2;
+    }
+
+    private static double AppendPctTable(StringBuilder sb, double textX, double y,
+        double fontSize, string textColor, string dimColor, string decisionLabel,
+        double onRollWin, double onRollGammon, double onRollBg,
+        double oppWin, double oppGammon, double oppBg)
+    {
+        // Column anchors (right-anchored numeric cells). textX + 134 aligns
+        // with rightX computed in AppendCubePanel — keeps this table's right
+        // edge flush with the equity/loss table above.
+        double rightEdge = textX + 134;
+        double bgX       = rightEdge;
+        double gammonX   = rightEdge - 30;
+        double winX      = rightEdge - 62;
+
+        // Header row: decision label on the left, column headers right-anchored.
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{textColor}">{Escape(decisionLabel)}</text>""");
+        sb.AppendLine($"""  <text x="{F(winX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">Win</text>""");
+        sb.AppendLine($"""  <text x="{F(gammonX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">Gammon</text>""");
+        sb.AppendLine($"""  <text x="{F(bgX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">BG</text>""");
         y += PanelLineHeight;
 
-        // Lose line
-        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">Lose {F1(lose)}%   G {F1(loseGammon)}%   BG {F1(loseBg)}%</text>""");
-        y += PanelLineHeight;
+        y = AppendPctRow(sb, textX, winX, gammonX, bgX, y, fontSize, textColor,
+            label: "On-roll",  win: onRollWin, gammon: onRollGammon, bg: onRollBg);
+        y = AppendPctRow(sb, textX, winX, gammonX, bgX, y, fontSize, textColor,
+            label: "Opponent", win: oppWin,    gammon: oppGammon,    bg: oppBg);
 
         return y;
     }
 
-    // -----------------------------------------------------------------------
-    //  Cube action determination
-    // -----------------------------------------------------------------------
-
-    private static string DetermineCubeAction(DecisionData d)
+    private static double AppendPctRow(StringBuilder sb, double textX,
+        double winX, double gammonX, double bgX, double y, double fontSize, string color,
+        string label, double win, double gammon, double bg)
     {
-        double nd = d.NoDoubleEquity;
-        double dt = d.DoubleTakeEquity;
-
-        if (nd >= PassEquity)
-            return "Too Good to Double";
-        if (dt > nd && dt >= PassEquity)
-            return "Double, Pass";
-        if (dt > nd)
-            return "Double, Take";
-        return "No Double";
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{Escape(label)}</text>""");
+        sb.AppendLine($"""  <text x="{F(winX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{F1(win * 100)}%</text>""");
+        sb.AppendLine($"""  <text x="{F(gammonX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{F1(gammon * 100)}%</text>""");
+        sb.AppendLine($"""  <text x="{F(bgX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{F1(bg * 100)}%</text>""");
+        return y + PanelLineHeight;
     }
 
     // -----------------------------------------------------------------------
-    //  Analysis depths (shared by play and cube panels)
+    //  Analysis depths (play panel only — cube panel inlines its footer)
     // -----------------------------------------------------------------------
 
     private static void AppendAnalysisDepths(StringBuilder sb, double px, double pw, double ph,
@@ -732,12 +811,14 @@ public static class DiagramRenderer
     private static string FormatEquity(double equity)
     {
         string sign = equity >= 0 ? "+" : "";
-        return sign + equity.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
+        return sign + equity.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
     }
 
+    // Equity loss is always a non-negative magnitude — a negative "loss" would
+    // be a gain, and is not produced here. Bare 4-decimal invariant formatting.
     private static string FormatEquityLoss(double loss)
     {
-        return "-" + loss.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
+        return loss.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     // -----------------------------------------------------------------------

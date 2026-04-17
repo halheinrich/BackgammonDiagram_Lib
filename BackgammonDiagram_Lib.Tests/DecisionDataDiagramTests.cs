@@ -225,6 +225,8 @@ public class DecisionDataDiagramTests
             LoseGammonPctAfterDoubleTake = data.Decision.LoseGammonPctAfterDoubleTake,
             LoseBgPctAfterDoubleTake = data.Decision.LoseBgPctAfterDoubleTake,
             ProbOfOpponentErrorJustifyingDouble = data.Decision.ProbOfOpponentErrorJustifyingDouble,
+            UserDoubleError = data.Decision.UserDoubleError,
+            UserTakeError = data.Decision.UserTakeError,
 
             // Descriptive
             OnRollName = data.Descriptive.OnRollName,

@@ -55,6 +55,20 @@ public class DiagramRequest
         public double LoseBgPctAfterDoubleTake { get; set; }
         public double ProbOfOpponentErrorJustifyingDouble { get; set; }
 
+        /// <summary>
+        /// Equity loss from the user's double / no-double decision vs. the
+        /// correct cube action (>= 0). Null when the user did not face a cube
+        /// decision or no data is recorded. Drives the "Actual" banner row.
+        /// </summary>
+        public double? UserDoubleError { get; set; }
+
+        /// <summary>
+        /// Equity loss from the user's take / pass decision vs. the correct
+        /// response (>= 0). Null when the user did not face a take decision
+        /// or no data is recorded. Drives the "Actual" banner row.
+        /// </summary>
+        public double? UserTakeError { get; set; }
+
         // Descriptive
         public string OnRollName { get; set; } = string.Empty;
         public string OpponentName { get; set; } = string.Empty;
@@ -108,6 +122,8 @@ public class DiagramRequest
                     LoseGammonPctAfterDoubleTake = LoseGammonPctAfterDoubleTake,
                     LoseBgPctAfterDoubleTake = LoseBgPctAfterDoubleTake,
                     ProbOfOpponentErrorJustifyingDouble = ProbOfOpponentErrorJustifyingDouble,
+                    UserDoubleError = UserDoubleError,
+                    UserTakeError = UserTakeError,
                 },
                 Descriptive = new DescriptiveData
                 {
