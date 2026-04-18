@@ -1,4 +1,5 @@
 ﻿using BackgammonDiagram_Lib.Rendering;
+using BgDataTypes_Lib;
 using QuestPDF.Infrastructure;
 using Xunit;
 
@@ -289,6 +290,74 @@ public class VisualOutputTests
         var path = TestPaths.PptxOutputPath("bg_cube_pair.pptx");
         File.WriteAllBytes(path, pptx);
         Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
+    }
+
+    [Fact]
+    public void Pptx_BearOffMatrix()
+    {
+        // 6 (Problem, Solution) pairs × 2 slides = 12 slides. Axes:
+        //   3 cube positions × 2 analysis-panel locations.
+        // Every cell carries the maximum renderable count (14 off each side)
+        // so the full-tray visual is exercised under all three cube placements.
+        var cells = new[]
+        {
+            (cube: CubeOwner.Centered, panel: PanelPosition.Left),
+            (cube: CubeOwner.Centered, panel: PanelPosition.Right),
+            (cube: CubeOwner.OnRoll,   panel: PanelPosition.Left),
+            (cube: CubeOwner.OnRoll,   panel: PanelPosition.Right),
+            (cube: CubeOwner.Opponent, panel: PanelPosition.Left),
+            (cube: CubeOwner.Opponent, panel: PanelPosition.Right),
+        };
+        const int onRollOff = 14;
+        const int opponentOff = 14;
+
+        var requests = new List<DiagramRequest>(capacity: cells.Length * 2);
+        foreach (var cell in cells)
+        {
+            var b = TestFixtures.MinimalBuilder();
+            b.CubeOwner = cell.cube;
+            b.AnalysisPanelPosition = cell.panel;
+            b.IsCube = true;
+            b.Dice = [0, 0];
+            b.Mop = BearOffMop(onRollOff, opponentOff);
+            b.NoDoubleEquity = 0.40;
+            b.DoubleTakeEquity = 0.60;
+            b.Title = $"Bear-off {cell.cube}/{cell.panel} {onRollOff}-{opponentOff}";
+
+            var (problem, solution) = b.Build().ToProblemSolutionPair();
+            requests.Add(problem);
+            requests.Add(solution);
+        }
+
+        var pptx = DiagramRenderer.RenderPptx(requests, TestFixtures.DefaultOptions());
+        var path = TestPaths.PptxOutputPath("bg_bearoff_matrix.pptx");
+        File.WriteAllBytes(path, pptx);
+        Assert.True(pptx.Length > 10_000, $"PPTX too small: {pptx.Length} bytes");
+    }
+
+    /// <summary>
+    /// Builds a Mop with the requested bear-off counts by stacking on-board
+    /// checkers across 2-3 home-board points (at most 5 per point so stacks
+    /// render without the "capped" overflow label).
+    /// </summary>
+    private static int[] BearOffMop(int onRollOff, int opponentOff)
+    {
+        var mop = new int[26];
+        DistributeAcrossHome(mop, points: new[] { 1, 2, 3, 4 }, onBoard: 15 - onRollOff, sign: 1);
+        DistributeAcrossHome(mop, points: new[] { 24, 23, 22, 21 }, onBoard: 15 - opponentOff, sign: -1);
+        return mop;
+    }
+
+    private static void DistributeAcrossHome(int[] mop, int[] points, int onBoard, int sign)
+    {
+        int remaining = onBoard;
+        foreach (int p in points)
+        {
+            if (remaining <= 0) break;
+            int take = Math.Min(5, remaining);
+            mop[p] = sign * take;
+            remaining -= take;
+        }
     }
 
     // -----------------------------------------------------------------------

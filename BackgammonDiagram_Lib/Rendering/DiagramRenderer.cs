@@ -166,14 +166,49 @@ public static class DiagramRenderer
             layout.LeftRailWidth,
             layout.BoardHeight);
 
+        // --- Bear-off trays: populated only when the render rule is satisfied. ---
+        // The tray occupies the half of the left rail between the centered-cube
+        // position and the turned-cube position — same region the renderer uses
+        // for the stack, minus the bar-specific padding.
+        var (onRollOff, opponentOff) = CountBorneOff(request.Position.Mop);
+        double cubeSize = layout.LeftRailWidth * 0.7;
+        HitRect? onRollTray = onRollOff is >= BearOffMinCount and <= BearOffMaxCount
+            ? TrayHitRect(layout, panelOnLeft, titleOffset, cubeSize, atBottom: request.OnRollAtBottom)
+            : null;
+        HitRect? opponentTray = opponentOff is >= BearOffMinCount and <= BearOffMaxCount
+            ? TrayHitRect(layout, panelOnLeft, titleOffset, cubeSize, atBottom: !request.OnRollAtBottom)
+            : null;
+
         return new BoardHitRegions
         {
             ViewBox = new SvgViewBox(0, 0, totalWidth, totalHeight),
             Points = points,
             Bar = bar,
             Cube = cube,
-            OnRollTray = null  // bearing-off tray not yet rendered
+            OnRollTray = onRollTray,
+            OpponentTray = opponentTray,
         };
+    }
+
+    /// <summary>
+    /// Hit-rectangle for one player's bear-off tray — spans left-rail width,
+    /// top-to-bottom from the centered-cube edge to the turned-cube edge.
+    /// </summary>
+    private static HitRect TrayHitRect(BoardLayout layout, bool panelOnLeft,
+        double titleOffset, double cubeSize, bool atBottom)
+    {
+        double centerCubeTop = layout.BoardHeight / 2 - cubeSize / 2;
+        double centerCubeBottom = centerCubeTop + cubeSize;
+        double turnedTop = TurnedCubeY(layout, cubeSize, atBottom);
+        double turnedBottom = turnedTop + cubeSize;
+
+        double y = atBottom ? centerCubeBottom : turnedBottom;
+        double h = atBottom ? turnedTop - centerCubeBottom : centerCubeTop - turnedBottom;
+        return new HitRect(
+            layout.LeftRailX(panelOnLeft),
+            y + titleOffset,
+            layout.LeftRailWidth,
+            h);
     }
 
     /// <summary>
@@ -281,6 +316,7 @@ public static class DiagramRenderer
         AppendPointNumbers(sb, layout, theme, effectivePanelOnLeft, homeBoardOnRight);
         AppendTopRail(sb, layout, theme, bx, request);
         AppendBottomRail(sb, layout, theme, bx, request);
+        AppendBearOff(sb, layout, theme, bx, request);
         AppendCube(sb, layout, theme, bx, request);
         AppendRightRail(sb, layout, theme, bx);  // last — draws over any overflowing content
         AppendAnalysisPanel(sb, layout, theme, request, panelOnLeft);
@@ -541,6 +577,12 @@ public static class DiagramRenderer
     //  Cube
     // -----------------------------------------------------------------------
 
+    // Vertical margin between a turned cube and the top/bottom of the left rail.
+    // The turned cube is pushed against the rail edge so the interior of the rail
+    // (between centered-cube position and turned-cube position) is free for the
+    // bear-off tray.
+    private const double TurnedCubeEdgeMargin = 8;
+
     private static void AppendCube(StringBuilder sb, BoardLayout layout, ITheme theme,
         double bx, DiagramRequest request)
     {
@@ -549,12 +591,8 @@ public static class DiagramRenderer
         double cubeY = request.Position.CubeOwner switch
         {
             CubeOwner.Centered => layout.BoardHeight / 2 - cubeSize / 2,
-            CubeOwner.OnRoll => request.OnRollAtBottom
-                ? layout.BottomCheckerBaseY + layout.PointHeight / 2 - cubeSize / 2
-                : layout.TopCheckerBaseY + layout.PointHeight / 2 - cubeSize / 2,
-            CubeOwner.Opponent => request.OnRollAtBottom
-                ? layout.TopCheckerBaseY + layout.PointHeight / 2 - cubeSize / 2
-                : layout.BottomCheckerBaseY + layout.PointHeight / 2 - cubeSize / 2,
+            CubeOwner.OnRoll => TurnedCubeY(layout, cubeSize, atBottom: request.OnRollAtBottom),
+            CubeOwner.Opponent => TurnedCubeY(layout, cubeSize, atBottom: !request.OnRollAtBottom),
             _ => layout.BoardHeight / 2 - cubeSize / 2
         };
         sb.AppendLine($"""  <rect x="{F(cubeX)}" y="{F(cubeY)}" width="{F(cubeSize)}" height="{F(cubeSize)}" rx="3" fill="{theme.DiceColor}" stroke="#888" stroke-width="0.5"/>""");
@@ -563,6 +601,106 @@ public static class DiagramRenderer
         string cubeText = request.Position.CubeSize == 1 ? "64" : request.Position.CubeSize.ToString();
         string cubeTextColor = ContrastText(theme.DiceColor);
         sb.AppendLine($"""  <text x="{F(cubeX + cubeSize / 2)}" y="{F(textY)}" text-anchor="middle" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{cubeTextColor}">{cubeText}</text>""");
+    }
+
+    /// <summary>
+    /// Y-coordinate for a turned (owned) cube pinned against the top or bottom
+    /// edge of the left rail, leaving the interior of the rail free for the
+    /// bear-off tray.
+    /// </summary>
+    private static double TurnedCubeY(BoardLayout layout, double cubeSize, bool atBottom) =>
+        atBottom
+            ? layout.BoardHeight - TurnedCubeEdgeMargin - cubeSize
+            : TurnedCubeEdgeMargin;
+
+    // -----------------------------------------------------------------------
+    //  Bear-off tray
+    // -----------------------------------------------------------------------
+
+    // Trigger band — render a player's bear-off stack only when at least one
+    // checker is off and at least one is still on the board. Excludes both the
+    // "game hasn't started" case (0 off) and the degenerate "all zeros" Mop
+    // fixture (15 off / 0 on, which doesn't represent a meaningful position).
+    private const int BearOffMinCount = 1;
+    private const int BearOffMaxCount = 14;
+
+    private static void AppendBearOff(StringBuilder sb, BoardLayout layout, ITheme theme,
+        double bx, DiagramRequest request)
+    {
+        var (onRollOff, opponentOff) = CountBorneOff(request.Position.Mop);
+        double cubeSize = layout.LeftRailWidth * 0.7;
+
+        if (onRollOff >= BearOffMinCount && onRollOff <= BearOffMaxCount)
+        {
+            AppendBearOffStack(sb, layout, bx, request.OnRollAtBottom,
+                count: onRollOff, cubeSize: cubeSize, fill: theme.CheckerColorOnRoll);
+        }
+        if (opponentOff >= BearOffMinCount && opponentOff <= BearOffMaxCount)
+        {
+            AppendBearOffStack(sb, layout, bx, !request.OnRollAtBottom,
+                count: opponentOff, cubeSize: cubeSize, fill: theme.CheckerColorOpponent);
+        }
+    }
+
+    /// <summary>
+    /// Returns (onRollOff, opponentOff): count of checkers each player has
+    /// borne off, computed as 15 minus the checkers currently on the board
+    /// (points 1-24 plus the bar for that player).
+    /// </summary>
+    private static (int onRollOff, int opponentOff) CountBorneOff(IReadOnlyList<int> mop)
+    {
+        int onRollOn = 0;
+        int opponentOn = 0;
+        for (int i = 0; i < mop.Count; i++)
+        {
+            int v = mop[i];
+            if (v > 0) onRollOn += v;
+            else if (v < 0) opponentOn += -v;
+        }
+        return (15 - onRollOn, 15 - opponentOn);
+    }
+
+    /// <summary>
+    /// Renders one player's bear-off stack: horizontal bars stacked vertically,
+    /// centered in the left-rail region between the centered-cube slot and
+    /// the player's turned-cube slot. Groups of five are visually separated
+    /// by a small extra gap.
+    /// </summary>
+    private static void AppendBearOffStack(StringBuilder sb, BoardLayout layout, double bx,
+        bool atBottom, int count, double cubeSize, string fill)
+    {
+        double d = layout.ColumnWidth;
+        double barWidth = layout.LeftRailWidth * 0.55;
+        double barHeight = d * 0.22;
+        double intraGap = d * 0.071;       // 2 px at D=28
+        double groupGapExtra = d * 0.143;  // 4 px at D=28
+
+        double barX = bx + (layout.LeftRailWidth - barWidth) / 2;
+
+        // Region bounded by the inner edge of the centered-cube slot and the
+        // inner edge of this player's turned-cube slot.
+        double centeredTop = layout.BoardHeight / 2 - cubeSize / 2;
+        double centeredBottom = centeredTop + cubeSize;
+        double turnedTop = TurnedCubeY(layout, cubeSize, atBottom);
+        double turnedBottom = turnedTop + cubeSize;
+        double regionTop = atBottom ? centeredBottom : turnedBottom;
+        double regionBottom = atBottom ? turnedTop : centeredTop;
+        double regionCenter = (regionTop + regionBottom) / 2;
+
+        // Stack height: N bars + (N-1) intra-gaps + (groupsPassed) extra gaps.
+        int groupsPassedAtEnd = (count - 1) / 5;
+        double stackHeight = count * barHeight
+                             + (count - 1) * intraGap
+                             + groupsPassedAtEnd * groupGapExtra;
+        double stackTop = regionCenter - stackHeight / 2;
+
+        double slotPitch = barHeight + intraGap;
+        for (int i = 0; i < count; i++)
+        {
+            int groupsPassed = i / 5;
+            double y = stackTop + i * slotPitch + groupsPassed * groupGapExtra;
+            sb.AppendLine($"""  <rect x="{F(barX)}" y="{F(y)}" width="{F(barWidth)}" height="{F(barHeight)}" fill="{fill}" stroke="#888" stroke-width="0.5"/>""");
+        }
     }
 
     // -----------------------------------------------------------------------

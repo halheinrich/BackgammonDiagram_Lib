@@ -11,6 +11,7 @@ public class BoardHitRegions
     public required HitRect Bar { get; init; }
     public HitRect? Cube { get; init; }
     public HitRect? OnRollTray { get; init; }
+    public HitRect? OpponentTray { get; init; }
 }
 
 public record SvgViewBox(double X, double Y, double Width, double Height);
