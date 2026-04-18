@@ -46,4 +46,6 @@ internal static class TestPaths
     public static string DiagramRequestJson(string filename)
         => Path.Combine(DiagramRequestDir, filename);
 
+    public static string XgDir  => Path.Combine(_root, "xg");
+    public static string XgpDir => Path.Combine(_root, "xgp");
 }

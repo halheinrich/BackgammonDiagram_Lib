@@ -28,6 +28,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\BgDataTypes_Lib\BgDataTypes_Lib\BgDataTypes_Lib.csproj" />
     <ProjectReference Include="..\BackgammonDiagram_Lib\BackgammonDiagram_Lib.csproj" />
+    <!-- Test-only dependency: real .xg / .xgp parsing for visual fixtures.
+         Couples this test project to the sibling submodule's checkout layout;
+         standalone builds of BackgammonDiagram_Lib without the umbrella will
+         not have this path available. -->
+    <ProjectReference Include="..\..\ConvertXgToJson_Lib\ConvertXgToJson_Lib\ConvertXgToJson_Lib.csproj" />
   </ItemGroup>
 
   <ItemGroup>
