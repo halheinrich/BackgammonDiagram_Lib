@@ -31,11 +31,26 @@ public class RendererPanelContentTests
     [Fact]
     public void CubePanel_BestLine_TooGoodWhenNoDoubleEquityAtLeastOne()
     {
-        // nd=1.20, dt=0.50 → Too Good to Double; opp would take (dt < 1).
+        // nd=1.20, dt=0.50 → Too Good to Double. Since the best action is not
+        // to double, no opp take/pass decision arises — the Best line carries
+        // only the doubler half.
         var request = MinimalCubeBuilder(noDoubleEquity: 1.20, doubleTakeEquity: 0.50).Build();
         var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
 
-        Assert.Contains("Best:   Too Good to Double / Take", svg);
+        Assert.Contains("Best:   Too Good to Double", svg);
+        Assert.DoesNotContain("Best:   Too Good to Double /", svg);
+    }
+
+    [Fact]
+    public void CubePanel_BestLine_NoDoubleHasNoOppHalf()
+    {
+        // nd=0.25, dt=-0.10 → doubleEquity=min(dt,1)=-0.10 < nd, so best is
+        // "No Double". Same rule as "Too Good": no double → no opp decision.
+        var request = MinimalCubeBuilder(noDoubleEquity: 0.25, doubleTakeEquity: -0.10).Build();
+        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
+
+        Assert.Contains("Best:   No Double", svg);
+        Assert.DoesNotContain("Best:   No Double /", svg);
     }
 
     [Fact]
@@ -52,15 +67,32 @@ public class RendererPanelContentTests
     public void CubePanel_ActualLine_DerivedFromUserErrors()
     {
         // nd=0.40, dt=0.60 → Best doubler = Double; Best opp = Take.
-        //   UserDoubleError > 0 → user did the opposite (No Double).
-        //   UserTakeError == 0  → user took correctly (Take).
-        // Expected Actual: No Double / Take
+        //   UserDoubleError == 0 → user doubled correctly → actualDoubler = Double.
+        //   UserTakeError  > 0   → opp got take/pass wrong → actualOpp = Pass.
+        // The doubler-side is "Double" (not "No Double"), so the opp half is
+        // retained — this test exercises both sides of the derivation.
+        var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
+        b.UserDoubleError = 0;
+        b.UserTakeError = 0.1;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains("Actual: Double / Pass", svg);
+    }
+
+    [Fact]
+    public void CubePanel_ActualLine_NoDoubleSuppressesOppHalf()
+    {
+        // nd=0.40, dt=0.60 → Best = Double/Take.
+        //   UserDoubleError > 0 → user played the opposite (No Double).
+        //   UserTakeError set but stale — opp never faced a take/pass, so
+        //   the Actual line must show only the doubler half.
         var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
         b.UserDoubleError = 0.1;
         b.UserTakeError = 0;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        Assert.Contains("Actual: No Double / Take", svg);
+        Assert.Contains("Actual: No Double", svg);
+        Assert.DoesNotContain("Actual: No Double /", svg);
     }
 
     [Fact]
@@ -68,14 +100,17 @@ public class RendererPanelContentTests
     {
         // Best = "Too Good to Double" when nd >= 1. User's actual choice is
         // either "No Double" or "Double" — never the stylized "Too Good" form.
-        //   UserDoubleError == 0 → user did the correct thing, which is the
-        //   flat "No Double" in the Actual line.
+        //   UserDoubleError == 0  → user did the correct thing, which is the
+        //     flat "No Double" in the Actual line.
+        //   UserTakeError == null → opp never faced a decision; the opp half
+        //     is suppressed for any non-Double doubler action.
         var b = MinimalCubeBuilder(noDoubleEquity: 1.20, doubleTakeEquity: 0.50);
         b.UserDoubleError = 0;
         b.UserTakeError = null;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        Assert.Contains("Actual: No Double / ?", svg);
+        Assert.Contains("Actual: No Double", svg);
+        Assert.DoesNotContain("Actual: No Double /", svg);
         Assert.DoesNotContain("Actual: Too Good to Double", svg);
     }
 

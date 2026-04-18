@@ -153,6 +153,42 @@ public class DiagramRequestFactoryTests
         Assert.Equal(DiagramMode.Solution, solution.Mode);
     }
 
+    [Fact]
+    public void ToProblemSolutionPair_PlayProblemUsesProblemSuffix()
+    {
+        var b = TestFixtures.MinimalBuilder();   // IsCube = false
+        b.Title = "Position 1";
+        var (problem, solution) = b.Build().ToProblemSolutionPair();
+
+        Assert.Equal("Position 1 \u2014 Problem", problem.Descriptive.Title);
+        Assert.Equal("Position 1 \u2014 Solution", solution.Descriptive.Title);
+    }
+
+    [Fact]
+    public void ToProblemSolutionPair_CubeProblemUsesCubeActionSuffix()
+    {
+        var b = TestFixtures.MinimalBuilder();
+        b.IsCube = true;
+        b.Dice = [0, 0];
+        b.Title = "Position 1";
+        var (problem, solution) = b.Build().ToProblemSolutionPair();
+
+        Assert.Equal("Position 1 \u2014 Cube Action?", problem.Descriptive.Title);
+        Assert.Equal("Position 1 \u2014 Solution", solution.Descriptive.Title);
+    }
+
+    [Fact]
+    public void ToProblemSolutionPair_CubeProblem_NoSourceTitle_SuffixStandsAlone()
+    {
+        var b = TestFixtures.MinimalBuilder();
+        b.IsCube = true;
+        b.Dice = [0, 0];
+        // Title left unset → prefix is empty.
+        var (problem, _) = b.Build().ToProblemSolutionPair();
+
+        Assert.Equal("Cube Action?", problem.Descriptive.Title);
+    }
+
     // -----------------------------------------------------------------------
     //  Fixture builder — every mappable field set to a distinct non-default
     //  value so any dropped mapping shows up as a failed equality assertion.

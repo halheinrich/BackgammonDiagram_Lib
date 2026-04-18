@@ -21,10 +21,19 @@ public static class DiagramRenderer
     /// </summary>
     private const double PassEquity = 1.0;
 
-    // Analysis-panel layout constants (shared between play and cube panels)
+    // Play-panel layout constants. The cube panel has its own set below
+    // because its content (Best/Actual banner + 4-row equity/loss table +
+    // two 3-row pct tables + footer) is denser and visually unrelated.
     private const double PanelMargin = 6;
     private const double PanelLineHeight = 13;
     private const double PanelFontSize = 9;
+
+    // Cube-panel layout constants. Sized so a full cube decision fills most
+    // of the vertical panel space rather than hugging the top quarter.
+    private const double CubePanelLineHeight = 20;
+    private const double CubePanelFontSize = 14;       // row labels, equity/loss values, Best/Actual banner
+    private const double CubePanelLabelFontSize = 12;  // column headers, pct rows, footer
+    private const double CubePanelSectionGap = 10;     // vertical gap between banner / eq-loss / pct / footer
 
     // -----------------------------------------------------------------------
     //  Public API
@@ -653,15 +662,20 @@ public static class DiagramRenderer
     private static void AppendCubePanel(StringBuilder sb, double px, double pw, double ph,
         string textColor, string dimColor, DiagramRequest request)
     {
-        const double LabelFontSize = 8;   // used for pct-table rows and footer
+        // Width allocated for the right-hand numeric columns (equity/loss and
+        // the Win/Gammon/BG pct columns), measured from the left label edge.
+        // Fixed rather than panel-relative so the numeric block stays tight
+        // against the row labels regardless of panel width — widening the
+        // panel (e.g. under the 16:9 aspect preset) just leaves empty space
+        // on the right instead of spreading the columns apart.
+        const double NumericBlockWidth = 215;
 
         double y = PanelMargin;
         double textX = px + PanelMargin + 4;
-        double rightX = px + pw - PanelMargin - 4;
+        double numericRightX = textX + NumericBlockWidth;
         // Equity/Loss columns: Loss rightmost, Equity left of it.
-        double lossX = rightX;
-        double equityX = rightX - 45;
-        double centreX = px + pw / 2;
+        double lossX = numericRightX;
+        double equityX = numericRightX - 70;
 
         var d = request.Decision;
         double nd = d.NoDoubleEquity;
@@ -688,8 +702,14 @@ public static class DiagramRenderer
             ? "Too Good to Double"
             : (doubleEquity > nd ? "Double" : "No Double");
         string bestOpp = dt < pass ? "Take" : "Pass";
-        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="9" fill="{textColor}">{Escape($"Best:   {bestDoubler} / {bestOpp}")}</text>""");
-        y += PanelLineHeight;
+        // Opponent's take/pass only arises when the doubler actually doubles;
+        // for "No Double" and "Too Good to Double" there is no opp decision
+        // to show.
+        string bestLine = bestDoubler == "Double"
+            ? $"Best:   {bestDoubler} / {bestOpp}"
+            : $"Best:   {bestDoubler}";
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(bestLine)}</text>""");
+        y += CubePanelLineHeight;
 
         string correctDoublerAction = doubleEquity > nd ? "Double" : "No Double";  // flat form for Actual
         string? actualDoubler = d.UserDoubleError is double ude
@@ -700,17 +720,22 @@ public static class DiagramRenderer
             : null;
         if (actualDoubler != null || actualOpp != null)
         {
-            string actualLine = $"Actual: {actualDoubler ?? "?"} / {actualOpp ?? "?"}";
-            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="9" fill="{textColor}">{Escape(actualLine)}</text>""");
-            y += PanelLineHeight;
+            // Same rule as the Best line: suppress the opp half whenever the
+            // (actual) doubler action isn't "Double" — a stale UserTakeError
+            // on a "No Double" play isn't a real take/pass decision.
+            string actualLine = "Actual: " + (actualDoubler ?? "?");
+            if (actualOpp != null && actualDoubler != "No Double")
+                actualLine += " / " + actualOpp;
+            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(actualLine)}</text>""");
+            y += CubePanelLineHeight;
         }
-        y += 6;
+        y += CubePanelSectionGap;
 
         // ── Equity/Loss table ──────────────────────────────────────────
         // Column headers
-        sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="8" fill="{dimColor}">Equity</text>""");
-        sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="8" fill="{dimColor}">Loss</text>""");
-        y += PanelLineHeight;
+        sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(CubePanelLabelFontSize)}" fill="{dimColor}">Equity</text>""");
+        sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(CubePanelLabelFontSize)}" fill="{dimColor}">Loss</text>""");
+        y += CubePanelLineHeight;
 
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
             label: "No Double", equity: nd, loss: noDoubleLoss);
@@ -721,10 +746,10 @@ public static class DiagramRenderer
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
             label: "Pass",      equity: pass, loss: passLoss);
 
-        y += 6;
+        y += CubePanelSectionGap;
 
         // ── Percentages tables (No Double, Take) ───────────────────────
-        y = AppendPctTable(sb, textX, rightX, y, LabelFontSize, textColor, dimColor,
+        y = AppendPctTable(sb, textX, numericRightX, y, CubePanelLabelFontSize, textColor, dimColor,
             decisionLabel: "No Double",
             onRollWin: d.WinPctAfterNoDouble,
             onRollGammon: d.GammonPctAfterNoDouble,
@@ -733,9 +758,9 @@ public static class DiagramRenderer
             oppGammon: d.LoseGammonPctAfterNoDouble,
             oppBg: d.LoseBgPctAfterNoDouble);
 
-        y += 6;
+        y += CubePanelSectionGap;
 
-        y = AppendPctTable(sb, textX, rightX, y, LabelFontSize, textColor, dimColor,
+        y = AppendPctTable(sb, textX, numericRightX, y, CubePanelLabelFontSize, textColor, dimColor,
             decisionLabel: "Take",
             onRollWin: d.WinPctAfterDoubleTake,
             onRollGammon: d.GammonPctAfterDoubleTake,
@@ -744,36 +769,36 @@ public static class DiagramRenderer
             oppGammon: d.LoseGammonPctAfterDoubleTake,
             oppBg: d.LoseBgPctAfterDoubleTake);
 
-        y += 6;
+        y += CubePanelSectionGap;
 
         // ── Footer lines ───────────────────────────────────────────────
         var depths = d.AnalysisDepths;
         if (depths.Count > 0)
         {
             string depthLabels = string.Join(", ", depths.Select(static a => a.Label));
-            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(LabelFontSize)}" fill="{dimColor}">{Escape($"Analysis Level: {depthLabels}")}</text>""");
-            y += PanelLineHeight;
+            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelLabelFontSize)}" fill="{dimColor}">{Escape($"Analysis Level: {depthLabels}")}</text>""");
+            y += CubePanelLineHeight;
         }
 
         double probErr = d.ProbOfOpponentErrorJustifyingDouble;
         if (probErr > 0)
         {
-            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(LabelFontSize)}" fill="{dimColor}">{Escape($"Pass Justifying Dbl: {F1(probErr * 100)}%")}</text>""");
-            y += PanelLineHeight;
+            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelLabelFontSize)}" fill="{dimColor}">{Escape($"Pass Justifying Dbl: {F1(probErr * 100)}%")}</text>""");
+            y += CubePanelLineHeight;
         }
     }
 
     private static double AppendCubeRow(StringBuilder sb, double textX, double equityX, double lossX,
         double y, string textColor, string dimColor, string label, double equity, double loss)
     {
-        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(PanelFontSize)}" font-weight="bold" fill="{textColor}">{Escape(label)}</text>""");
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" font-weight="bold" fill="{textColor}">{Escape(label)}</text>""");
         // Equity as its own text element so invariant-culture format tests can
         // assert ">+0.XXXX<" directly.
-        sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{textColor}">{FormatEquity(equity)}</text>""");
+        sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{FormatEquity(equity)}</text>""");
         // Loss shown unconditionally — "0.0000" for the correct option, a
         // positive magnitude for the wrong option. Always four decimal places.
-        sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{dimColor}">{FormatEquityLoss(loss)}</text>""");
-        return y + PanelLineHeight + 2;
+        sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{dimColor}">{FormatEquityLoss(loss)}</text>""");
+        return y + CubePanelLineHeight + 3;
     }
 
     private static double AppendPctTable(StringBuilder sb, double textX, double rightX, double y,
@@ -785,15 +810,15 @@ public static class DiagramRenderer
         // pct table's right edge stays flush with the equity/loss table above
         // regardless of panel width.
         double bgX     = rightX;
-        double gammonX = rightX - 30;
-        double winX    = rightX - 62;
+        double gammonX = rightX - 47;
+        double winX    = rightX - 96;
 
         // Header row: decision label on the left, column headers right-anchored.
-        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{textColor}">{Escape(decisionLabel)}</text>""");
-        sb.AppendLine($"""  <text x="{F(winX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">Win</text>""");
-        sb.AppendLine($"""  <text x="{F(gammonX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">Gammon</text>""");
-        sb.AppendLine($"""  <text x="{F(bgX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">BG</text>""");
-        y += PanelLineHeight;
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{textColor}">{Escape(decisionLabel)}</text>""");
+        sb.AppendLine($"""  <text x="{F(winX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">Win</text>""");
+        sb.AppendLine($"""  <text x="{F(gammonX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">Gammon</text>""");
+        sb.AppendLine($"""  <text x="{F(bgX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">BG</text>""");
+        y += CubePanelLineHeight;
 
         y = AppendPctRow(sb, textX, winX, gammonX, bgX, y, fontSize, textColor,
             label: "On-roll",  win: onRollWin, gammon: onRollGammon, bg: onRollBg);
@@ -807,11 +832,11 @@ public static class DiagramRenderer
         double winX, double gammonX, double bgX, double y, double fontSize, string color,
         string label, double win, double gammon, double bg)
     {
-        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + PanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{Escape(label)}</text>""");
-        sb.AppendLine($"""  <text x="{F(winX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{F1(win * 100)}%</text>""");
-        sb.AppendLine($"""  <text x="{F(gammonX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{F1(gammon * 100)}%</text>""");
-        sb.AppendLine($"""  <text x="{F(bgX)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{F1(bg * 100)}%</text>""");
-        return y + PanelLineHeight;
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{Escape(label)}</text>""");
+        sb.AppendLine($"""  <text x="{F(winX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{F1(win * 100)}%</text>""");
+        sb.AppendLine($"""  <text x="{F(gammonX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{F1(gammon * 100)}%</text>""");
+        sb.AppendLine($"""  <text x="{F(bgX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{F1(bg * 100)}%</text>""");
+        return y + CubePanelLineHeight;
     }
 
     // -----------------------------------------------------------------------

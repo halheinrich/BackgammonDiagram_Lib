@@ -255,6 +255,42 @@ public class VisualOutputTests
         Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
     }
 
+    [Fact]
+    public void Pptx_CubeProblemSolutionPair()
+    {
+        // Exercises the cube-panel content — Problem title ("… — Cube Action?"),
+        // Solution Best/Actual banner, equity/loss table, pct tables, and
+        // the numeric-block width under the default 16:9 aspect.
+        var b = TestFixtures.MinimalBuilder();
+        b.IsCube = true;
+        b.Dice = [0, 0];
+        b.Title = "Position 1";
+        b.Mop = TestFixtures.StartingMop();
+        b.NoDoubleEquity = 0.40;
+        b.DoubleTakeEquity = 0.60;
+        b.WinPctAfterNoDouble = 0.702;
+        b.GammonPctAfterNoDouble = 0.123;
+        b.BgPctAfterNoDouble = 0.011;
+        b.LosePctAfterNoDouble = 0.298;
+        b.LoseGammonPctAfterNoDouble = 0.091;
+        b.LoseBgPctAfterNoDouble = 0.004;
+        b.WinPctAfterDoubleTake = 0.715;
+        b.GammonPctAfterDoubleTake = 0.131;
+        b.BgPctAfterDoubleTake = 0.014;
+        b.LosePctAfterDoubleTake = 0.285;
+        b.LoseGammonPctAfterDoubleTake = 0.082;
+        b.LoseBgPctAfterDoubleTake = 0.003;
+        b.UserDoubleError = 0.1;  // user didn't double → Actual shows only "No Double"
+        b.UserTakeError = 0;
+        b.ProbOfOpponentErrorJustifyingDouble = 0.42;
+
+        var (problem, solution) = b.Build().ToProblemSolutionPair();
+        var pptx = DiagramRenderer.RenderPptx([problem, solution], TestFixtures.DefaultOptions());
+        var path = TestPaths.PptxOutputPath("bg_cube_pair.pptx");
+        File.WriteAllBytes(path, pptx);
+        Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
+    }
+
     // -----------------------------------------------------------------------
     //  PDF
     // -----------------------------------------------------------------------
