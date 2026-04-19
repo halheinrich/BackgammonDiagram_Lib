@@ -24,15 +24,18 @@ public class HitRegionsTests
     }
 
     [Fact]
-    public void GetHitRegions_ViewBoxMatchesBoardOnly()
+    public void GetHitRegions_ViewBoxMatchesBoardPlusTitleStrip()
     {
+        // MinimalRequest has valid dice, so the title strip is always composed
+        // ("X-Y to play") and the ViewBox must include that offset.
         var layout = BoardLayout.Default;
         var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
 
         Assert.Equal(0, regions.ViewBox.X);
         Assert.Equal(0, regions.ViewBox.Y);
         Assert.Equal(layout.BoardWidth, regions.ViewBox.Width);
-        Assert.Equal(layout.BoardHeight, regions.ViewBox.Height);
+        Assert.True(regions.ViewBox.Height > layout.BoardHeight,
+            $"ViewBox height {regions.ViewBox.Height} should exceed board height {layout.BoardHeight}.");
     }
 
     [Fact]
@@ -50,11 +53,12 @@ public class HitRegionsTests
     {
         var layout = BoardLayout.Default;
         var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
+        double titleOffset = regions.ViewBox.Height - layout.BoardHeight;
 
         for (int pt = 13; pt <= 24; pt++)
         {
             var rect = regions.Points[pt];
-            Assert.Equal(layout.TopCheckerBaseY, rect.Y, 2);
+            Assert.Equal(layout.TopCheckerBaseY + titleOffset, rect.Y, 2);
             Assert.Equal(layout.PointHeight, rect.Height, 2);
         }
     }
@@ -64,11 +68,12 @@ public class HitRegionsTests
     {
         var layout = BoardLayout.Default;
         var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
+        double titleOffset = regions.ViewBox.Height - layout.BoardHeight;
 
         for (int pt = 1; pt <= 12; pt++)
         {
             var rect = regions.Points[pt];
-            Assert.Equal(layout.BottomCheckerBaseY, rect.Y, 2);
+            Assert.Equal(layout.BottomCheckerBaseY + titleOffset, rect.Y, 2);
             Assert.Equal(layout.PointHeight, rect.Height, 2);
         }
     }
@@ -112,10 +117,11 @@ public class HitRegionsTests
     {
         var layout = BoardLayout.Default;
         var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
+        double titleOffset = regions.ViewBox.Height - layout.BoardHeight;
 
         Assert.Equal(layout.BarX(panelOnLeft: false), regions.Bar.X, 2);
         Assert.Equal(layout.BarWidth, regions.Bar.Width, 2);
-        Assert.Equal(0, regions.Bar.Y, 2);
+        Assert.Equal(titleOffset, regions.Bar.Y, 2);
         Assert.Equal(layout.BoardHeight, regions.Bar.Height, 2);
     }
 

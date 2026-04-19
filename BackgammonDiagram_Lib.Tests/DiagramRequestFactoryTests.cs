@@ -154,39 +154,30 @@ public class DiagramRequestFactoryTests
     }
 
     [Fact]
-    public void ToProblemSolutionPair_PlayProblemUsesProblemSuffix()
+    public void ToProblemSolutionPair_DoesNotManipulateTitle()
     {
-        var b = TestFixtures.MinimalBuilder();   // IsCube = false
-        b.Title = "Position 1";
+        // Title is no longer composed by pair expansion; the renderer builds
+        // the title strip from context (dice + PositionNumber) directly.
+        // Whatever the source Title was passes through untouched to both sides.
+        var b = TestFixtures.MinimalBuilder();
+        b.Title = "Arbitrary source title";
         var (problem, solution) = b.Build().ToProblemSolutionPair();
 
-        Assert.Equal("Position 1 \u2014 Problem", problem.Descriptive.Title);
-        Assert.Equal("Position 1 \u2014 Solution", solution.Descriptive.Title);
+        Assert.Equal("Arbitrary source title", problem.Descriptive.Title);
+        Assert.Equal("Arbitrary source title", solution.Descriptive.Title);
+        Assert.Equal(DiagramMode.Problem, problem.Mode);
+        Assert.Equal(DiagramMode.Solution, solution.Mode);
     }
 
     [Fact]
-    public void ToProblemSolutionPair_CubeProblemUsesCubeActionSuffix()
+    public void ToProblemSolutionPair_PreservesPositionNumber()
     {
         var b = TestFixtures.MinimalBuilder();
-        b.IsCube = true;
-        b.Dice = [0, 0];
-        b.Title = "Position 1";
+        b.PositionNumber = 7;
         var (problem, solution) = b.Build().ToProblemSolutionPair();
 
-        Assert.Equal("Position 1 \u2014 Cube Action?", problem.Descriptive.Title);
-        Assert.Equal("Position 1 \u2014 Solution", solution.Descriptive.Title);
-    }
-
-    [Fact]
-    public void ToProblemSolutionPair_CubeProblem_NoSourceTitle_SuffixStandsAlone()
-    {
-        var b = TestFixtures.MinimalBuilder();
-        b.IsCube = true;
-        b.Dice = [0, 0];
-        // Title left unset → prefix is empty.
-        var (problem, _) = b.Build().ToProblemSolutionPair();
-
-        Assert.Equal("Cube Action?", problem.Descriptive.Title);
+        Assert.Equal(7, problem.PositionNumber);
+        Assert.Equal(7, solution.PositionNumber);
     }
 
     // -----------------------------------------------------------------------

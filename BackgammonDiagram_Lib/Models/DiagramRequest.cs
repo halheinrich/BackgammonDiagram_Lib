@@ -16,6 +16,14 @@ public class DiagramRequest
     public bool OnRollAtBottom { get; init; } = true;
     public PanelPosition AnalysisPanelPosition { get; init; }
 
+    /// <summary>
+    /// Optional counter surfaced right-justified in the title strip as
+    /// "Position {N}". Callers emitting a deck of decisions typically set
+    /// this to a running 1-based counter so readers can cross-reference
+    /// the slide back to a source list. Null hides the right title cell.
+    /// </summary>
+    public int? PositionNumber { get; init; }
+
     // -----------------------------------------------------------------------
     //  Factory: BgDecisionData → DiagramRequest
     // -----------------------------------------------------------------------
@@ -104,6 +112,7 @@ public class DiagramRequest
         public bool HomeBoardOnRight { get; set; } = true;
         public bool OnRollAtBottom { get; set; } = true;
         public PanelPosition AnalysisPanelPosition { get; set; }
+        public int? PositionNumber { get; set; }
 
         // -------------------------------------------------------------------
         //  Factories — single field-mapping site for data → builder
@@ -185,10 +194,14 @@ public class DiagramRequest
         /// one field-mapping site — enables ToProblemSolutionPair and any
         /// other "tweak a request" caller to be drift-free.
         /// </summary>
-        public static Builder From(DiagramRequest existing) =>
-            From(existing.Position, existing.Decision, existing.Descriptive,
+        public static Builder From(DiagramRequest existing)
+        {
+            var b = From(existing.Position, existing.Decision, existing.Descriptive,
                 existing.Mode, existing.HomeBoardOnRight, existing.OnRollAtBottom,
                 existing.AnalysisPanelPosition);
+            b.PositionNumber = existing.PositionNumber;
+            return b;
+        }
 
         public DiagramRequest Build()
         {
@@ -245,6 +258,7 @@ public class DiagramRequest
                 HomeBoardOnRight = HomeBoardOnRight,
                 OnRollAtBottom = OnRollAtBottom,
                 AnalysisPanelPosition = AnalysisPanelPosition,
+                PositionNumber = PositionNumber,
             };
         }
 

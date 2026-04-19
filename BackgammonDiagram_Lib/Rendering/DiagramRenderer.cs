@@ -43,7 +43,8 @@ public static class DiagramRenderer
     {
         var theme = options.Theme;
         bool panelOnLeft = request.AnalysisPanelPosition == PanelPosition.Left;
-        bool hasTitle = !string.IsNullOrWhiteSpace(request.Descriptive.Title);
+        var (titleAction, titlePosition) = ComposeTitleCells(request);
+        bool hasTitle = titleAction.Length > 0 || titlePosition.Length > 0;
         double titleOffset = hasTitle ? TitleStripHeight : 0;
         var layout = BuildLayout(options.Aspect, titleOffset);
 
@@ -54,10 +55,10 @@ public static class DiagramRenderer
         sb.AppendLine($"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {F(totalWidth)} {F(totalHeight)}" width="100%">""");
 
         if (hasTitle)
-            AppendTitleStrip(sb, totalWidth, titleOffset, theme, request.Descriptive.Title!);
-
-        if (hasTitle)
+        {
+            AppendTitleStrip(sb, layout, panelOnLeft, totalWidth, titleOffset, theme, titleAction, titlePosition);
             sb.AppendLine($"""  <g transform="translate(0,{F(titleOffset)})">""");
+        }
 
         AppendBoard(sb, layout, theme, request, panelOnLeft);
 
@@ -120,7 +121,8 @@ public static class DiagramRenderer
 
         // Title strip, if present, offsets all board-relative Y coords in the
         // rendered SVG — hit regions must match.
-        bool hasTitle = !string.IsNullOrWhiteSpace(request.Descriptive.Title);
+        var (titleAction, titlePosition) = ComposeTitleCells(request);
+        bool hasTitle = titleAction.Length > 0 || titlePosition.Length > 0;
         double titleOffset = hasTitle ? TitleStripHeight : 0;
 
         double totalWidth = layout.TotalWidth(withPanel: false);
@@ -279,14 +281,50 @@ public static class DiagramRenderer
     //  Title strip
     // -----------------------------------------------------------------------
 
-    private static void AppendTitleStrip(StringBuilder sb, double totalWidth, double height,
-        ITheme theme, string title)
+    /// <summary>
+    /// Composes the two title-strip cells from the request. The action cell
+    /// — "{dice} to play" for checker decisions, "Cube Action?" for cube
+    /// decisions — sits in column 1 (left third of the board). The
+    /// "Position {N}" cell sits in column 2 (middle third). Column 3
+    /// (right third) is left blank.
+    /// </summary>
+    private static (string Action, string Position) ComposeTitleCells(DiagramRequest request)
     {
+        string action;
+        if (request.Decision.IsCube)
+        {
+            action = "Cube Action?";
+        }
+        else
+        {
+            var dice = request.Decision.Dice;
+            // Defensive — a malformed checker-decision with non-standard dice
+            // values contributes no action text rather than "0-0 to play".
+            action = (dice.Count == 2 && dice[0] >= 1 && dice[1] >= 1)
+                ? $"{dice[0]}-{dice[1]} to play"
+                : string.Empty;
+        }
+        string position = request.PositionNumber is int n ? $"Position {n}" : string.Empty;
+        return (action, position);
+    }
+
+    private static void AppendTitleStrip(StringBuilder sb, BoardLayout layout, bool panelOnLeft,
+        double totalWidth, double height, ITheme theme, string action, string position)
+    {
+        // Action sits at the left edge of the full diagram. Position's first
+        // character is aligned to the board's left edge (left-anchored at
+        // boardOffsetX). Right third of the strip is blank.
+        const double edgeMargin = 8;
+        double actionX   = edgeMargin;
+        double positionX = layout.BoardOffsetX(panelOnLeft);
         string bg = theme.PanelBackgroundColor;
         string textColor = ContrastText(bg);
         double textY = height / 2;
         sb.AppendLine($"""  <rect x="0" y="0" width="{F(totalWidth)}" height="{F(height)}" fill="{bg}"/>""");
-        sb.AppendLine($"""  <text x="8" y="{F(textY)}" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(title)}</text>""");
+        if (action.Length > 0)
+            sb.AppendLine($"""  <text x="{F(actionX)}" y="{F(textY)}" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(action)}</text>""");
+        if (position.Length > 0)
+            sb.AppendLine($"""  <text x="{F(positionX)}" y="{F(textY)}" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(position)}</text>""");
     }
 
     // -----------------------------------------------------------------------
@@ -537,15 +575,20 @@ public static class DiagramRenderer
         double d2X = halfCx - pairW / 2 + size + gap; // right die top-left x
         double dY = cy - size / 2;               // top-left y (same for both)
 
-        AppendDie(sb, theme, d1X, dY, size, rx, request.Decision.Dice[0]);
-        AppendDie(sb, theme, d2X, dY, size, rx, request.Decision.Dice[1]);
+        // Dice take the on-roll player's checker colour; pips contrast against it.
+        string faceFill = theme.CheckerColorOnRoll;
+        string pipFill  = ContrastText(faceFill);
+
+        AppendDie(sb, d1X, dY, size, rx, request.Decision.Dice[0], faceFill, pipFill);
+        AppendDie(sb, d2X, dY, size, rx, request.Decision.Dice[1], faceFill, pipFill);
     }
 
-    private static void AppendDie(StringBuilder sb, ITheme theme,
-        double x, double y, double size, double rx, int value)
+    private static void AppendDie(StringBuilder sb,
+        double x, double y, double size, double rx, int value,
+        string faceFill, string pipFill)
     {
         // Face
-        sb.AppendLine($"""  <rect x="{F(x)}" y="{F(y)}" width="{F(size)}" height="{F(size)}" rx="{F(rx)}" fill="{theme.DiceColor}" stroke="#888" stroke-width="0.75"/>""");
+        sb.AppendLine($"""  <rect x="{F(x)}" y="{F(y)}" width="{F(size)}" height="{F(size)}" rx="{F(rx)}" fill="{faceFill}" stroke="#888" stroke-width="0.75"/>""");
 
         // Pip grid: 3×3 positions, each pip at fraction of die size
         // col: 0=left(0.25), 1=centre(0.5), 2=right(0.75)
@@ -557,7 +600,7 @@ public static class DiagramRenderer
         {
             double px = x + size * (0.25 + col * 0.25);
             double py = y + size * (0.25 + row * 0.25);
-            sb.AppendLine($"""  <circle cx="{F(px)}" cy="{F(py)}" r="{F(pipR)}" fill="#222"/>""");
+            sb.AppendLine($"""  <circle cx="{F(px)}" cy="{F(py)}" r="{F(pipR)}" fill="{pipFill}"/>""");
         }
     }
 
@@ -733,54 +776,93 @@ public static class DiagramRenderer
     //  Play analysis panel
     // -----------------------------------------------------------------------
 
+    // Play-panel layout constants. Matches the cube-panel type ramp for
+    // deck-wide visual consistency.
+    private const double PlayPanelLineHeight = 20;
+    private const double PlayPanelFontSize   = 14;
+
+    /// <summary>
+    /// Render the checker-play candidate list. One line per play, in the
+    /// order supplied (assumed equity-loss ascending — XG's native order).
+    /// Columns from left to right:
+    ///   * user-play marker, rank, move notation, equity, equity loss.
+    /// When the panel doesn't have room for every candidate, trim the tail
+    /// but always include the user's play on the last line (with its real
+    /// rank number) if it would otherwise be cut.
+    /// </summary>
     private static void AppendPlayPanel(StringBuilder sb, double px, double pw, double ph,
         string textColor, string dimColor, DiagramRequest request)
     {
-        double innerW = pw - PanelMargin * 2;
-        double y = PanelMargin;
-        double boxH = PanelLineHeight * 2 + 6; // two lines + padding
-        double boxGap = 3;
-
-        // Header
-        sb.AppendLine($"""  <text x="{F(px + pw / 2)}" y="{F(y + PanelLineHeight * 0.8)}" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="{textColor}">Checker Play</text>""");
-        y += PanelLineHeight + 4;
-
+        _ = pw;  // panel width not used — numeric block anchors to moveX instead.
         var plays = request.Decision.Plays;
         if (plays.Count == 0) return;
 
-        for (int i = 0; i < plays.Count; i++)
+        // Column x-anchors. Equity and Eq Loss sit just past a fixed move-text
+        // reservation rather than pinned to the panel's right edge, so the
+        // numeric block stays close to the move notation regardless of how
+        // wide the panel is stretched by the aspect preset.
+        double markerX = px + PanelMargin + 4;                     // "*" or blank
+        double rankX   = markerX + PlayPanelFontSize * 0.9;        // rank number
+        double moveX   = rankX   + PlayPanelFontSize * 2.2;        // move text (left-anchored)
+        double equityX = moveX   + PlayPanelFontSize * 12;         // equity right-edge
+        double lossX   = equityX + PlayPanelFontSize * 4.5;        // eq-loss right-edge
+
+        double y = PanelMargin;
+
+        // Column-header row — applies only when there are plays to label.
+        sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(y + PlayPanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">Equity</text>""");
+        sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + PlayPanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">Eq Loss</text>""");
+        y += PlayPanelLineHeight;
+
+        // Space reserved at the bottom for the analysis-depth footer (if any)
+        // so play rows don't clip it.
+        int depthCount = request.Decision.AnalysisDepths.Count;
+        double depthReserve = depthCount > 0 ? depthCount * 12 + 6 : 0;
+        double rowBudget = ph - PanelMargin - depthReserve;
+
+        int fitCount = (int)Math.Max(0, (rowBudget - y) / PlayPanelLineHeight);
+        int total = plays.Count;
+
+        // Decide the visible index set. Normally [0 .. min(fitCount, total)).
+        // If the user's play would be cut (userIndex >= fitCount), displace
+        // the last otherwise-visible entry and append the user's play with
+        // its real rank.
+        int userIndex = request.Decision.UserPlayIndex;
+        bool userNeedsRescue = userIndex >= 0
+                               && userIndex < total
+                               && userIndex >= fitCount
+                               && fitCount > 0;
+
+        int visibleCount = Math.Min(fitCount, total);
+        for (int slot = 0; slot < visibleCount; slot++)
         {
-            if (y + boxH > ph - PanelMargin) break; // stop if no room
+            // Last slot swaps to the rescued user play when needed.
+            int playIdx = (userNeedsRescue && slot == visibleCount - 1)
+                ? userIndex
+                : slot;
 
-            var play = plays[i];
-            bool isBest = i == request.Decision.BestPlayIndex;
-            bool isUser = i == request.Decision.UserPlayIndex;
+            var play = plays[playIdx];
+            bool isUser = playIdx == userIndex;
+            string marker = isUser ? "*" : string.Empty;
+            string rank = $"{playIdx + 1}";
+            string moveText = play.MoveNotation;
 
-            // Box background
-            string boxBg = isBest ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
-            sb.AppendLine($"""  <rect x="{F(px + PanelMargin)}" y="{F(y)}" width="{F(innerW)}" height="{F(boxH)}" rx="2" fill="{boxBg}"/>""");
+            double lineY = y + PlayPanelLineHeight * 0.8;
 
-            double textX = px + PanelMargin + 4;
-            double rightX = px + pw - PanelMargin - 4;
+            if (marker.Length > 0)
+                sb.AppendLine($"""  <text x="{F(markerX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" font-weight="bold" fill="{textColor}">{marker}</text>""");
 
-            // Line 1: rank + move notation + equity
-            double line1Y = y + PanelLineHeight;
-            string rankPrefix = isBest ? "\u265B " : isUser ? "\u2713 " : $"{i + 1}. ";
-            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(line1Y)}" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{textColor}">{Escape(rankPrefix + play.MoveNotation)}</text>""");
-            sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(line1Y)}" text-anchor="end" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{textColor}">{FormatEquity(play.Equity)}</text>""");
+            sb.AppendLine($"""  <text x="{F(rankX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{textColor}">{Escape(rank)}</text>""");
+            sb.AppendLine($"""  <text x="{F(moveX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{textColor}">{Escape(moveText)}</text>""");
+            sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{textColor}">{FormatEquity(play.Equity)}</text>""");
+            if (play.EquityLoss is double loss && loss > 0)
+                sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">{FormatEquityLoss(loss)}</text>""");
 
-            // Line 2: equity loss (right-aligned)
-            double line2Y = y + PanelLineHeight * 2;
-            if (play.EquityLoss.HasValue && play.EquityLoss.Value > 0)
-            {
-                sb.AppendLine($"""  <text x="{F(rightX)}" y="{F(line2Y)}" text-anchor="end" font-family="sans-serif" font-size="{F(PanelFontSize)}" fill="{dimColor}">{FormatEquityLoss(play.EquityLoss.Value)}</text>""");
-            }
-
-            y += boxH + boxGap;
+            y += PlayPanelLineHeight;
         }
 
-        // Analysis depth at bottom if room
-        AppendAnalysisDepths(sb, px, pw, ph, dimColor, request, PanelFontSize);
+        // Analysis depth at bottom if room.
+        AppendAnalysisDepths(sb, px, pw, ph, dimColor, request, PlayPanelFontSize);
     }
 
     // -----------------------------------------------------------------------

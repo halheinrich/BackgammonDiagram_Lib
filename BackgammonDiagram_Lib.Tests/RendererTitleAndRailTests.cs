@@ -10,61 +10,56 @@ namespace BackgammonDiagram_Lib.Tests;
 public class RendererTitleAndRailTests
 {
     // -----------------------------------------------------------------------
-    //  Title strip
+    //  Title strip — composed from (dice / cube) + optional PositionNumber
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Title_Absent_NoTitleStripOrOffset()
+    public void Title_PlayDecision_ShowsDiceToPlay()
     {
         var b = TestFixtures.MinimalBuilder();
-        b.Title = null;
+        b.Dice = [3, 1];
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        // No translate-group for board offset.
-        Assert.DoesNotContain("<g transform=\"translate(0,", svg);
+        Assert.Contains(">3-1 to play</text>", svg);
+        // Translate-group wrapping the board is added under the strip.
+        Assert.Contains("<g transform=\"translate(0,", svg);
     }
 
     [Fact]
-    public void Title_Whitespace_TreatedAsAbsent()
+    public void Title_CubeDecision_ShowsCubeAction()
     {
         var b = TestFixtures.MinimalBuilder();
-        b.Title = "   ";
+        b.IsCube = true;
+        b.Dice = [0, 0];
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        Assert.DoesNotContain("<g transform=\"translate(0,", svg);
+        Assert.Contains(">Cube Action?</text>", svg);
     }
 
     [Fact]
-    public void Title_Present_StripRenderedAndViewBoxTaller()
+    public void Title_PositionNumber_RendersAsSeparateSecondColumnCell()
     {
         var b = TestFixtures.MinimalBuilder();
-        b.Title = null;
-        var svgPlain = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        b.PositionNumber = 7;
+        b.Dice = [3, 1];
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        b.Title = "Example title";
-        var svgTitled = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
-
-        // Title text appears.
-        Assert.Contains(">Example title<", svgTitled);
-        // Translate-group wrapping the board is added.
-        Assert.Contains("<g transform=\"translate(0,", svgTitled);
-        // ViewBox is taller when titled.
-        var plainHeight = ExtractViewBoxHeight(svgPlain);
-        var titledHeight = ExtractViewBoxHeight(svgTitled);
-        Assert.True(titledHeight > plainHeight,
-            $"Titled viewBox height {titledHeight} not greater than plain {plainHeight}.");
+        // Action cell in column 1, position cell in column 2 — distinct <text>
+        // elements, no em-dash concatenation.
+        Assert.Contains(">3-1 to play</text>", svg);
+        Assert.Contains(">Position 7</text>", svg);
     }
 
     [Fact]
-    public void Title_SpecialChars_AreXmlEscaped()
+    public void Title_NoPositionNumber_ActionStandsAlone()
     {
         var b = TestFixtures.MinimalBuilder();
-        b.Title = "A & B <x> \"y\"";
+        b.PositionNumber = null;
+        b.Dice = [3, 1];
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        // The raw characters must not appear un-escaped in the title text.
-        Assert.Contains("A &amp; B &lt;x&gt; &quot;y&quot;", svg);
-        Assert.DoesNotContain(">A & B <x> \"y\"<", svg);
+        Assert.DoesNotContain(">Position ", svg);
+        Assert.Contains(">3-1 to play</text>", svg);
     }
 
     // -----------------------------------------------------------------------
@@ -120,33 +115,23 @@ public class RendererTitleAndRailTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void GetHitRegions_WithTitle_PointsShiftedDownByTitleStrip()
+    public void GetHitRegions_ViewBoxIncludesTitleStripHeight()
     {
+        // The title strip is always present under the new layout (composed
+        // from dice-to-play / Cube-Action? plus optional PositionNumber),
+        // so hit regions must account for the ~22 px offset.
         var layout = BoardLayout.Default;
-        var options = TestFixtures.DefaultOptions();
+        var regions = DiagramRenderer.GetHitRegions(
+            TestFixtures.MinimalRequest(), TestFixtures.DefaultOptions());
 
-        var bNone = TestFixtures.MinimalBuilder();
-        bNone.Title = null;
-        var regionsPlain = DiagramRenderer.GetHitRegions(bNone.Build(), options);
-
-        var bTitled = TestFixtures.MinimalBuilder();
-        bTitled.Title = "Example title";
-        var regionsTitled = DiagramRenderer.GetHitRegions(bTitled.Build(), options);
-
-        double delta = regionsTitled.ViewBox.Height - regionsPlain.ViewBox.Height;
-        Assert.True(delta > 0, "Titled viewBox must be taller.");
-
-        // Every point's Y must shift by exactly the title-strip height.
-        for (int pt = 1; pt <= 24; pt++)
-        {
-            var dy = regionsTitled.Points[pt].Y - regionsPlain.Points[pt].Y;
-            Assert.Equal(delta, dy, 2);
-        }
-        // Bar and cube Y shift too.
-        Assert.Equal(delta, regionsTitled.Bar.Y - regionsPlain.Bar.Y, 2);
-        Assert.NotNull(regionsTitled.Cube);
-        Assert.NotNull(regionsPlain.Cube);
-        Assert.Equal(delta, regionsTitled.Cube!.Y - regionsPlain.Cube!.Y, 2);
+        // ViewBox total height = board height + title strip offset.
+        Assert.True(regions.ViewBox.Height > layout.BoardHeight,
+            "ViewBox should include title-strip height above the board.");
+        // Every point's Y must sit below the title strip.
+        double offset = regions.ViewBox.Height - layout.BoardHeight;
+        foreach (var (_, rect) in regions.Points)
+            Assert.True(rect.Y >= offset - 1,
+                $"Point Y {rect.Y} should be at or below title offset {offset}.");
     }
 
     // -----------------------------------------------------------------------

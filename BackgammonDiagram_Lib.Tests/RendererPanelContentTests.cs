@@ -275,16 +275,14 @@ public class RendererPanelContentTests
     [Fact]
     public void AspectPreset_Natural_UsesIntrinsicPanelWidth()
     {
-        // Regression guard: with Natural, viewBox width must equal what the
-        // renderer produced before the aspect feature existed.
         var svg = DiagramRenderer.RenderSvg(
             TestFixtures.MinimalRequest(),
             new DiagramOptions { Aspect = AspectPreset.Natural });
 
         double aspect = ExtractViewBoxAspect(svg);
         // BoardLayout.Default: BoardWidth ≈ 429.8, PanelWidth = 154,
-        // BoardHeight = 446, no title → aspect = 583.8 / 446 ≈ 1.309.
-        Assert.InRange(aspect, 1.30, 1.32);
+        // BoardHeight = 446, title strip = 22 → aspect ≈ 583.8 / 468 ≈ 1.248.
+        Assert.InRange(aspect, 1.24, 1.26);
     }
 
     [Fact]
@@ -358,12 +356,13 @@ public class RendererPanelContentTests
 
     private static double ExtractInnerBoardRectWidth(string svg)
     {
-        // In AppendBoard, the second <rect> is the board-proper: its width
-        // is the intrinsic BoardWidth and must not depend on Aspect preset.
+        // Rect order in the SVG: title-strip bg, full-canvas dark, board-proper.
+        // The board-proper rect carries the intrinsic BoardWidth and must not
+        // depend on Aspect preset.
         var matches = System.Text.RegularExpressions.Regex.Matches(svg,
             "<rect x=\"[0-9.]+\" y=\"0\" width=\"([0-9.]+)\" height=\"[0-9.]+\"");
-        Assert.True(matches.Count >= 2, "expected at least two root-level rects");
-        return double.Parse(matches[1].Groups[1].Value, CultureInfo.InvariantCulture);
+        Assert.True(matches.Count >= 3, "expected at least three root-level rects (title + canvas + board)");
+        return double.Parse(matches[2].Groups[1].Value, CultureInfo.InvariantCulture);
     }
 
 
