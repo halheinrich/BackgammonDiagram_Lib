@@ -37,16 +37,32 @@ public class RendererTitleAndRailTests
     }
 
     [Fact]
-    public void Title_PositionNumber_RendersAsSeparateSecondColumnCell()
+    public void Title_PositionNumber_RendersAsSeparateCell()
     {
         var b = TestFixtures.MinimalBuilder();
         b.PositionNumber = 7;
         b.Dice = [3, 1];
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        // Action cell in column 1, position cell in column 2 — distinct <text>
+        // Action cell in col 1, position cell in col 3 — distinct <text>
         // elements, no em-dash concatenation.
         Assert.Contains(">3-1 to play</text>", svg);
+        Assert.Contains(">Position 7</text>", svg);
+    }
+
+    [Fact]
+    public void Title_PositionNumber_IsRightAnchored()
+    {
+        // Col 3 text-anchor="end" attribute ordering is the title-strip
+        // signature (rails use dominant-baseline="central" text-anchor="end"
+        // in the opposite order, so this string is unique to col 3).
+        var b = TestFixtures.MinimalBuilder();
+        b.PositionNumber = 7;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains(
+            """text-anchor="end" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" """,
+            svg);
         Assert.Contains(">Position 7</text>", svg);
     }
 
@@ -63,7 +79,7 @@ public class RendererTitleAndRailTests
     }
 
     [Fact]
-    public void Title_SourceFile_RendersStemInColumn3()
+    public void Title_SourceFile_RendersStemInColumn2()
     {
         // Extension is stripped — slide audience doesn't need the file type.
         var b = TestFixtures.MinimalBuilder();
@@ -72,6 +88,24 @@ public class RendererTitleAndRailTests
 
         Assert.Contains(">mochy-falafel</text>", svg);
         Assert.DoesNotContain(">mochy-falafel.xg</text>", svg);
+    }
+
+    [Fact]
+    public void Title_SourceFile_IsCentreAnchored()
+    {
+        // Col 2 carries text-anchor="middle" in the title-strip attribute
+        // ordering. Point numbers and cube text also use text-anchor="middle"
+        // but point numbers are font-size="11" (not "12") and cube text has
+        // no dominant-baseline attribute — so this specific sequence is
+        // unique to the centred title cell.
+        var b = TestFixtures.MinimalBuilder();
+        b.SourceFile = "game.xg";
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains(
+            """text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" """,
+            svg);
+        Assert.Contains(">game</text>", svg);
     }
 
     [Fact]
@@ -98,35 +132,47 @@ public class RendererTitleAndRailTests
     }
 
     [Fact]
-    public void Title_SourceFile_Null_NoCol3TextElement()
+    public void Title_SourceFile_Null_NoCol2TextElement()
     {
-        // When SourceFile is null, col 3 emits no text element at all.
-        // The title strip itself still shows because PositionNumber is set
-        // (the test of "col 3 alone never forces the strip" is that when
-        // col 1/col 2 are both empty, the strip is absent — a separate
-        // property guaranteed by ComposeTitleCells's hasTitle logic).
-        var b = TestFixtures.MinimalBuilder();
-        b.PositionNumber = 7;
-        b.SourceFile = null;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        // Baseline: same builder but no SourceFile → no centred text.
+        // Compared SVG: same builder + SourceFile → one additional <text>.
+        // The difference count isolates the col 2 cell.
+        var bNull = TestFixtures.MinimalBuilder();
+        bNull.PositionNumber = 7;
+        bNull.SourceFile = null;
+        var svgNull = DiagramRenderer.RenderSvg(bNull.Build(), TestFixtures.DefaultOptions());
 
-        // Title strip still rendered (Position cell).
-        Assert.Contains(">Position 7</text>", svg);
-        // No right-anchored title-cell text was emitted.
-        Assert.DoesNotContain("text-anchor=\"end\" dominant-baseline=\"central\"", svg);
+        var bPop = TestFixtures.MinimalBuilder();
+        bPop.PositionNumber = 7;
+        bPop.SourceFile = "abc.xg";
+        var svgPop = DiagramRenderer.RenderSvg(bPop.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains(">Position 7</text>", svgNull);      // Col 3 intact.
+        Assert.DoesNotContain(">abc</text>", svgNull);       // Col 2 empty.
+        Assert.Contains(">abc</text>", svgPop);              // Col 2 present when populated.
+        Assert.Equal(
+            TestFixtures.CountOccurrences(svgNull, "<text ") + 1,
+            TestFixtures.CountOccurrences(svgPop, "<text "));
     }
 
     [Fact]
     public void Title_SourceFile_Empty_TreatedAsAbsent()
     {
-        // Empty string behaves like null — no col 3 text.
-        var b = TestFixtures.MinimalBuilder();
-        b.PositionNumber = 7;
-        b.SourceFile = string.Empty;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        // Empty string behaves like null — same text-element count.
+        var bNull = TestFixtures.MinimalBuilder();
+        bNull.PositionNumber = 7;
+        bNull.SourceFile = null;
+        var svgNull = DiagramRenderer.RenderSvg(bNull.Build(), TestFixtures.DefaultOptions());
 
-        Assert.Contains(">Position 7</text>", svg);
-        Assert.DoesNotContain("text-anchor=\"end\" dominant-baseline=\"central\"", svg);
+        var bEmpty = TestFixtures.MinimalBuilder();
+        bEmpty.PositionNumber = 7;
+        bEmpty.SourceFile = string.Empty;
+        var svgEmpty = DiagramRenderer.RenderSvg(bEmpty.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains(">Position 7</text>", svgEmpty);
+        Assert.Equal(
+            TestFixtures.CountOccurrences(svgNull, "<text "),
+            TestFixtures.CountOccurrences(svgEmpty, "<text "));
     }
 
     // -----------------------------------------------------------------------

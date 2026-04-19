@@ -59,7 +59,7 @@ public static class DiagramRenderer
 
         if (hasTitle)
         {
-            AppendTitleStrip(sb, layout, panelOnLeft, totalWidth, titleOffset, theme, titleAction, titlePosition, titleSource);
+            AppendTitleStrip(sb, totalWidth, titleOffset, theme, titleAction, titlePosition, titleSource);
             sb.AppendLine($"""  <g transform="translate(0,{F(titleOffset)})">""");
         }
 
@@ -286,14 +286,15 @@ public static class DiagramRenderer
 
     /// <summary>
     /// Composes the three title-strip cells from the request. Column 1
-    /// (left edge of the full diagram) is the action text — "{dice} to play"
-    /// for checker decisions, "Cube Action?" for cube decisions. Column 2
-    /// (board's left edge) is "Position {N}" when PositionNumber is set.
-    /// Column 3 (right edge, right-anchored) is the SourceFile stem
-    /// (filename minus its last extension) when Descriptive.SourceFile is
-    /// populated. A cell is empty when its source is absent; the strip
-    /// itself shows only when col 1 or col 2 has content — col 3 alone
-    /// never forces the strip on, matching the pre-SourceFile contract.
+    /// (left edge of the full diagram, left-anchored) is the action text —
+    /// "{dice} to play" for checker decisions, "Cube Action?" for cube
+    /// decisions. Column 2 (strip centre, centre-anchored) is the
+    /// SourceFile stem (filename minus its last extension) when
+    /// Descriptive.SourceFile is populated. Column 3 (right edge,
+    /// right-anchored) is "Position {N}" when PositionNumber is set. A
+    /// cell is empty when its source is absent; the strip itself shows
+    /// only when col 1 or col 3 has content — col 2 alone never forces
+    /// the strip on, matching the pre-SourceFile contract.
     /// </summary>
     private static (string Action, string Position, string Source) ComposeTitleCells(DiagramRequest request)
     {
@@ -329,26 +330,27 @@ public static class DiagramRenderer
         return dot > 0 ? filename[..dot] : filename;
     }
 
-    private static void AppendTitleStrip(StringBuilder sb, BoardLayout layout, bool panelOnLeft,
-        double totalWidth, double height, ITheme theme, string action, string position, string source)
+    private static void AppendTitleStrip(StringBuilder sb,
+        double totalWidth, double height, ITheme theme,
+        string action, string position, string source)
     {
         // Col 1: left edge of full diagram (left-anchored).
-        // Col 2: board's left edge — "P" of "Position {N}" aligns with board LHS.
+        // Col 2: centre of the strip (centre-anchored via text-anchor="middle").
         // Col 3: right edge of full diagram (right-anchored via text-anchor="end").
         const double edgeMargin = 8;
         double actionX   = edgeMargin;
-        double positionX = layout.BoardOffsetX(panelOnLeft);
-        double sourceX   = totalWidth - edgeMargin;
+        double sourceX   = totalWidth / 2;
+        double positionX = totalWidth - edgeMargin;
         string bg = theme.PanelBackgroundColor;
         string textColor = ContrastText(bg);
         double textY = height / 2;
         sb.AppendLine($"""  <rect x="0" y="0" width="{F(totalWidth)}" height="{F(height)}" fill="{bg}"/>""");
         if (action.Length > 0)
             sb.AppendLine($"""  <text x="{F(actionX)}" y="{F(textY)}" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(action)}</text>""");
-        if (position.Length > 0)
-            sb.AppendLine($"""  <text x="{F(positionX)}" y="{F(textY)}" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(position)}</text>""");
         if (source.Length > 0)
-            sb.AppendLine($"""  <text x="{F(sourceX)}" y="{F(textY)}" text-anchor="end" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(source)}</text>""");
+            sb.AppendLine($"""  <text x="{F(sourceX)}" y="{F(textY)}" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(source)}</text>""");
+        if (position.Length > 0)
+            sb.AppendLine($"""  <text x="{F(positionX)}" y="{F(textY)}" text-anchor="end" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(position)}</text>""");
     }
 
     // -----------------------------------------------------------------------

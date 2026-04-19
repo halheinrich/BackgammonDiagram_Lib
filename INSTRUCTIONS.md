@@ -129,14 +129,14 @@ The strip has three cells, composed from context (not from
 - **Col 1** (left edge, left-anchored): action text —
   `"{d1}-{d2} to play"` for checker decisions, `"Cube Action?"` for cube
   decisions. Empty for malformed inputs.
-- **Col 2** (board's left edge, left-anchored): `"Position {N}"` when
-  `DiagramRequest.PositionNumber` is set.
-- **Col 3** (right edge, right-anchored): `Descriptive.SourceFile` stem
-  — the filename minus its final dot-extension
+- **Col 2** (strip centre, centre-anchored): `Descriptive.SourceFile`
+  stem — the filename minus its final dot-extension
   (`mochy-falafel.xg` → `mochy-falafel`,
   `abc.weird.xg` → `abc.weird`). Null / empty SourceFile emits no text.
+- **Col 3** (right edge, right-anchored): `"Position {N}"` when
+  `DiagramRequest.PositionNumber` is set.
 
-Strip visibility is keyed off cols 1 and 2: col 3 alone never forces the
+Strip visibility is keyed off cols 1 and 3: col 2 alone never forces the
 strip on, preserving the pre-SourceFile contract for synthetic-test
 requests that set only SourceFile.
 
