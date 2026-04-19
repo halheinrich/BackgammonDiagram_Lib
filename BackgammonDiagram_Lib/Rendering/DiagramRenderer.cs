@@ -43,7 +43,10 @@ public static class DiagramRenderer
     {
         var theme = options.Theme;
         bool panelOnLeft = request.AnalysisPanelPosition == PanelPosition.Left;
-        var (titleAction, titlePosition) = ComposeTitleCells(request);
+        var (titleAction, titlePosition, titleSource) = ComposeTitleCells(request);
+        // Strip visibility keys only off cols 1 and 2 — col 3 (SourceFile)
+        // never forces the strip on its own, matching the pre-SourceFile
+        // contract.
         bool hasTitle = titleAction.Length > 0 || titlePosition.Length > 0;
         double titleOffset = hasTitle ? TitleStripHeight : 0;
         var layout = BuildLayout(options.Aspect, titleOffset);
@@ -56,7 +59,7 @@ public static class DiagramRenderer
 
         if (hasTitle)
         {
-            AppendTitleStrip(sb, layout, panelOnLeft, totalWidth, titleOffset, theme, titleAction, titlePosition);
+            AppendTitleStrip(sb, layout, panelOnLeft, totalWidth, titleOffset, theme, titleAction, titlePosition, titleSource);
             sb.AppendLine($"""  <g transform="translate(0,{F(titleOffset)})">""");
         }
 
@@ -121,7 +124,7 @@ public static class DiagramRenderer
 
         // Title strip, if present, offsets all board-relative Y coords in the
         // rendered SVG — hit regions must match.
-        var (titleAction, titlePosition) = ComposeTitleCells(request);
+        var (titleAction, titlePosition, _) = ComposeTitleCells(request);
         bool hasTitle = titleAction.Length > 0 || titlePosition.Length > 0;
         double titleOffset = hasTitle ? TitleStripHeight : 0;
 
@@ -282,13 +285,17 @@ public static class DiagramRenderer
     // -----------------------------------------------------------------------
 
     /// <summary>
-    /// Composes the two title-strip cells from the request. The action cell
-    /// — "{dice} to play" for checker decisions, "Cube Action?" for cube
-    /// decisions — sits in column 1 (left third of the board). The
-    /// "Position {N}" cell sits in column 2 (middle third). Column 3
-    /// (right third) is left blank.
+    /// Composes the three title-strip cells from the request. Column 1
+    /// (left edge of the full diagram) is the action text — "{dice} to play"
+    /// for checker decisions, "Cube Action?" for cube decisions. Column 2
+    /// (board's left edge) is "Position {N}" when PositionNumber is set.
+    /// Column 3 (right edge, right-anchored) is the SourceFile stem
+    /// (filename minus its last extension) when Descriptive.SourceFile is
+    /// populated. A cell is empty when its source is absent; the strip
+    /// itself shows only when col 1 or col 2 has content — col 3 alone
+    /// never forces the strip on, matching the pre-SourceFile contract.
     /// </summary>
-    private static (string Action, string Position) ComposeTitleCells(DiagramRequest request)
+    private static (string Action, string Position, string Source) ComposeTitleCells(DiagramRequest request)
     {
         string action;
         if (request.Decision.IsCube)
@@ -305,18 +312,33 @@ public static class DiagramRenderer
                 : string.Empty;
         }
         string position = request.PositionNumber is int n ? $"Position {n}" : string.Empty;
-        return (action, position);
+        string source = request.Descriptive.SourceFile is string s && s.Length > 0
+            ? StripLastExtension(s)
+            : string.Empty;
+        return (action, position, source);
+    }
+
+    /// <summary>
+    /// Drops the last dot-extension from a filename, preserving any earlier
+    /// dots. "abc.xg" → "abc"; "abc.weird.xg" → "abc.weird"; ".xg" → ".xg"
+    /// (leading-dot-only inputs pass through rather than degenerate to "").
+    /// </summary>
+    private static string StripLastExtension(string filename)
+    {
+        int dot = filename.LastIndexOf('.');
+        return dot > 0 ? filename[..dot] : filename;
     }
 
     private static void AppendTitleStrip(StringBuilder sb, BoardLayout layout, bool panelOnLeft,
-        double totalWidth, double height, ITheme theme, string action, string position)
+        double totalWidth, double height, ITheme theme, string action, string position, string source)
     {
-        // Action sits at the left edge of the full diagram. Position's first
-        // character is aligned to the board's left edge (left-anchored at
-        // boardOffsetX). Right third of the strip is blank.
+        // Col 1: left edge of full diagram (left-anchored).
+        // Col 2: board's left edge — "P" of "Position {N}" aligns with board LHS.
+        // Col 3: right edge of full diagram (right-anchored via text-anchor="end").
         const double edgeMargin = 8;
         double actionX   = edgeMargin;
         double positionX = layout.BoardOffsetX(panelOnLeft);
+        double sourceX   = totalWidth - edgeMargin;
         string bg = theme.PanelBackgroundColor;
         string textColor = ContrastText(bg);
         double textY = height / 2;
@@ -325,6 +347,8 @@ public static class DiagramRenderer
             sb.AppendLine($"""  <text x="{F(actionX)}" y="{F(textY)}" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(action)}</text>""");
         if (position.Length > 0)
             sb.AppendLine($"""  <text x="{F(positionX)}" y="{F(textY)}" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(position)}</text>""");
+        if (source.Length > 0)
+            sb.AppendLine($"""  <text x="{F(sourceX)}" y="{F(textY)}" text-anchor="end" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(source)}</text>""");
     }
 
     // -----------------------------------------------------------------------

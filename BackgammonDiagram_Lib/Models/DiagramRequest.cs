@@ -106,6 +106,7 @@ public class DiagramRequest
         public int MatchLength { get; set; }
         public DateOnly? Date { get; set; }
         public string? Event { get; set; }
+        public string? SourceFile { get; set; }
 
         // Renderer-specific
         public DiagramMode Mode { get; set; }
@@ -179,6 +180,7 @@ public class DiagramRequest
                 MatchLength = descriptive.MatchLength,
                 Date = descriptive.Date,
                 Event = descriptive.Event,
+                SourceFile = descriptive.SourceFile,
 
                 // Renderer-specific
                 Mode = mode,
@@ -253,6 +255,7 @@ public class DiagramRequest
                     MatchLength = MatchLength,
                     Date = Date,
                     Event = Event,
+                    SourceFile = SourceFile,
                 },
                 Mode = Mode,
                 HomeBoardOnRight = HomeBoardOnRight,

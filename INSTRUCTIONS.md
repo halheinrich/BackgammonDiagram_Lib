@@ -123,6 +123,23 @@ The diagram title is rendered into the SVG itself as a title strip — a
 single source of truth. Neither `PdfBuilder` nor `PptxBuilder` stamps a
 title on top of the rendered page; they consume the SVG/PNG as-is.
 
+The strip has three cells, composed from context (not from
+`Descriptive.Title`):
+
+- **Col 1** (left edge, left-anchored): action text —
+  `"{d1}-{d2} to play"` for checker decisions, `"Cube Action?"` for cube
+  decisions. Empty for malformed inputs.
+- **Col 2** (board's left edge, left-anchored): `"Position {N}"` when
+  `DiagramRequest.PositionNumber` is set.
+- **Col 3** (right edge, right-anchored): `Descriptive.SourceFile` stem
+  — the filename minus its final dot-extension
+  (`mochy-falafel.xg` → `mochy-falafel`,
+  `abc.weird.xg` → `abc.weird`). Null / empty SourceFile emits no text.
+
+Strip visibility is keyed off cols 1 and 2: col 3 alone never forces the
+strip on, preserving the pre-SourceFile contract for synthetic-test
+requests that set only SourceFile.
+
 `PanelBackgroundColor` is part of `ITheme`; `DefaultTheme` uses white.
 
 ### Rail text

@@ -73,6 +73,7 @@ public class DiagramRequestFactoryTests
         Assert.Equal(data.Descriptive.MatchLength, req.Descriptive.MatchLength);
         Assert.Equal(data.Descriptive.Date, req.Descriptive.Date);
         Assert.Equal(data.Descriptive.Event, req.Descriptive.Event);
+        Assert.Equal(data.Descriptive.SourceFile, req.Descriptive.SourceFile);
     }
 
     [Fact]
@@ -120,6 +121,11 @@ public class DiagramRequestFactoryTests
         Assert.Equal(original.Decision.NoDoubleEquity, rebuilt.Decision.NoDoubleEquity);
         Assert.Equal(original.Decision.UserDoubleError, rebuilt.Decision.UserDoubleError);
         Assert.Equal(original.Decision.UserTakeError, rebuilt.Decision.UserTakeError);
+
+        // Descriptive — SourceFile is the newest drift-prone mapping;
+        // assert it survives a round-trip so the single field-mapping
+        // site (Builder.From) can't silently drop it.
+        Assert.Equal(original.Descriptive.SourceFile, rebuilt.Descriptive.SourceFile);
 
         // Renderer-specific
         Assert.Equal(original.Mode, rebuilt.Mode);
@@ -232,6 +238,7 @@ public class DiagramRequestFactoryTests
             MatchLength = 11,
             Date = new DateOnly(2026, 4, 16),
             Event = "Club championship",
+            SourceFile = "mochy-falafel.xg",
         },
     };
 

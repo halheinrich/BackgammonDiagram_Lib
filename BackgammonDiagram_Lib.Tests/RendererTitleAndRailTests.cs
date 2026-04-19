@@ -62,6 +62,73 @@ public class RendererTitleAndRailTests
         Assert.Contains(">3-1 to play</text>", svg);
     }
 
+    [Fact]
+    public void Title_SourceFile_RendersStemInColumn3()
+    {
+        // Extension is stripped — slide audience doesn't need the file type.
+        var b = TestFixtures.MinimalBuilder();
+        b.SourceFile = "mochy-falafel.xg";
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains(">mochy-falafel</text>", svg);
+        Assert.DoesNotContain(">mochy-falafel.xg</text>", svg);
+    }
+
+    [Fact]
+    public void Title_SourceFile_XgpExtensionStripped()
+    {
+        var b = TestFixtures.MinimalBuilder();
+        b.SourceFile = "game.xgp";
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains(">game</text>", svg);
+        Assert.DoesNotContain(">game.xgp</text>", svg);
+    }
+
+    [Fact]
+    public void Title_SourceFile_OnlyLastExtensionStripped()
+    {
+        // "abc.weird.xg" must become "abc.weird", not "abc".
+        var b = TestFixtures.MinimalBuilder();
+        b.SourceFile = "abc.weird.xg";
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains(">abc.weird</text>", svg);
+        Assert.DoesNotContain(">abc.weird.xg</text>", svg);
+    }
+
+    [Fact]
+    public void Title_SourceFile_Null_NoCol3TextElement()
+    {
+        // When SourceFile is null, col 3 emits no text element at all.
+        // The title strip itself still shows because PositionNumber is set
+        // (the test of "col 3 alone never forces the strip" is that when
+        // col 1/col 2 are both empty, the strip is absent — a separate
+        // property guaranteed by ComposeTitleCells's hasTitle logic).
+        var b = TestFixtures.MinimalBuilder();
+        b.PositionNumber = 7;
+        b.SourceFile = null;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        // Title strip still rendered (Position cell).
+        Assert.Contains(">Position 7</text>", svg);
+        // No right-anchored title-cell text was emitted.
+        Assert.DoesNotContain("text-anchor=\"end\" dominant-baseline=\"central\"", svg);
+    }
+
+    [Fact]
+    public void Title_SourceFile_Empty_TreatedAsAbsent()
+    {
+        // Empty string behaves like null — no col 3 text.
+        var b = TestFixtures.MinimalBuilder();
+        b.PositionNumber = 7;
+        b.SourceFile = string.Empty;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains(">Position 7</text>", svg);
+        Assert.DoesNotContain("text-anchor=\"end\" dominant-baseline=\"central\"", svg);
+    }
+
     // -----------------------------------------------------------------------
     //  Rail labels — match / money / Crawford
     // -----------------------------------------------------------------------

@@ -75,7 +75,7 @@ public class RealFileCheckerDecisionTests
         var file = XgFileReader.ReadFile(path);
         var results = new List<(DiagramRequest, DiagramRequest)>();
         int taken = 0;
-        foreach (var data in XgDecisionIterator.IterateDiagramRequests(file))
+        foreach (var data in XgDecisionIterator.IterateDiagramRequests(file, Path.GetFileName(path)))
         {
             if (data.Decision.IsCube) continue;
             taken++;
