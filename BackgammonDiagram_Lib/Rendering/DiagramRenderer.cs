@@ -684,7 +684,10 @@ public static class DiagramRenderer
             request.Position.CubeSize == 1 ? "64" :
             request.Position.CubeSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-        double fontSize = cubeSize * 0.55;
+        // Font sizing — 0.55 is tuned for the common 1- and 2-character faces
+        // ("2", "64", "Cr"). Longer strings ("Dmp", "128", "1024") get a
+        // smaller ratio so the text doesn't crowd the cube edge.
+        double fontSize = cubeSize * (cubeText.Length <= 2 ? 0.55 : 0.4);
         double textY = cubeY + cubeSize / 2 + fontSize * 0.35;
         string cubeTextColor = ContrastText(theme.DiceColor);
         sb.AppendLine($"""  <text x="{F(cubeX + cubeSize / 2)}" y="{F(textY)}" text-anchor="middle" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{cubeTextColor}">{cubeText}</text>""");
