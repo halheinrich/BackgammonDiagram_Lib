@@ -242,6 +242,30 @@ public class RendererPanelContentTests
     }
 
     // -----------------------------------------------------------------------
+    //  Footer — Analysis Level label (sourced from DecisionData.CubeDepth)
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void CubePanel_AnalysisLevel_RendersCubeDepthWhenSet()
+    {
+        var b = MinimalCubeBuilder(0.4, 0.8);
+        b.CubeDepth = "XG Roller+";
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains("Analysis Level: XG Roller+", svg);
+    }
+
+    [Fact]
+    public void CubePanel_AnalysisLevel_OmittedWhenCubeDepthEmpty()
+    {
+        var b = MinimalCubeBuilder(0.4, 0.8);
+        // CubeDepth defaults to empty — no Analysis Level line.
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.DoesNotContain("Analysis Level:", svg);
+    }
+
+    // -----------------------------------------------------------------------
     //  PanelBackgroundColor — honoured in SVG output
     // -----------------------------------------------------------------------
 

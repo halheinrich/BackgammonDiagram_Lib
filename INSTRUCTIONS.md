@@ -18,9 +18,9 @@ https://github.com/halheinrich/BackgammonDiagram_Lib — branch `main`.
 
 ## Depends on
 
-- **BgDataTypes_Lib** — `PositionData`, `DecisionData`, `DescriptiveData`,
-  `CubeOwner`, `PlayCandidate`, `AnalysisDepthEntry`, `BgDecisionData`. The
-  whole shared type layer this library renders from.
+- **BgDataTypes_Lib** — `PositionData`, `DecisionData` (incl. `CubeDepth`),
+  `DescriptiveData`, `CubeOwner`, `PlayCandidate` (incl. per-play `Depth`),
+  `BgDecisionData`. The whole shared type layer this library renders from.
 - **SkiaSharp** — PNG rasterization backend.
 - **Svg.Skia** — SVG parse/draw path used by the PNG pipeline.
 - **QuestPDF** — PDF layout and output (MIT licensed; license set by caller,
@@ -85,8 +85,8 @@ Exposed properties: `Position` (PositionData), `Decision` (DecisionData),
 `Descriptive` (DescriptiveData), plus rendering-shape fields `HomeBoardOnRight`
 (bool, default `true`), `Mode` (DiagramMode), `AnalysisPanelPosition`.
 
-`Mop`, `Dice`, `Plays`, `AnalysisDepths` are defensively copied in and
-exposed as `IReadOnlyList<T>`. `BoardHitRegions.Points` is exposed as
+`Mop`, `Dice`, `Plays` are defensively copied in and exposed as
+`IReadOnlyList<T>`. `BoardHitRegions.Points` is exposed as
 `IReadOnlyDictionary`. Builder's `CubeOwner` defaults to `CubeOwner.Centered`.
 
 `DiagramRequest` is constructed by clients from `BgDecisionData` plus
@@ -226,8 +226,8 @@ output; a single request is handled by the scalar overload.
 
 ### `DiagramRequest.Builder`
 
-Flat property setters for position, dice, cube, scores, plays, analysis
-depths, plus `HomeBoardOnRight`, `Mode`, `AnalysisPanelPosition`. `Build()`
+Flat property setters for position, dice, cube, scores, plays, `CubeDepth`,
+plus `HomeBoardOnRight`, `Mode`, `AnalysisPanelPosition`. `Build()`
 constructs the nested `BgDataTypes_Lib` records and validates. Throws on
 validation failure.
 

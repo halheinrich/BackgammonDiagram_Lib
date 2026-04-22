@@ -832,7 +832,7 @@ public static class DiagramRenderer
     /// Render the checker-play candidate list. One line per play, in the
     /// order supplied (assumed equity-loss ascending — XG's native order).
     /// Columns from left to right:
-    ///   * user-play marker, rank, move notation, equity, equity loss.
+    ///   * user-play marker, rank, move notation, equity, equity loss, depth.
     /// When the panel doesn't have room for every candidate, trim the tail
     /// but always include the user's play on the last line (with its real
     /// rank number) if it would otherwise be cut.
@@ -853,19 +853,17 @@ public static class DiagramRenderer
         double moveX   = rankX   + PlayPanelFontSize * 2.2;        // move text (left-anchored)
         double equityX = moveX   + PlayPanelFontSize * 15;         // equity right-edge
         double lossX   = equityX + PlayPanelFontSize * 4.5;        // eq-loss right-edge
+        double depthX  = lossX   + PlayPanelFontSize * 4.5;        // depth left-edge
 
         double y = PanelMargin;
 
         // Column-header row — applies only when there are plays to label.
         sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(y + PlayPanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">Equity</text>""");
         sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + PlayPanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">Eq Loss</text>""");
+        sb.AppendLine($"""  <text x="{F(depthX)}" y="{F(y + PlayPanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">Depth</text>""");
         y += PlayPanelLineHeight;
 
-        // Space reserved at the bottom for the analysis-depth footer (if any)
-        // so play rows don't clip it.
-        int depthCount = request.Decision.AnalysisDepths.Count;
-        double depthReserve = depthCount > 0 ? depthCount * 12 + 6 : 0;
-        double rowBudget = ph - PanelMargin - depthReserve;
+        double rowBudget = ph - PanelMargin;
 
         int fitCount = (int)Math.Max(0, (rowBudget - y) / PlayPanelLineHeight);
         int total = plays.Count;
@@ -904,12 +902,11 @@ public static class DiagramRenderer
             sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{textColor}">{FormatEquity(play.Equity)}</text>""");
             if (play.EquityLoss is double loss && loss > 0)
                 sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">{FormatEquityLoss(loss)}</text>""");
+            if (!string.IsNullOrEmpty(play.Depth))
+                sb.AppendLine($"""  <text x="{F(depthX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">{Escape(play.Depth)}</text>""");
 
             y += PlayPanelLineHeight;
         }
-
-        // Analysis depth at bottom if room.
-        AppendAnalysisDepths(sb, px, pw, ph, dimColor, request, PlayPanelFontSize);
     }
 
     // -----------------------------------------------------------------------
@@ -1039,11 +1036,9 @@ public static class DiagramRenderer
         y += CubePanelSectionGap;
 
         // ── Footer lines ───────────────────────────────────────────────
-        var depths = d.AnalysisDepths;
-        if (depths.Count > 0)
+        if (!string.IsNullOrEmpty(d.CubeDepth))
         {
-            string depthLabels = string.Join(", ", depths.Select(static a => a.Label));
-            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelLabelFontSize)}" fill="{dimColor}">{Escape($"Analysis Level: {depthLabels}")}</text>""");
+            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelLabelFontSize)}" fill="{dimColor}">{Escape($"Analysis Level: {d.CubeDepth}")}</text>""");
             y += CubePanelLineHeight;
         }
 
@@ -1104,28 +1099,6 @@ public static class DiagramRenderer
         sb.AppendLine($"""  <text x="{F(gammonX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{F1(gammon * 100)}%</text>""");
         sb.AppendLine($"""  <text x="{F(bgX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{F1(bg * 100)}%</text>""");
         return y + CubePanelLineHeight;
-    }
-
-    // -----------------------------------------------------------------------
-    //  Analysis depths (play panel only — cube panel inlines its footer)
-    // -----------------------------------------------------------------------
-
-    private static void AppendAnalysisDepths(StringBuilder sb, double px, double pw, double ph,
-        string color, DiagramRequest request, double fontSize)
-    {
-        var depths = request.Decision.AnalysisDepths;
-        if (depths.Count == 0) return;
-
-        // Position at bottom of panel, stacked upward.
-        double y = ph - 6 - depths.Count * 12;
-        if (y < 0) return; // panel too short — skip rather than overlap
-
-        double centreX = px + pw / 2;
-        foreach (var depth in depths)
-        {
-            sb.AppendLine($"""  <text x="{F(centreX)}" y="{F(y + 10)}" text-anchor="middle" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{Escape(depth.Label)}</text>""");
-            y += 12;
-        }
     }
 
     // -----------------------------------------------------------------------

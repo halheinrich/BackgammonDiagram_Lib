@@ -66,7 +66,7 @@ public class DiagramRequest
         public bool IsCube { get; set; }
         public int[] Dice { get; set; } = new int[2];
         public List<PlayCandidate> Plays { get; set; } = [];
-        public List<AnalysisDepthEntry> AnalysisDepths { get; set; } = [];
+        public string CubeDepth { get; set; } = string.Empty;
         public int BestPlayIndex { get; set; }
         public int UserPlayIndex { get; set; } = -1;
         public double NoDoubleEquity { get; set; }
@@ -152,7 +152,7 @@ public class DiagramRequest
                 IsCube = decision.IsCube,
                 Dice = decision.Dice.ToArray(),
                 Plays = new List<PlayCandidate>(decision.Plays),
-                AnalysisDepths = new List<AnalysisDepthEntry>(decision.AnalysisDepths),
+                CubeDepth = decision.CubeDepth,
                 BestPlayIndex = decision.BestPlayIndex,
                 UserPlayIndex = decision.UserPlayIndex,
                 NoDoubleEquity = decision.NoDoubleEquity,
@@ -226,7 +226,7 @@ public class DiagramRequest
                     IsCube = IsCube,
                     Dice = Dice.ToArray(),
                     Plays = new List<PlayCandidate>(Plays),
-                    AnalysisDepths = new List<AnalysisDepthEntry>(AnalysisDepths),
+                    CubeDepth = CubeDepth,
                     BestPlayIndex = BestPlayIndex,
                     UserPlayIndex = UserPlayIndex,
                     NoDoubleEquity = NoDoubleEquity,

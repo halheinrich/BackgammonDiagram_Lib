@@ -40,6 +40,7 @@ public class DiagramRequestFactoryTests
 
         Assert.Equal(data.Decision.IsCube, req.Decision.IsCube);
         Assert.Equal(data.Decision.Dice, req.Decision.Dice);
+        Assert.Equal(data.Decision.CubeDepth, req.Decision.CubeDepth);
         Assert.Equal(data.Decision.BestPlayIndex, req.Decision.BestPlayIndex);
         Assert.Equal(data.Decision.UserPlayIndex, req.Decision.UserPlayIndex);
         Assert.Equal(data.Decision.NoDoubleEquity, req.Decision.NoDoubleEquity);
@@ -121,6 +122,7 @@ public class DiagramRequestFactoryTests
         Assert.Equal(original.Decision.NoDoubleEquity, rebuilt.Decision.NoDoubleEquity);
         Assert.Equal(original.Decision.UserDoubleError, rebuilt.Decision.UserDoubleError);
         Assert.Equal(original.Decision.UserTakeError, rebuilt.Decision.UserTakeError);
+        Assert.Equal(original.Decision.CubeDepth, rebuilt.Decision.CubeDepth);
 
         // Descriptive — SourceFile is the newest drift-prone mapping;
         // assert it survives a round-trip so the single field-mapping
@@ -209,7 +211,7 @@ public class DiagramRequestFactoryTests
             IsCube = true,
             Dice = [0, 0],
             Plays = [],
-            AnalysisDepths = [new AnalysisDepthEntry { Label = "XG Roller+" }],
+            CubeDepth = "XG Roller+",
             BestPlayIndex = 2,
             UserPlayIndex = 1,
             NoDoubleEquity = 0.4321,

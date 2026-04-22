@@ -62,4 +62,49 @@ public class RendererPlayPanelTests
         var lossCell = new Regex("""<text x="326\.4" [^>]*text-anchor="end"[^>]*>[0-9]+\.[0-9]{4}</text>""");
         Assert.Equal(4, lossCell.Matches(svg).Count);
     }
+
+    [Fact]
+    public void Plays_DepthColumn_RendersPerPlayLeftAnchoredAtDepthX()
+    {
+        // depthX = lossX + 4.5 * PlayPanelFontSize = 326.4 + 63 = 389.4
+        // (MinimalBuilder's default Medium size). Depth strings render
+        // left-anchored at depthX (no text-anchor attribute).
+        var plays = new List<PlayCandidate>
+        {
+            new() { MoveNotation = "8/5 6/5",   Equity = 0.50, Depth = "3-ply" },
+            new() { MoveNotation = "13/10 8/5", Equity = 0.48, EquityLoss = 0.02, Depth = "2-ply" },
+            new() { MoveNotation = "24/21 8/5", Equity = 0.42, EquityLoss = 0.08, Depth = "XG Roller+" },
+        };
+
+        var b = TestFixtures.MinimalBuilder();
+        b.Mode = DiagramMode.Solution;
+        b.Plays = plays;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        // All x=389.4 text cells, in emission order: one header + one per play.
+        // Matching on left-anchored cells (no text-anchor attribute) is what
+        // distinguishes the Depth column from the right-anchored Equity/Eq Loss.
+        var depthCell = new Regex("""<text x="389\.4" y="[0-9.]+" font-family="sans-serif"[^>]*>([^<]+)</text>""");
+        var rendered = depthCell.Matches(svg).Select(m => m.Groups[1].Value).ToList();
+        Assert.Equal(new[] { "Depth", "3-ply", "2-ply", "XG Roller+" }, rendered);
+    }
+
+    [Fact]
+    public void Plays_DepthColumn_OmitsRowWhenPlayDepthEmpty()
+    {
+        var plays = new List<PlayCandidate>
+        {
+            new() { MoveNotation = "8/5 6/5", Equity = 0.50 /* Depth defaults to "" */ },
+        };
+        var b = TestFixtures.MinimalBuilder();
+        b.Mode = DiagramMode.Solution;
+        b.Plays = plays;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        // Header still renders; the one play row contributes no depth cell.
+        // So exactly one x=389.4 left-anchored cell — the header — should match.
+        var depthCell = new Regex("""<text x="389\.4" y="[0-9.]+" font-family="sans-serif"[^>]*>([^<]+)</text>""");
+        var rendered = depthCell.Matches(svg).Select(m => m.Groups[1].Value).ToList();
+        Assert.Equal(new[] { "Depth" }, rendered);
+    }
 }
