@@ -849,7 +849,7 @@ public static class DiagramRenderer
         double markerX = px + PanelMargin + 4;                     // "*" or blank
         double rankX   = markerX + PlayPanelFontSize * 0.9;        // rank number
         double moveX   = rankX   + PlayPanelFontSize * 2.2;        // move text (left-anchored)
-        double equityX = moveX   + PlayPanelFontSize * 12;         // equity right-edge
+        double equityX = moveX   + PlayPanelFontSize * 15;         // equity right-edge
         double lossX   = equityX + PlayPanelFontSize * 4.5;        // eq-loss right-edge
 
         double y = PanelMargin;
