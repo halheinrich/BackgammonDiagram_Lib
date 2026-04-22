@@ -164,6 +164,42 @@ public class VisualOutputTests
         Assert.True(File.Exists(path));
     }
 
+    [Fact]
+    public void Svg_CubeFace_Crawford_RendersCr()
+    {
+        // Crawford game (on-roll is 1-away). Cube face replaces the numeric
+        // cube size with "Cr" — rail text still carries the long "Crawford"
+        // word, so the cube-face check must be anchored to the short form.
+        var b = TestFixtures.MinimalBuilder();
+        b.MatchLength = 7;
+        b.OnRollNeeds = 1;
+        b.OpponentNeeds = 5;
+        b.IsCrawford = true;
+        var svg = TestFixtures.Render(b.Build());
+        var path = TestPaths.SvgOutputPath("cube_face_crawford.svg");
+        File.WriteAllText(path, svg);
+        Assert.Contains(">Cr</text>", svg);
+    }
+
+    [Fact]
+    public void Svg_CubeFace_OneAwayOneAway_IsBlank()
+    {
+        // 1a-1a: no cube decisions arise, so the face is blank even when
+        // a cube size is set. CubeSize is chosen as 32 so the negative
+        // assert has an unambiguous target — point numbers go 1..24 and
+        // nothing else in the SVG renders ">32</text>".
+        var b = TestFixtures.MinimalBuilder();
+        b.MatchLength = 7;
+        b.OnRollNeeds = 1;
+        b.OpponentNeeds = 1;
+        b.CubeSize = 32;
+        var svg = TestFixtures.Render(b.Build());
+        var path = TestPaths.SvgOutputPath("cube_face_1a_1a.svg");
+        File.WriteAllText(path, svg);
+        Assert.DoesNotContain(">32</text>", svg);
+        Assert.DoesNotContain(">Cr</text>", svg);
+    }
+
     // -----------------------------------------------------------------------
     //  PNG
     // -----------------------------------------------------------------------

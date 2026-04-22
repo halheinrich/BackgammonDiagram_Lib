@@ -665,9 +665,23 @@ public static class DiagramRenderer
             _ => layout.BoardHeight / 2 - cubeSize / 2
         };
         sb.AppendLine($"""  <rect x="{F(cubeX)}" y="{F(cubeY)}" width="{F(cubeSize)}" height="{F(cubeSize)}" rx="3" fill="{theme.DiceColor}" stroke="#888" stroke-width="0.5"/>""");
+
+        // Cube face text — special match states override the numeric cube size:
+        //   * 1a-1a (both players need 1): blank face. No cube decisions arise
+        //     at 1a-1a, so showing a cube value would be misleading. This case
+        //     takes precedence over Crawford.
+        //   * Crawford: face reads "Cr". A Crawford game is played without the
+        //     cube; the face marks that fact in place of a cube value.
+        string? cubeText =
+            request.Position.OnRollNeeds == 1 && request.Position.OpponentNeeds == 1 ? null :
+            request.Position.IsCrawford ? "Cr" :
+            request.Position.CubeSize == 1 ? "64" :
+            request.Position.CubeSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        if (cubeText is null) return;
+
         double fontSize = cubeSize * 0.55;
         double textY = cubeY + cubeSize / 2 + fontSize * 0.35;
-        string cubeText = request.Position.CubeSize == 1 ? "64" : request.Position.CubeSize.ToString();
         string cubeTextColor = ContrastText(theme.DiceColor);
         sb.AppendLine($"""  <text x="{F(cubeX + cubeSize / 2)}" y="{F(textY)}" text-anchor="middle" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{cubeTextColor}">{cubeText}</text>""");
     }
