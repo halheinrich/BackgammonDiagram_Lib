@@ -66,7 +66,7 @@ public class RendererPlayPanelTests
     [Fact]
     public void Plays_DepthColumn_RendersPerPlayLeftAnchoredAtDepthX()
     {
-        // depthX = lossX + 4.5 * PlayPanelFontSize = 326.4 + 63 = 389.4
+        // depthX = lossX + 1.5 * PlayPanelFontSize = 326.4 + 21 = 347.4
         // (MinimalBuilder's default Medium size). Depth strings render
         // left-anchored at depthX (no text-anchor attribute).
         var plays = new List<PlayCandidate>
@@ -84,7 +84,7 @@ public class RendererPlayPanelTests
         // All x=389.4 text cells, in emission order: one header + one per play.
         // Matching on left-anchored cells (no text-anchor attribute) is what
         // distinguishes the Depth column from the right-anchored Equity/Eq Loss.
-        var depthCell = new Regex("""<text x="389\.4" y="[0-9.]+" font-family="sans-serif"[^>]*>([^<]+)</text>""");
+        var depthCell = new Regex("""<text x="347\.4" y="[0-9.]+" font-family="sans-serif"[^>]*>([^<]+)</text>""");
         var rendered = depthCell.Matches(svg).Select(m => m.Groups[1].Value).ToList();
         Assert.Equal(new[] { "Depth", "3-ply", "2-ply", "XG Roller+" }, rendered);
     }
@@ -103,7 +103,7 @@ public class RendererPlayPanelTests
 
         // Header still renders; the one play row contributes no depth cell.
         // So exactly one x=389.4 left-anchored cell — the header — should match.
-        var depthCell = new Regex("""<text x="389\.4" y="[0-9.]+" font-family="sans-serif"[^>]*>([^<]+)</text>""");
+        var depthCell = new Regex("""<text x="347\.4" y="[0-9.]+" font-family="sans-serif"[^>]*>([^<]+)</text>""");
         var rendered = depthCell.Matches(svg).Select(m => m.Groups[1].Value).ToList();
         Assert.Equal(new[] { "Depth" }, rendered);
     }

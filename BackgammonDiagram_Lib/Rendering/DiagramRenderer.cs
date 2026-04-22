@@ -853,7 +853,7 @@ public static class DiagramRenderer
         double moveX   = rankX   + PlayPanelFontSize * 2.2;        // move text (left-anchored)
         double equityX = moveX   + PlayPanelFontSize * 15;         // equity right-edge
         double lossX   = equityX + PlayPanelFontSize * 4.5;        // eq-loss right-edge
-        double depthX  = lossX   + PlayPanelFontSize * 4.5;        // depth left-edge
+        double depthX  = lossX   + PlayPanelFontSize * 1.5;        // depth left-edge
 
         double y = PanelMargin;
 
