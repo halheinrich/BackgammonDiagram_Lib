@@ -667,23 +667,22 @@ public static class DiagramRenderer
         sb.AppendLine($"""  <rect x="{F(cubeX)}" y="{F(cubeY)}" width="{F(cubeSize)}" height="{F(cubeSize)}" rx="3" fill="{theme.DiceColor}" stroke="#888" stroke-width="0.5"/>""");
 
         // Cube face text — special match states override the numeric cube size:
-        //   * 1a-1a (match play AND both players one point away): blank face.
-        //     The cube is dead at 1a-1a — no cube decisions arise — so any
-        //     value on the face would be misleading. Takes precedence over
-        //     Crawford. Gated on match play because OnRollNeeds / OpponentNeeds
-        //     are meaningless in money game (MatchLength == 0 is the sentinel).
+        //   * 1a-1a (match play AND both players one point away): face reads
+        //     "Dmp" (double match point). The cube is dead at 1a-1a — no cube
+        //     decisions arise — so a cube value would be misleading. Takes
+        //     precedence over Crawford. Gated on match play because
+        //     OnRollNeeds / OpponentNeeds are meaningless in money game
+        //     (MatchLength == 0 is the sentinel).
         //   * Crawford: face reads "Cr". A Crawford game is played without the
         //     cube; the face marks that fact in place of a cube value.
         bool isDoubleMatchPoint = request.Descriptive.MatchLength > 0
                                   && request.Position.OnRollNeeds == 1
                                   && request.Position.OpponentNeeds == 1;
-        string? cubeText =
-            isDoubleMatchPoint ? null :
+        string cubeText =
+            isDoubleMatchPoint ? "Dmp" :
             request.Position.IsCrawford ? "Cr" :
             request.Position.CubeSize == 1 ? "64" :
             request.Position.CubeSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-        if (cubeText is null) return;
 
         double fontSize = cubeSize * 0.55;
         double textY = cubeY + cubeSize / 2 + fontSize * 0.35;

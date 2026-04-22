@@ -182,21 +182,20 @@ public class VisualOutputTests
     }
 
     [Fact]
-    public void Svg_CubeFace_OneAwayOneAway_IsBlank()
+    public void Svg_CubeFace_OneAwayOneAway_RendersDmp()
     {
-        // 1a-1a: no cube decisions arise, so the face is blank even when
-        // a cube size is set. CubeSize is chosen as 32 so the negative
-        // assert has an unambiguous target — point numbers go 1..24 and
-        // nothing else in the SVG renders ">32</text>".
+        // 1a-1a: cube is dead (double match point), face reads "Dmp". The
+        // cube-size value is suppressed regardless of what's set — CubeSize
+        // is left at MinimalBuilder's default (2) to confirm the size value
+        // doesn't leak through.
         var b = TestFixtures.MinimalBuilder();
         b.MatchLength = 7;
         b.OnRollNeeds = 1;
         b.OpponentNeeds = 1;
-        b.CubeSize = 32;
         var svg = TestFixtures.Render(b.Build());
         var path = TestPaths.SvgOutputPath("cube_face_1a_1a.svg");
         File.WriteAllText(path, svg);
-        Assert.DoesNotContain(">32</text>", svg);
+        Assert.Contains(">Dmp</text>", svg);
         Assert.DoesNotContain(">Cr</text>", svg);
     }
 
