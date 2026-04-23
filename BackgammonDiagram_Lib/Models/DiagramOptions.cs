@@ -8,12 +8,14 @@ public record DiagramOptions
     public DiagramSize Size { get; init; } = DiagramSize.Medium;
 
     /// <summary>
-    /// Optional board watermark image bytes (typically JPG or PNG).
-    /// Rendered twice — once in each half of the board, rotated 90° so both
-    /// tops face the bar — at alpha 0.15. Null (default) means no watermark.
-    /// Use <see cref="Watermarks.Default"/> for the built-in asset.
+    /// Board watermark image bytes (typically PNG or JPG). Rendered twice —
+    /// once bar-adjacent in each half of the board, rotated 90° so both tops
+    /// face the bar — at low opacity. Defaults to
+    /// <see cref="Watermarks.Default"/> so every rendered diagram carries
+    /// the built-in mark; set explicitly to <c>null</c> to opt out, or
+    /// assign a caller-supplied byte array to substitute a different image.
     /// </summary>
-    public byte[]? WatermarkImage { get; init; }
+    public byte[]? WatermarkImage { get; init; } = Watermarks.Default;
 
     /// <summary>
     /// Theme used for rendering. Defaults to ThemeRegistry.Default.

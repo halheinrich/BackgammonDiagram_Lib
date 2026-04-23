@@ -196,13 +196,13 @@ public class VisualOutputTests
     [Fact]
     public void Pdf_Watermarked()
     {
-        // Watermark in PDF goes through the PNG path (PDF embeds the rendered
-        // PNG via QuestPDF's FitArea). Emitting artefact confirms the option
-        // threads through the multi-request PDF overload too.
+        // Default DiagramOptions carries the built-in watermark now, so this
+        // test just emits the artefact for eyeballing -- the PDF path
+        // rasterizes to PNG first, so anything the PNG pipeline renders is
+        // already embedded by the time QuestPDF's FitArea runs.
         var b = TestFixtures.MinimalBuilder();
         b.Mop = TestFixtures.StartingMop();
-        var opts = TestFixtures.DefaultOptions() with { WatermarkImage = Watermarks.Default };
-        var pdf = DiagramRenderer.RenderPdf(b.Build(), opts);
+        var pdf = DiagramRenderer.RenderPdf(b.Build(), TestFixtures.DefaultOptions());
         File.WriteAllBytes(TestPaths.PdfOutputPath("watermarked.pdf"), pdf);
         Assert.True(pdf.Length > 1_000, $"PDF too small: {pdf.Length} bytes");
     }
@@ -210,30 +210,27 @@ public class VisualOutputTests
     [Fact]
     public void Pptx_Watermarked()
     {
-        // Same rationale as Pdf_Watermarked — PPTX path rasterizes to PNG
-        // first, so the watermark should carry through unchanged.
+        // Same rationale as Pdf_Watermarked -- PPTX embeds the rendered PNG.
         var b = TestFixtures.MinimalBuilder();
         b.Mop = TestFixtures.StartingMop();
-        var opts = TestFixtures.DefaultOptions() with { WatermarkImage = Watermarks.Default };
-        var pptx = DiagramRenderer.RenderPptx(b.Build(), opts);
+        var pptx = DiagramRenderer.RenderPptx(b.Build(), TestFixtures.DefaultOptions());
         File.WriteAllBytes(TestPaths.PptxOutputPath("watermarked.pptx"), pptx);
         Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
     }
 
     [Fact]
-    public void Svg_And_Png_WatermarkRendersAndDiffersFromUnwatermarked()
+    public void Svg_And_Png_WatermarkRendersAndDiffersFromExplicitOptOut()
     {
         // Exercises the watermark end-to-end: SVG carries two <image>
         // elements with data-URI base64 PNG; PNG rasterization confirms
         // Svg.Skia honours <image> rather than silently dropping the
-        // element. The byte-diff check parallels the italic-verification
-        // test below — an identical PNG to the non-watermarked render
-        // would mean the image was dropped.
+        // element. An identical PNG to the opt-out render would mean
+        // the image was dropped.
         var b = TestFixtures.MinimalBuilder();
         b.Mop = TestFixtures.StartingMop();
 
-        var optsWithWm = TestFixtures.DefaultOptions() with { WatermarkImage = Watermarks.Default };
-        var svg = DiagramRenderer.RenderSvg(b.Build(), optsWithWm);
+        // Default options — watermark is on by default.
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
         File.WriteAllText(TestPaths.SvgOutputPath("watermarked.svg"), svg);
 
         // Two <image> elements, both with a rotate() transform. The asset is
@@ -245,16 +242,20 @@ public class VisualOutputTests
         Assert.Contains("rotate(90 ", svg);
         Assert.Contains("rotate(-90 ", svg);
 
-        var pngWm = DiagramRenderer.RenderPng(b.Build(), optsWithWm);
+        var pngWm = DiagramRenderer.RenderPng(b.Build(), TestFixtures.DefaultOptions());
         File.WriteAllBytes(TestPaths.PngOutputPath("watermarked.png"), pngWm);
         Assert.True(pngWm.Length > 1000, $"PNG too small: {pngWm.Length} bytes");
 
-        // Svg.Skia <image>+opacity honour check: rasterize the same diagram
-        // with WatermarkImage = null and confirm the PNG differs.
-        var pngNone = DiagramRenderer.RenderPng(b.Build(), TestFixtures.DefaultOptions());
+        // Explicit opt-out — no watermark <image> elements should appear,
+        // and the rasterized PNG should differ byte-for-byte from the
+        // default (watermarked) render.
+        var optsNone = TestFixtures.DefaultOptions() with { WatermarkImage = null };
+        var svgNone = DiagramRenderer.RenderSvg(b.Build(), optsNone);
+        Assert.DoesNotContain("<image ", svgNone);
+        var pngNone = DiagramRenderer.RenderPng(b.Build(), optsNone);
         Assert.NotEqual(pngWm.Length, pngNone.Length);
         Assert.False(pngWm.AsSpan().SequenceEqual(pngNone),
-            "PNG identical to non-watermarked variant — Svg.Skia silently dropped <image>+opacity.");
+            "PNG identical to opt-out variant — Svg.Skia silently dropped <image>.");
     }
 
     [Fact]

@@ -655,7 +655,7 @@ public static class DiagramRenderer
     /// from <see cref="Watermarks.BuildTransparentPng"/>; this multiplier
     /// tones the whole silhouette down to a quiet background mark.
     /// </summary>
-    private const double WatermarkOpacity = 0.35;
+    private const double WatermarkOpacity = 0.22;
 
     /// <summary>
     /// Maximum displayed watermark size as a fraction of

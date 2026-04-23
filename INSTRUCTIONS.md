@@ -185,8 +185,9 @@ Rendered in Solution mode only. Two shapes:
 
 ### Watermark
 
-Opt-in board watermark driven by `DiagramOptions.WatermarkImage`. When
-non-null, the renderer emits two SVG `<image>` elements per diagram —
+On-by-default board watermark driven by `DiagramOptions.WatermarkImage`
+(defaults to `Watermarks.Default`; set explicitly to `null` to opt out).
+When non-null, the renderer emits two SVG `<image>` elements per diagram —
 one in each half-board, rotated 90° so their tops face each other
 across the bar — with:
 
@@ -319,7 +320,7 @@ record DiagramOptions
 {
     bool         ShowPipCount     { get; init; }
     DiagramSize  Size             { get; init; } = DiagramSize.Medium;
-    byte[]?      WatermarkImage   { get; init; }
+    byte[]?      WatermarkImage   { get; init; } = Watermarks.Default;
     ITheme       Theme            { get; init; } = ThemeRegistry.Default;
     AspectPreset Aspect           { get; init; } = AspectPreset.Widescreen16x9;
 }
@@ -327,11 +328,12 @@ record DiagramOptions
 
 ### `Watermarks`
 
-`Watermarks.Default` returns the built-in JPG as a cached `byte[]`
-(shipped as an `EmbeddedResource` under `Assets/`). Callers enable the
-board watermark with `options with { WatermarkImage = Watermarks.Default }`
-— no filesystem or resource lookups on the caller side. The returned
-array is shared across calls; callers must not mutate it.
+`Watermarks.Default` returns the built-in watermark as a cached `byte[]`
+(shipped as a JPG `EmbeddedResource` under `Assets/`, post-processed at
+class init into a transparent-background PNG). It's the default value
+of `DiagramOptions.WatermarkImage`, so every rendered diagram carries
+the mark unless the caller sets `WatermarkImage = null` to opt out. The
+returned array is shared across calls; callers must not mutate it.
 
 ### `ITheme` and `ThemeRegistry`
 
