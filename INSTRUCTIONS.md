@@ -186,31 +186,41 @@ Rendered in Solution mode only. Two shapes:
 ### Watermark
 
 Opt-in board watermark driven by `DiagramOptions.WatermarkImage`. When
-non-null, the renderer emits two SVG `<image>` elements per diagram — one
-centred in each half-board — with:
+non-null, the renderer emits two SVG `<image>` elements per diagram —
+one in each half-board, rotated 90° so their tops face each other
+across the bar — with:
 
-- Size fixed at 70% of `BoardLayout.HalfWidth`. The built-in asset is
-  square (1024×1024) so rotation doesn't change the bounding box; a
-  non-square input renders with its native aspect ratio preserved but may
-  end up wider than the 70% target after rotation.
-- Vertical centre at `MiddleY + MiddleGap / 2` (middle of the gap between
-  the two triangle rows). The image overflows into the triangles at
-  low alpha — the 0.15 opacity makes that a quiet wash rather than a
-  readability problem.
-- Rotation: 90° CW for the outer (left-of-bar) half and 90° CCW for the
-  inner (right-of-bar) half, so both tops face the bar.
+- Size = `min(MiddleGap × 0.9, halfWidth/2 − dicePairHalf − 2×padding)`.
+  The first term keeps the watermark inside the middle-gap band between
+  triangle rows; the second keeps it within the bar-to-dice strip in the
+  on-roll half. Applied uniformly to both halves for visual symmetry
+  (dice are on one side only, but both watermarks are sized identically).
+- Vertical centre at `MiddleY + MiddleGap / 2`.
+- Horizontal position: each copy sits bar-adjacent, offset from the bar
+  by a small padding, with its far edge short of where the dice pair
+  would land on the on-roll side. Neither watermark overlaps the dice,
+  so dice-layer painting doesn't hide it.
+- Rotation: 90° CW for the outer (left-of-bar) half, 90° CCW for the
+  inner (right-of-bar) half.
 - Image bytes embedded as a `data:image/...;base64,` URI on each `<image>`
   element. MIME is sniffed from the first bytes (PNG magic → `image/png`;
-  anything else defaults to `image/jpeg`). The base64 is computed once
-  per render and emitted twice.
+  anything else defaults to `image/jpeg`). Base64 computed once per
+  render, emitted twice.
+- SVG-level `opacity` of 0.35 on top of the per-pixel alpha baked into
+  the asset (see `Watermarks.Default` below).
 
-Emitted between points and checkers in `AppendBoard`, so triangles carry
-the 0.15 alpha wash but checkers, dice, cube, and analysis panel all
-paint cleanly on top.
+Emitted between points and checkers in `AppendBoard`, so checkers, dice,
+cube, and analysis panel all paint cleanly on top.
 
-`Watermarks.Default` exposes the built-in asset (shipped as an
-`EmbeddedResource`) via a cached `byte[]` accessor — callers never touch
-the filesystem or resource names.
+`Watermarks.Default` exposes the built-in asset (shipped as a JPG
+`EmbeddedResource`) via a cached `byte[]` accessor. At class init the
+JPG is processed once through SkiaSharp: per-pixel luminance becomes
+inverse alpha (dark pixels opaque, light pixels transparent, near-white
+pixels above a threshold forced fully transparent to kill JPEG noise)
+and RGB is forced to pure black. The result is re-encoded as PNG. This
+way the asset's light background doesn't bleed onto the board colour —
+the rendered silhouette composites cleanly at whatever opacity the SVG
+layer applies.
 
 ### Themes
 

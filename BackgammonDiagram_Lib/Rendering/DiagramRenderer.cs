@@ -651,25 +651,37 @@ public static class DiagramRenderer
     /// <summary>
     /// Alpha for the watermark — low enough to read as a background wash
     /// beneath points and checkers, high enough to be visible on a
-    /// light-coloured board.
+    /// light-coloured board. The watermark asset carries per-pixel alpha
+    /// from <see cref="Watermarks.BuildTransparentPng"/>; this multiplier
+    /// tones the whole silhouette down to a quiet background mark.
     /// </summary>
-    private const double WatermarkOpacity = 0.15;
+    private const double WatermarkOpacity = 0.35;
 
     /// <summary>
-    /// Displayed watermark width as a fraction of <see cref="BoardLayout.HalfWidth"/>.
-    /// Leaves ~15% padding on either side so the watermark doesn't crowd
-    /// the bar or the left/right rails.
+    /// Maximum displayed watermark size as a fraction of
+    /// <see cref="BoardLayout.MiddleGap"/>. Keeps the watermark fully
+    /// contained within the middle-gap band between the two triangle rows,
+    /// so triangle tips stay untouched.
     /// </summary>
-    private const double WatermarkHalfFraction = 0.7;
+    private const double WatermarkMiddleGapFraction = 0.9;
+
+    /// <summary>
+    /// Horizontal gap between the watermark and its neighbours (bar and
+    /// the dice pair). Applied on both the bar side and the dice side so
+    /// the watermark visibly floats in the strip rather than touching
+    /// either.
+    /// </summary>
+    private const double WatermarkBarPadding = 3;
 
     /// <summary>
     /// Emits two watermark image elements — one per board-half — rotated 90°
-    /// so the natural tops face each other across the bar. Called after
-    /// points but before checkers/dice, so the image sits behind the
-    /// interactive content at low alpha. The asset shipped via
-    /// <see cref="Watermarks.Default"/> is square, so rotation doesn't
-    /// change the bounding box; for non-square inputs the SVG's rotate()
-    /// transform still works but the displayed aspect would shift.
+    /// so the natural tops face each other across the bar. Both are sized
+    /// to fit within the middle gap and pushed bar-adjacent, leaving the
+    /// rest of the gap clear for dice. Called after points but before
+    /// checkers/dice so the image sits behind the interactive content. The
+    /// asset shipped via <see cref="Watermarks.Default"/> is square, so
+    /// rotation doesn't change the bounding box; non-square inputs render
+    /// with a width=height box and would shift aspect after rotation.
     /// </summary>
     private static void AppendWatermark(StringBuilder sb, BoardLayout layout,
         bool panelOnLeft, byte[] imageBytes)
@@ -680,11 +692,25 @@ public static class DiagramRenderer
         // would save bytes but complicate the emission — skipped YAGNI).
         string dataUri = $"data:{mime};base64,{Convert.ToBase64String(imageBytes)}";
 
-        double size = layout.HalfWidth * WatermarkHalfFraction;
+        // Horizontal strip available between the bar and the inner edge of
+        // the dice pair in the on-roll half. Mirrors the dice sizing in
+        // AppendDice (die size = r*1.6, intra-gap = 0.3 * size → half of
+        // the dice pair = r * 1.84). Applied uniformly to both halves —
+        // dice appear on only one side, but using the same size on both
+        // keeps the watermark visually symmetric across the bar.
+        double dicePairHalfWidth = layout.CheckerRadius * 1.84;
+        double diceToBarClearance = layout.HalfWidth / 2 - dicePairHalfWidth;
+        double horizontalMax = diceToBarClearance - 2 * WatermarkBarPadding;
+        double verticalMax = layout.MiddleGap * WatermarkMiddleGapFraction;
+        double size = Math.Min(horizontalMax, verticalMax);
+
         double cy = layout.MiddleY + layout.MiddleGap / 2;
 
-        double cxLeft  = layout.OuterHalfX(panelOnLeft) + layout.HalfWidth / 2;
-        double cxRight = layout.InnerHalfX(panelOnLeft) + layout.HalfWidth / 2;
+        // Outer (left-of-bar) half: watermark hugs the bar's left edge
+        // with WatermarkBarPadding between it and the bar.
+        double cxLeft  = layout.BarX(panelOnLeft) - WatermarkBarPadding - size / 2;
+        // Inner (right-of-bar) half: watermark hugs the bar's right edge.
+        double cxRight = layout.BarX(panelOnLeft) + layout.BarWidth + WatermarkBarPadding + size / 2;
 
         AppendWatermarkImage(sb, dataUri, cxLeft,  cy, size, rotationDeg: 90);
         AppendWatermarkImage(sb, dataUri, cxRight, cy, size, rotationDeg: -90);

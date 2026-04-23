@@ -194,14 +194,41 @@ public class VisualOutputTests
     }
 
     [Fact]
+    public void Pdf_Watermarked()
+    {
+        // Watermark in PDF goes through the PNG path (PDF embeds the rendered
+        // PNG via QuestPDF's FitArea). Emitting artefact confirms the option
+        // threads through the multi-request PDF overload too.
+        var b = TestFixtures.MinimalBuilder();
+        b.Mop = TestFixtures.StartingMop();
+        var opts = TestFixtures.DefaultOptions() with { WatermarkImage = Watermarks.Default };
+        var pdf = DiagramRenderer.RenderPdf(b.Build(), opts);
+        File.WriteAllBytes(TestPaths.PdfOutputPath("watermarked.pdf"), pdf);
+        Assert.True(pdf.Length > 1_000, $"PDF too small: {pdf.Length} bytes");
+    }
+
+    [Fact]
+    public void Pptx_Watermarked()
+    {
+        // Same rationale as Pdf_Watermarked — PPTX path rasterizes to PNG
+        // first, so the watermark should carry through unchanged.
+        var b = TestFixtures.MinimalBuilder();
+        b.Mop = TestFixtures.StartingMop();
+        var opts = TestFixtures.DefaultOptions() with { WatermarkImage = Watermarks.Default };
+        var pptx = DiagramRenderer.RenderPptx(b.Build(), opts);
+        File.WriteAllBytes(TestPaths.PptxOutputPath("watermarked.pptx"), pptx);
+        Assert.True(pptx.Length > 5_000, $"PPTX too small: {pptx.Length} bytes");
+    }
+
+    [Fact]
     public void Svg_And_Png_WatermarkRendersAndDiffersFromUnwatermarked()
     {
         // Exercises the watermark end-to-end: SVG carries two <image>
-        // elements with data-URI base64 JPEG and opacity 0.15; PNG
-        // rasterization confirms Svg.Skia honours <image>+opacity rather
-        // than silently dropping the element. The byte-diff check parallels
-        // the italic-verification test below — an identical PNG to the
-        // non-watermarked render would mean the image was dropped.
+        // elements with data-URI base64 PNG; PNG rasterization confirms
+        // Svg.Skia honours <image> rather than silently dropping the
+        // element. The byte-diff check parallels the italic-verification
+        // test below — an identical PNG to the non-watermarked render
+        // would mean the image was dropped.
         var b = TestFixtures.MinimalBuilder();
         b.Mop = TestFixtures.StartingMop();
 
@@ -209,10 +236,12 @@ public class VisualOutputTests
         var svg = DiagramRenderer.RenderSvg(b.Build(), optsWithWm);
         File.WriteAllText(TestPaths.SvgOutputPath("watermarked.svg"), svg);
 
-        // Two <image> elements, both with opacity 0.15 and a rotate() transform.
+        // Two <image> elements, both with a rotate() transform. The asset is
+        // a post-processed PNG with per-pixel alpha; no assertion on the
+        // overall opacity attribute so the renderer can tune it without
+        // breaking this test.
         Assert.Equal(2, TestFixtures.CountOccurrences(svg, "<image "));
-        Assert.Contains("data:image/jpeg;base64,", svg);
-        Assert.Contains("opacity=\"0.15\"", svg);
+        Assert.Contains("data:image/png;base64,", svg);
         Assert.Contains("rotate(90 ", svg);
         Assert.Contains("rotate(-90 ", svg);
 

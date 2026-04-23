@@ -12,14 +12,19 @@ namespace BackgammonDiagram_Lib.Tests;
 public class WatermarksTests
 {
     [Fact]
-    public void Default_ReturnsNonEmptyJpgBytes()
+    public void Default_ReturnsNonEmptyPngBytes()
     {
         var bytes = Watermarks.Default;
         Assert.NotNull(bytes);
         Assert.True(bytes.Length > 1000, $"Watermark too small: {bytes.Length} bytes");
-        // JPEG magic bytes: FF D8.
-        Assert.Equal(0xFF, bytes[0]);
-        Assert.Equal(0xD8, bytes[1]);
+        // PNG magic bytes: 89 50 4E 47 0D 0A 1A 0A.
+        // (The source asset is a JPG, but Watermarks post-processes it into
+        // a PNG with alpha so the renderer can composite the black silhouette
+        // onto the board colour without a light background wash.)
+        Assert.Equal(0x89, bytes[0]);
+        Assert.Equal(0x50, bytes[1]);
+        Assert.Equal(0x4E, bytes[2]);
+        Assert.Equal(0x47, bytes[3]);
     }
 
     [Fact]
