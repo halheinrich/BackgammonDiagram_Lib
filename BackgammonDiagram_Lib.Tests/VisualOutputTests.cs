@@ -194,6 +194,41 @@ public class VisualOutputTests
     }
 
     [Fact]
+    public void Svg_And_Png_WatermarkRendersAndDiffersFromUnwatermarked()
+    {
+        // Exercises the watermark end-to-end: SVG carries two <image>
+        // elements with data-URI base64 JPEG and opacity 0.15; PNG
+        // rasterization confirms Svg.Skia honours <image>+opacity rather
+        // than silently dropping the element. The byte-diff check parallels
+        // the italic-verification test below — an identical PNG to the
+        // non-watermarked render would mean the image was dropped.
+        var b = TestFixtures.MinimalBuilder();
+        b.Mop = TestFixtures.StartingMop();
+
+        var optsWithWm = TestFixtures.DefaultOptions() with { WatermarkImage = Watermarks.Default };
+        var svg = DiagramRenderer.RenderSvg(b.Build(), optsWithWm);
+        File.WriteAllText(TestPaths.SvgOutputPath("watermarked.svg"), svg);
+
+        // Two <image> elements, both with opacity 0.15 and a rotate() transform.
+        Assert.Equal(2, TestFixtures.CountOccurrences(svg, "<image "));
+        Assert.Contains("data:image/jpeg;base64,", svg);
+        Assert.Contains("opacity=\"0.15\"", svg);
+        Assert.Contains("rotate(90 ", svg);
+        Assert.Contains("rotate(-90 ", svg);
+
+        var pngWm = DiagramRenderer.RenderPng(b.Build(), optsWithWm);
+        File.WriteAllBytes(TestPaths.PngOutputPath("watermarked.png"), pngWm);
+        Assert.True(pngWm.Length > 1000, $"PNG too small: {pngWm.Length} bytes");
+
+        // Svg.Skia <image>+opacity honour check: rasterize the same diagram
+        // with WatermarkImage = null and confirm the PNG differs.
+        var pngNone = DiagramRenderer.RenderPng(b.Build(), TestFixtures.DefaultOptions());
+        Assert.NotEqual(pngWm.Length, pngNone.Length);
+        Assert.False(pngWm.AsSpan().SequenceEqual(pngNone),
+            "PNG identical to non-watermarked variant — Svg.Skia silently dropped <image>+opacity.");
+    }
+
+    [Fact]
     public void Svg_IsCube()
     {
         var b = TestFixtures.MinimalBuilder();

@@ -21,4 +21,8 @@
     <InternalsVisibleTo Include="BackgammonDiagram_Lib.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\board-watermark.jpg" />
+  </ItemGroup>
+
 </Project>

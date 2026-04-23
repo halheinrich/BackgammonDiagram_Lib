@@ -63,7 +63,7 @@ public static class DiagramRenderer
             sb.AppendLine($"""  <g transform="translate(0,{F(titleOffset)})">""");
         }
 
-        AppendBoard(sb, layout, theme, request, panelOnLeft);
+        AppendBoard(sb, layout, theme, request, panelOnLeft, options.WatermarkImage);
 
         if (hasTitle)
             sb.AppendLine("  </g>");
@@ -358,7 +358,7 @@ public static class DiagramRenderer
     // -----------------------------------------------------------------------
 
     private static void AppendBoard(StringBuilder sb, BoardLayout layout, ITheme theme,
-        DiagramRequest request, bool panelOnLeft)
+        DiagramRequest request, bool panelOnLeft, byte[]? watermarkImage)
     {
         bool effectivePanelOnLeft = panelOnLeft;
         bool homeBoardOnRight = request.HomeBoardOnRight;
@@ -374,6 +374,8 @@ public static class DiagramRenderer
         AppendLeftRail(sb, layout, theme, bx);
         AppendBar(sb, layout, theme, bx);
         AppendPoints(sb, layout, theme, effectivePanelOnLeft, homeBoardOnRight);
+        if (watermarkImage is not null)
+            AppendWatermark(sb, layout, effectivePanelOnLeft, watermarkImage);
         AppendCheckers(sb, layout, theme, request, effectivePanelOnLeft);
         if (!request.Decision.IsCube)
             AppendDice(sb, layout, theme, request, effectivePanelOnLeft);
@@ -641,6 +643,74 @@ public static class DiagramRenderer
         6 => [(0, 0), (2, 0), (0, 1), (2, 1), (0, 2), (2, 2)],
         _ => []
     };
+
+    // -----------------------------------------------------------------------
+    //  Watermark
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Alpha for the watermark — low enough to read as a background wash
+    /// beneath points and checkers, high enough to be visible on a
+    /// light-coloured board.
+    /// </summary>
+    private const double WatermarkOpacity = 0.15;
+
+    /// <summary>
+    /// Displayed watermark width as a fraction of <see cref="BoardLayout.HalfWidth"/>.
+    /// Leaves ~15% padding on either side so the watermark doesn't crowd
+    /// the bar or the left/right rails.
+    /// </summary>
+    private const double WatermarkHalfFraction = 0.7;
+
+    /// <summary>
+    /// Emits two watermark image elements — one per board-half — rotated 90°
+    /// so the natural tops face each other across the bar. Called after
+    /// points but before checkers/dice, so the image sits behind the
+    /// interactive content at low alpha. The asset shipped via
+    /// <see cref="Watermarks.Default"/> is square, so rotation doesn't
+    /// change the bounding box; for non-square inputs the SVG's rotate()
+    /// transform still works but the displayed aspect would shift.
+    /// </summary>
+    private static void AppendWatermark(StringBuilder sb, BoardLayout layout,
+        bool panelOnLeft, byte[] imageBytes)
+    {
+        string mime = GuessImageMime(imageBytes);
+        // Base64-encode once per render; both halves reference the same
+        // string literal in the emitted SVG (SVG size-dedup via <defs>/<use>
+        // would save bytes but complicate the emission — skipped YAGNI).
+        string dataUri = $"data:{mime};base64,{Convert.ToBase64String(imageBytes)}";
+
+        double size = layout.HalfWidth * WatermarkHalfFraction;
+        double cy = layout.MiddleY + layout.MiddleGap / 2;
+
+        double cxLeft  = layout.OuterHalfX(panelOnLeft) + layout.HalfWidth / 2;
+        double cxRight = layout.InnerHalfX(panelOnLeft) + layout.HalfWidth / 2;
+
+        AppendWatermarkImage(sb, dataUri, cxLeft,  cy, size, rotationDeg: 90);
+        AppendWatermarkImage(sb, dataUri, cxRight, cy, size, rotationDeg: -90);
+    }
+
+    private static void AppendWatermarkImage(StringBuilder sb, string dataUri,
+        double centreX, double centreY, double size, double rotationDeg)
+    {
+        double x = centreX - size / 2;
+        double y = centreY - size / 2;
+        sb.AppendLine($"""  <image href="{dataUri}" x="{F(x)}" y="{F(y)}" width="{F(size)}" height="{F(size)}" opacity="{F(WatermarkOpacity)}" transform="rotate({F(rotationDeg)} {F(centreX)} {F(centreY)})"/>""");
+    }
+
+    /// <summary>
+    /// Sniffs the image MIME type from the first bytes of the array. Only
+    /// PNG is explicitly detected; anything else falls back to JPEG, which
+    /// is the format of the built-in asset.
+    /// </summary>
+    private static string GuessImageMime(byte[] bytes)
+    {
+        if (bytes.Length >= 4
+            && bytes[0] == 0x89 && bytes[1] == 0x50
+            && bytes[2] == 0x4E && bytes[3] == 0x47)
+            return "image/png";
+        return "image/jpeg";
+    }
 
     // -----------------------------------------------------------------------
     //  Cube

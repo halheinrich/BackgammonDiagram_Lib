@@ -8,10 +8,12 @@ public record DiagramOptions
     public DiagramSize Size { get; init; } = DiagramSize.Medium;
 
     /// <summary>
-    /// Optional watermark text. Rendered twice — once centered in each board half —
-    /// at low opacity.
+    /// Optional board watermark image bytes (typically JPG or PNG).
+    /// Rendered twice — once in each half of the board, rotated 90° so both
+    /// tops face the bar — at alpha 0.15. Null (default) means no watermark.
+    /// Use <see cref="Watermarks.Default"/> for the built-in asset.
     /// </summary>
-    public string? WatermarkText { get; init; }
+    public byte[]? WatermarkImage { get; init; }
 
     /// <summary>
     /// Theme used for rendering. Defaults to ThemeRegistry.Default.

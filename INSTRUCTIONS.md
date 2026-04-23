@@ -34,9 +34,12 @@ https://github.com/halheinrich/BackgammonDiagram_Lib — branch `main`.
 BackgammonDiagram_Lib.slnx
 BackgammonDiagram_Lib/
   BackgammonDiagram_Lib.csproj
+  Watermarks.cs               — public static Watermarks.Default byte[] accessor
+  Assets/
+    board-watermark.jpg       — built-in watermark asset (EmbeddedResource)
   Models/
     BoardHitRegions.cs        — point/bar/cube/tray hit regions
-    DiagramOptions.cs         — record: ShowPipCount, Size, WatermarkText, Theme
+    DiagramOptions.cs         — record: ShowPipCount, Size, WatermarkImage, Theme, Aspect
     DiagramRequest.cs         — immutable class + inner Builder
     DiagramRequestExtensions.cs
     DiagramSize.cs
@@ -180,6 +183,35 @@ Rendered in Solution mode only. Two shapes:
   - No italic concept — a single analysis depth value has no adjacent
     rank to compare against.
 
+### Watermark
+
+Opt-in board watermark driven by `DiagramOptions.WatermarkImage`. When
+non-null, the renderer emits two SVG `<image>` elements per diagram — one
+centred in each half-board — with:
+
+- Size fixed at 70% of `BoardLayout.HalfWidth`. The built-in asset is
+  square (1024×1024) so rotation doesn't change the bounding box; a
+  non-square input renders with its native aspect ratio preserved but may
+  end up wider than the 70% target after rotation.
+- Vertical centre at `MiddleY + MiddleGap / 2` (middle of the gap between
+  the two triangle rows). The image overflows into the triangles at
+  low alpha — the 0.15 opacity makes that a quiet wash rather than a
+  readability problem.
+- Rotation: 90° CW for the outer (left-of-bar) half and 90° CCW for the
+  inner (right-of-bar) half, so both tops face the bar.
+- Image bytes embedded as a `data:image/...;base64,` URI on each `<image>`
+  element. MIME is sniffed from the first bytes (PNG magic → `image/png`;
+  anything else defaults to `image/jpeg`). The base64 is computed once
+  per render and emitted twice.
+
+Emitted between points and checkers in `AppendBoard`, so triangles carry
+the 0.15 alpha wash but checkers, dice, cube, and analysis panel all
+paint cleanly on top.
+
+`Watermarks.Default` exposes the built-in asset (shipped as an
+`EmbeddedResource`) via a cached `byte[]` accessor — callers never touch
+the filesystem or resource names.
+
 ### Themes
 
 `ITheme` interface, concrete implementations `DefaultTheme`, `GreyscaleTheme`,
@@ -273,12 +305,23 @@ field-for-field, not as a held record.
 ### `DiagramOptions`
 
 ```csharp
-record DiagramOptions(
-    bool         ShowPipCount,
-    DiagramSize  Size,
-    string?      WatermarkText,
-    ITheme       Theme);
+record DiagramOptions
+{
+    bool         ShowPipCount     { get; init; }
+    DiagramSize  Size             { get; init; } = DiagramSize.Medium;
+    byte[]?      WatermarkImage   { get; init; }
+    ITheme       Theme            { get; init; } = ThemeRegistry.Default;
+    AspectPreset Aspect           { get; init; } = AspectPreset.Widescreen16x9;
+}
 ```
+
+### `Watermarks`
+
+`Watermarks.Default` returns the built-in JPG as a cached `byte[]`
+(shipped as an `EmbeddedResource` under `Assets/`). Callers enable the
+board watermark with `options with { WatermarkImage = Watermarks.Default }`
+— no filesystem or resource lookups on the caller side. The returned
+array is shared across calls; callers must not mutate it.
 
 ### `ITheme` and `ThemeRegistry`
 
