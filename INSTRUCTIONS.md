@@ -158,14 +158,14 @@ Rendered in Solution mode only. Two shapes:
   - The Depth column renders `PlayCandidate.DepthAbbreviation`, not
     `PlayCandidate.Depth`. Rows with empty `DepthAbbreviation` omit the
     Depth cell entirely (the column header still renders).
-  - Italic `font-style` on the Depth text cell flags a rank inversion:
-    for row `i > 0`, italic is applied when
+  - Italic `font-style` flags a rank inversion: for row `i > 0`, italic
+    is applied to the row's Equity, Eq Loss, and Depth cells when
     `plays[i].DepthRank > plays[i-1].DepthRank` — a deeper analysis sits
-    below a shallower one in the equity-sorted list. Only the Depth cell
-    is italicised; the rest of the row stays upright. Row 0 never italic
-    (no predecessor). Check is keyed off source-list position, not
-    display slot — a user-play rescued into the last displayed row
-    carries the italic state from its original index.
+    below a shallower one in the equity-sorted list. The marker, rank,
+    and move-notation cells stay upright. Row 0 never italic (no
+    predecessor). Check is keyed off source-list position, not display
+    slot — a user-play rescued into the last displayed row carries the
+    italic state from its original index.
   - When the panel runs out of vertical space, the user's play is
     "rescued" into the last visible slot with its real rank number,
     displacing whichever row would otherwise have been last.

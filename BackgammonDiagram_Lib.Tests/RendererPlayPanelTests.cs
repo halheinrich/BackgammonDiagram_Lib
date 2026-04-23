@@ -114,11 +114,12 @@ public class RendererPlayPanelTests
     }
 
     [Fact]
-    public void Plays_DepthColumn_ItalicAppliedOnlyToRowsWhoseRankExceedsPredecessor()
+    public void Plays_ItalicAppliedToEquityLossAndDepthOnRankInversionRows()
     {
         // Three plays, equity-sorted. Ranks [5, 10, 5]:
         //   row 0 — no predecessor, never italic.
-        //   row 1 — rank 10 > 5, so italic (deeper analysis below shallower).
+        //   row 1 — rank 10 > 5, so italic (deeper analysis below shallower)
+        //           on all three of Equity, Eq Loss, and Depth cells.
         //   row 2 — rank 5 <= 10, so not italic.
         var plays = new List<PlayCandidate>
         {
@@ -132,20 +133,36 @@ public class RendererPlayPanelTests
         b.Plays = plays;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        // Match every x=347.4 depth <text> element, preserving attributes so
-        // the italic attribute can be asserted per row. Header is index 0,
-        // rows 0..2 follow at indices 1..3.
+        // Depth cells: header + 3 rows at x=347.4.
         var depthCell = new Regex("""<text x="347\.4" y="[0-9.]+" font-family="sans-serif"[^>]*>([^<]+)</text>""");
-        var matches = depthCell.Matches(svg).ToList();
-        Assert.Equal(4, matches.Count);   // header + 3 rows
+        var depth = depthCell.Matches(svg).ToList();
+        Assert.Equal(4, depth.Count);
+        Assert.Equal("Depth", depth[0].Groups[1].Value);
+        Assert.DoesNotContain("font-style=\"italic\"", depth[0].Value);   // header never italic
+        Assert.Equal("R+", depth[1].Groups[1].Value);
+        Assert.DoesNotContain("font-style=\"italic\"", depth[1].Value);   // row 0: no predecessor
+        Assert.Equal("3p1296", depth[2].Groups[1].Value);
+        Assert.Contains("font-style=\"italic\"", depth[2].Value);         // row 1: 10 > 5 → italic
+        Assert.Equal("R+", depth[3].Groups[1].Value);
+        Assert.DoesNotContain("font-style=\"italic\"", depth[3].Value);   // row 2: 5 <= 10
 
-        Assert.Equal("Depth", matches[0].Groups[1].Value);
-        Assert.DoesNotContain("font-style=\"italic\"", matches[0].Value);   // header never italic
-        Assert.Equal("R+", matches[1].Groups[1].Value);
-        Assert.DoesNotContain("font-style=\"italic\"", matches[1].Value);   // row 0: no predecessor
-        Assert.Equal("3p1296", matches[2].Groups[1].Value);
-        Assert.Contains("font-style=\"italic\"", matches[2].Value);         // row 1: 10 > 5 → italic
-        Assert.Equal("R+", matches[3].Groups[1].Value);
-        Assert.DoesNotContain("font-style=\"italic\"", matches[3].Value);   // row 2: 5 <= 10
+        // Equity cells: header ("Equity") + 3 rows at x=263.4, right-anchored.
+        var equityCell = new Regex("""<text x="263\.4" y="[0-9.]+" text-anchor="end" [^>]*>([^<]+)</text>""");
+        var equity = equityCell.Matches(svg).ToList();
+        Assert.Equal(4, equity.Count);
+        Assert.DoesNotContain("font-style=\"italic\"", equity[0].Value);  // header
+        Assert.DoesNotContain("font-style=\"italic\"", equity[1].Value);  // row 0
+        Assert.Contains("font-style=\"italic\"", equity[2].Value);        // row 1 inverted
+        Assert.DoesNotContain("font-style=\"italic\"", equity[3].Value);  // row 2
+
+        // Eq Loss cells: header ("Eq Loss") + rows 1 and 2 at x=326.4 (row 0
+        // has null loss and renders no cell). Header is the only non-numeric
+        // content in the column, so picking by row content is unambiguous.
+        var lossCell = new Regex("""<text x="326\.4" y="[0-9.]+" text-anchor="end" [^>]*>([^<]+)</text>""");
+        var loss = lossCell.Matches(svg).ToList();
+        Assert.Equal(3, loss.Count);
+        Assert.DoesNotContain("font-style=\"italic\"", loss[0].Value);    // header
+        Assert.Contains("font-style=\"italic\"", loss[1].Value);          // row 1 inverted
+        Assert.DoesNotContain("font-style=\"italic\"", loss[2].Value);    // row 2
     }
 }

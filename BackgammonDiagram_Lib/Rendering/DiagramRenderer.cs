@@ -897,7 +897,11 @@ public static class DiagramRenderer
             // for the immediately preceding candidate. Keyed off playIdx, not
             // slot, so a rescued user play carries the italic state from its
             // original position in the list rather than its displayed slot.
+            // Applied to the Equity, Eq Loss, and Depth cells -- three cells
+            // instead of one makes the rank-inversion cue stand out enough
+            // to notice at a glance.
             bool italic = playIdx > 0 && plays[playIdx].DepthRank > plays[playIdx - 1].DepthRank;
+            string italicAttr = italic ? """ font-style="italic" """ : " ";
 
             double lineY = y + PlayPanelLineHeight * 0.8;
 
@@ -906,14 +910,11 @@ public static class DiagramRenderer
 
             sb.AppendLine($"""  <text x="{F(rankX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{textColor}">{Escape(rank)}</text>""");
             sb.AppendLine($"""  <text x="{F(moveX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{textColor}">{Escape(moveText)}</text>""");
-            sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{textColor}">{FormatEquity(play.Equity)}</text>""");
+            sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}"{italicAttr}fill="{textColor}">{FormatEquity(play.Equity)}</text>""");
             if (play.EquityLoss is double loss && loss > 0)
-                sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">{FormatEquityLoss(loss)}</text>""");
+                sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}"{italicAttr}fill="{dimColor}">{FormatEquityLoss(loss)}</text>""");
             if (!string.IsNullOrEmpty(play.DepthAbbreviation))
-            {
-                string italicAttr = italic ? """ font-style="italic" """ : " ";
                 sb.AppendLine($"""  <text x="{F(depthX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}"{italicAttr}fill="{dimColor}">{Escape(play.DepthAbbreviation)}</text>""");
-            }
 
             y += PlayPanelLineHeight;
         }
