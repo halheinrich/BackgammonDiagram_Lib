@@ -242,24 +242,29 @@ public class RendererPanelContentTests
     }
 
     // -----------------------------------------------------------------------
-    //  Footer — Analysis Level label (sourced from DecisionData.CubeDepth)
+    //  Footer — Analysis Level label (sourced from DecisionData.CubeDepthAbbreviation)
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void CubePanel_AnalysisLevel_RendersCubeDepthWhenSet()
+    public void CubePanel_AnalysisLevel_RendersCubeDepthAbbreviationWhenSet()
     {
         var b = MinimalCubeBuilder(0.4, 0.8);
+        // The long form is ignored by the renderer; only the abbreviation reaches the panel.
         b.CubeDepth = "XG Roller+";
+        b.CubeDepthAbbreviation = "R+";
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        Assert.Contains("Analysis Level: XG Roller+", svg);
+        Assert.Contains("Analysis Level: R+", svg);
+        Assert.DoesNotContain("XG Roller+", svg);
     }
 
     [Fact]
-    public void CubePanel_AnalysisLevel_OmittedWhenCubeDepthEmpty()
+    public void CubePanel_AnalysisLevel_OmittedWhenCubeDepthAbbreviationEmpty()
     {
         var b = MinimalCubeBuilder(0.4, 0.8);
-        // CubeDepth defaults to empty — no Analysis Level line.
+        // A non-empty long CubeDepth alone does not force the Analysis Level
+        // line on — the abbreviation is what the panel reads.
+        b.CubeDepth = "XG Roller+";
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
         Assert.DoesNotContain("Analysis Level:", svg);

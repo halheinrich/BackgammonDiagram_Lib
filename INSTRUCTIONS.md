@@ -18,8 +18,9 @@ https://github.com/halheinrich/BackgammonDiagram_Lib — branch `main`.
 
 ## Depends on
 
-- **BgDataTypes_Lib** — `PositionData`, `DecisionData` (incl. `CubeDepth`),
-  `DescriptiveData`, `CubeOwner`, `PlayCandidate` (incl. per-play `Depth`),
+- **BgDataTypes_Lib** — `PositionData`, `DecisionData` (incl. `CubeDepth` /
+  `CubeDepthAbbreviation` / `CubeDepthRank`), `DescriptiveData`, `CubeOwner`,
+  `PlayCandidate` (incl. per-play `Depth` / `DepthAbbreviation` / `DepthRank`),
   `BgDecisionData`. The whole shared type layer this library renders from.
 - **SkiaSharp** — PNG rasterization backend.
 - **Svg.Skia** — SVG parse/draw path used by the PNG pipeline.
@@ -147,6 +148,38 @@ requests that set only SourceFile.
 The bottom/top rail shows away scores, the Crawford indicator when
 applicable, and "Money game" labels.
 
+### Analysis panel
+
+Rendered in Solution mode only. Two shapes:
+
+- **Play panel** (`Decision.IsCube == false`). One row per `PlayCandidate`
+  in caller order, assumed equity-sorted. Columns: user-play marker, rank,
+  move notation, equity, equity loss, depth. Invariants:
+  - The Depth column renders `PlayCandidate.DepthAbbreviation`, not
+    `PlayCandidate.Depth`. Rows with empty `DepthAbbreviation` omit the
+    Depth cell entirely (the column header still renders).
+  - Italic `font-style` on the Depth text cell flags a rank inversion:
+    for row `i > 0`, italic is applied when
+    `plays[i].DepthRank > plays[i-1].DepthRank` — a deeper analysis sits
+    below a shallower one in the equity-sorted list. Only the Depth cell
+    is italicised; the rest of the row stays upright. Row 0 never italic
+    (no predecessor). Check is keyed off source-list position, not
+    display slot — a user-play rescued into the last displayed row
+    carries the italic state from its original index.
+  - When the panel runs out of vertical space, the user's play is
+    "rescued" into the last visible slot with its real rank number,
+    displacing whichever row would otherwise have been last.
+
+- **Cube panel** (`Decision.IsCube == true`). Best/Actual banner,
+  Equity/Loss table (No Double / Double / Take / Pass), two pct tables
+  (No Double and Take played-out stats), footer lines. Invariants:
+  - The Analysis Level footer renders `Decision.CubeDepthAbbreviation`,
+    not `Decision.CubeDepth`. An empty abbreviation suppresses the
+    entire footer line — a non-empty long `CubeDepth` alone does not
+    force the line on.
+  - No italic concept — a single analysis depth value has no adjacent
+    rank to compare against.
+
 ### Themes
 
 `ITheme` interface, concrete implementations `DefaultTheme`, `GreyscaleTheme`,
@@ -226,10 +259,16 @@ output; a single request is handled by the scalar overload.
 
 ### `DiagramRequest.Builder`
 
-Flat property setters for position, dice, cube, scores, plays, `CubeDepth`,
-plus `HomeBoardOnRight`, `Mode`, `AnalysisPanelPosition`. `Build()`
-constructs the nested `BgDataTypes_Lib` records and validates. Throws on
-validation failure.
+Flat property setters for position, dice, cube, scores, plays, `CubeDepth`
+/ `CubeDepthAbbreviation` / `CubeDepthRank`, plus `HomeBoardOnRight`,
+`Mode`, `AnalysisPanelPosition`. `Build()` constructs the nested
+`BgDataTypes_Lib` records and validates. Throws on validation failure.
+
+`PlayCandidate` values flow through unchanged (Builder stores them as
+`List<PlayCandidate>`, so `DepthAbbreviation` / `DepthRank` survive the
+round-trip without per-field plumbing). The cube equivalents need
+explicit Builder fields because the Builder models `DecisionData`
+field-for-field, not as a held record.
 
 ### `DiagramOptions`
 

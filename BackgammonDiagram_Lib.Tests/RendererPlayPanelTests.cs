@@ -64,16 +64,17 @@ public class RendererPlayPanelTests
     }
 
     [Fact]
-    public void Plays_DepthColumn_RendersPerPlayLeftAnchoredAtDepthX()
+    public void Plays_DepthColumn_RendersPerPlayAbbreviationLeftAnchoredAtDepthX()
     {
         // depthX = lossX + 1.5 * PlayPanelFontSize = 326.4 + 21 = 347.4
-        // (MinimalBuilder's default Medium size). Depth strings render
-        // left-anchored at depthX (no text-anchor attribute).
+        // (MinimalBuilder's default Medium size). Abbreviation strings render
+        // left-anchored at depthX (no text-anchor attribute). Ranks are
+        // monotone non-increasing (3, 2, 0) so no row is italicised.
         var plays = new List<PlayCandidate>
         {
-            new() { MoveNotation = "8/5 6/5",   Equity = 0.50, Depth = "3-ply" },
-            new() { MoveNotation = "13/10 8/5", Equity = 0.48, EquityLoss = 0.02, Depth = "2-ply" },
-            new() { MoveNotation = "24/21 8/5", Equity = 0.42, EquityLoss = 0.08, Depth = "XG Roller+" },
+            new() { MoveNotation = "8/5 6/5",   Equity = 0.50,                     DepthAbbreviation = "3-ply", DepthRank = 3 },
+            new() { MoveNotation = "13/10 8/5", Equity = 0.48, EquityLoss = 0.02,  DepthAbbreviation = "2-ply", DepthRank = 2 },
+            new() { MoveNotation = "24/21 8/5", Equity = 0.42, EquityLoss = 0.08,  DepthAbbreviation = "R+",    DepthRank = 0 },
         };
 
         var b = TestFixtures.MinimalBuilder();
@@ -81,20 +82,24 @@ public class RendererPlayPanelTests
         b.Plays = plays;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        // All x=389.4 text cells, in emission order: one header + one per play.
+        // All x=347.4 text cells, in emission order: one header + one per play.
         // Matching on left-anchored cells (no text-anchor attribute) is what
         // distinguishes the Depth column from the right-anchored Equity/Eq Loss.
         var depthCell = new Regex("""<text x="347\.4" y="[0-9.]+" font-family="sans-serif"[^>]*>([^<]+)</text>""");
         var rendered = depthCell.Matches(svg).Select(m => m.Groups[1].Value).ToList();
-        Assert.Equal(new[] { "Depth", "3-ply", "2-ply", "XG Roller+" }, rendered);
+        Assert.Equal(new[] { "Depth", "3-ply", "2-ply", "R+" }, rendered);
+
+        // None of the ranks go up along the list, so none of the depth cells
+        // carry italic styling.
+        Assert.DoesNotContain("font-style=\"italic\"", svg);
     }
 
     [Fact]
-    public void Plays_DepthColumn_OmitsRowWhenPlayDepthEmpty()
+    public void Plays_DepthColumn_OmitsRowWhenPlayAbbreviationEmpty()
     {
         var plays = new List<PlayCandidate>
         {
-            new() { MoveNotation = "8/5 6/5", Equity = 0.50 /* Depth defaults to "" */ },
+            new() { MoveNotation = "8/5 6/5", Equity = 0.50 /* DepthAbbreviation defaults to "" */ },
         };
         var b = TestFixtures.MinimalBuilder();
         b.Mode = DiagramMode.Solution;
@@ -102,9 +107,45 @@ public class RendererPlayPanelTests
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
         // Header still renders; the one play row contributes no depth cell.
-        // So exactly one x=389.4 left-anchored cell — the header — should match.
+        // So exactly one x=347.4 left-anchored cell — the header — should match.
         var depthCell = new Regex("""<text x="347\.4" y="[0-9.]+" font-family="sans-serif"[^>]*>([^<]+)</text>""");
         var rendered = depthCell.Matches(svg).Select(m => m.Groups[1].Value).ToList();
         Assert.Equal(new[] { "Depth" }, rendered);
+    }
+
+    [Fact]
+    public void Plays_DepthColumn_ItalicAppliedOnlyToRowsWhoseRankExceedsPredecessor()
+    {
+        // Three plays, equity-sorted. Ranks [5, 10, 5]:
+        //   row 0 — no predecessor, never italic.
+        //   row 1 — rank 10 > 5, so italic (deeper analysis below shallower).
+        //   row 2 — rank 5 <= 10, so not italic.
+        var plays = new List<PlayCandidate>
+        {
+            new() { MoveNotation = "8/5 6/5",   Equity = 0.50,                     DepthAbbreviation = "R+",     DepthRank = 5 },
+            new() { MoveNotation = "13/10 8/5", Equity = 0.48, EquityLoss = 0.02,  DepthAbbreviation = "3p1296", DepthRank = 10 },
+            new() { MoveNotation = "24/21 8/5", Equity = 0.42, EquityLoss = 0.08,  DepthAbbreviation = "R+",     DepthRank = 5 },
+        };
+
+        var b = TestFixtures.MinimalBuilder();
+        b.Mode = DiagramMode.Solution;
+        b.Plays = plays;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        // Match every x=347.4 depth <text> element, preserving attributes so
+        // the italic attribute can be asserted per row. Header is index 0,
+        // rows 0..2 follow at indices 1..3.
+        var depthCell = new Regex("""<text x="347\.4" y="[0-9.]+" font-family="sans-serif"[^>]*>([^<]+)</text>""");
+        var matches = depthCell.Matches(svg).ToList();
+        Assert.Equal(4, matches.Count);   // header + 3 rows
+
+        Assert.Equal("Depth", matches[0].Groups[1].Value);
+        Assert.DoesNotContain("font-style=\"italic\"", matches[0].Value);   // header never italic
+        Assert.Equal("R+", matches[1].Groups[1].Value);
+        Assert.DoesNotContain("font-style=\"italic\"", matches[1].Value);   // row 0: no predecessor
+        Assert.Equal("3p1296", matches[2].Groups[1].Value);
+        Assert.Contains("font-style=\"italic\"", matches[2].Value);         // row 1: 10 > 5 → italic
+        Assert.Equal("R+", matches[3].Groups[1].Value);
+        Assert.DoesNotContain("font-style=\"italic\"", matches[3].Value);   // row 2: 5 <= 10
     }
 }

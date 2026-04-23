@@ -892,6 +892,13 @@ public static class DiagramRenderer
             string rank = $"{playIdx + 1}";
             string moveText = play.MoveNotation;
 
+            // Italic flags a rank inversion in the equity-sorted source list:
+            // a deeper analysis (higher DepthRank) ranked below a shallower one
+            // for the immediately preceding candidate. Keyed off playIdx, not
+            // slot, so a rescued user play carries the italic state from its
+            // original position in the list rather than its displayed slot.
+            bool italic = playIdx > 0 && plays[playIdx].DepthRank > plays[playIdx - 1].DepthRank;
+
             double lineY = y + PlayPanelLineHeight * 0.8;
 
             if (marker.Length > 0)
@@ -902,8 +909,11 @@ public static class DiagramRenderer
             sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{textColor}">{FormatEquity(play.Equity)}</text>""");
             if (play.EquityLoss is double loss && loss > 0)
                 sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">{FormatEquityLoss(loss)}</text>""");
-            if (!string.IsNullOrEmpty(play.Depth))
-                sb.AppendLine($"""  <text x="{F(depthX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">{Escape(play.Depth)}</text>""");
+            if (!string.IsNullOrEmpty(play.DepthAbbreviation))
+            {
+                string italicAttr = italic ? """ font-style="italic" """ : " ";
+                sb.AppendLine($"""  <text x="{F(depthX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}"{italicAttr}fill="{dimColor}">{Escape(play.DepthAbbreviation)}</text>""");
+            }
 
             y += PlayPanelLineHeight;
         }
@@ -1036,9 +1046,9 @@ public static class DiagramRenderer
         y += CubePanelSectionGap;
 
         // ── Footer lines ───────────────────────────────────────────────
-        if (!string.IsNullOrEmpty(d.CubeDepth))
+        if (!string.IsNullOrEmpty(d.CubeDepthAbbreviation))
         {
-            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelLabelFontSize)}" fill="{dimColor}">{Escape($"Analysis Level: {d.CubeDepth}")}</text>""");
+            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelLabelFontSize)}" fill="{dimColor}">{Escape($"Analysis Level: {d.CubeDepthAbbreviation}")}</text>""");
             y += CubePanelLineHeight;
         }
 

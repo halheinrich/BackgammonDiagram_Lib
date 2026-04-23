@@ -145,6 +145,55 @@ public class VisualOutputTests
     }
 
     [Fact]
+    public void Svg_And_Png_PlayPanelWithRankInversion()
+    {
+        // Exercises the italic-on-rank-inversion path end-to-end: SVG emission
+        // carries font-style="italic" on row 1's depth cell; PNG rasterization
+        // confirms Svg.Skia doesn't reject the attribute. Spot-check the
+        // emitted files to confirm the abbreviation renders italicised.
+        var plays = new List<PlayCandidate>
+        {
+            new() { MoveNotation = "8/5 6/5",   Equity = 0.50,                     DepthAbbreviation = "R+",     DepthRank = 5 },
+            new() { MoveNotation = "13/10 8/5", Equity = 0.48, EquityLoss = 0.02,  DepthAbbreviation = "3p1296", DepthRank = 10 },
+            new() { MoveNotation = "24/21 8/5", Equity = 0.42, EquityLoss = 0.08,  DepthAbbreviation = "R+",     DepthRank = 5 },
+        };
+
+        var b = TestFixtures.MinimalBuilder();
+        b.Mop = TestFixtures.StartingMop();
+        b.Mode = DiagramMode.Solution;
+        b.Plays = plays;
+
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        File.WriteAllText(TestPaths.SvgOutputPath("play_panel_rank_inversion.svg"), svg);
+        Assert.Contains("font-style=\"italic\"", svg);
+
+        var png = DiagramRenderer.RenderPng(b.Build(), TestFixtures.DefaultOptions());
+        File.WriteAllBytes(TestPaths.PngOutputPath("play_panel_rank_inversion.png"), png);
+        Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
+
+        // Svg.Skia italic honour check: rasterize the same panel with ranks
+        // flattened to 0 (no inversions, no italic), and confirm the PNG
+        // differs from the italic render. An identical byte stream would
+        // mean font-style="italic" was silently dropped.
+        var flatPlays = plays.Select(p => new PlayCandidate
+        {
+            MoveNotation = p.MoveNotation,
+            Equity = p.Equity,
+            EquityLoss = p.EquityLoss,
+            DepthAbbreviation = p.DepthAbbreviation,
+            DepthRank = 0,
+        }).ToList();
+        var bFlat = TestFixtures.MinimalBuilder();
+        bFlat.Mop = TestFixtures.StartingMop();
+        bFlat.Mode = DiagramMode.Solution;
+        bFlat.Plays = flatPlays;
+        var pngFlat = DiagramRenderer.RenderPng(bFlat.Build(), TestFixtures.DefaultOptions());
+        Assert.NotEqual(png.Length, pngFlat.Length);  // cheap pre-check
+        Assert.False(png.AsSpan().SequenceEqual(pngFlat),
+            "PNG identical to non-italic variant — Svg.Skia silently dropped font-style=\"italic\".");
+    }
+
+    [Fact]
     public void Svg_IsCube()
     {
         var b = TestFixtures.MinimalBuilder();
