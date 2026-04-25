@@ -176,10 +176,14 @@ Rendered in Solution mode only. Two shapes:
 - **Cube panel** (`Decision.IsCube == true`). Best/Actual banner,
   Equity/Loss table (No Double / Double / Take / Pass), two pct tables
   (No Double and Take played-out stats), footer lines. Invariants:
-  - The Analysis Level footer renders `Decision.CubeDepthAbbreviation`,
-    not `Decision.CubeDepth`. An empty abbreviation suppresses the
-    entire footer line — a non-empty long `CubeDepth` alone does not
-    force the line on.
+  - The Analysis Level footer renders `Decision.CubeDepth` (the full
+    string, e.g. `"Rollout: 1296 trials. 3-ply"`), not
+    `Decision.CubeDepthAbbreviation`. The cube panel has one analysis
+    depth and column space to spare, so the long form fits and is more
+    informative; the play panel still uses `DepthAbbreviation` per row
+    because per-play column space is tight. An empty `CubeDepth`
+    suppresses the entire footer line — a non-empty abbreviation alone
+    does not force the line on.
   - No italic concept — a single analysis depth value has no adjacent
     rank to compare against.
 

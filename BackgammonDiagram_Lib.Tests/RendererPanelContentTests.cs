@@ -257,29 +257,31 @@ public class RendererPanelContentTests
     }
 
     // -----------------------------------------------------------------------
-    //  Footer — Analysis Level label (sourced from DecisionData.CubeDepthAbbreviation)
+    //  Footer — Analysis Level label (sourced from DecisionData.CubeDepth)
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void CubePanel_AnalysisLevel_RendersCubeDepthAbbreviationWhenSet()
+    public void CubePanel_AnalysisLevel_RendersFullCubeDepthWhenSet()
     {
         var b = MinimalCubeBuilder(0.4, 0.8);
-        // The long form is ignored by the renderer; only the abbreviation reaches the panel.
-        b.CubeDepth = "XG Roller+";
-        b.CubeDepthAbbreviation = "R+";
+        // The cube panel has only one analysis depth and column space to
+        // spare, so it renders the full CubeDepth string. The abbreviation
+        // does not appear in the panel.
+        b.CubeDepth = "Rollout: 1296 trials. 3-ply";
+        b.CubeDepthAbbreviation = "3p1296";
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        Assert.Contains("Analysis Level: R+", svg);
-        Assert.DoesNotContain("XG Roller+", svg);
+        Assert.Contains("Analysis Level: Rollout: 1296 trials. 3-ply", svg);
+        Assert.DoesNotContain("3p1296", svg);
     }
 
     [Fact]
-    public void CubePanel_AnalysisLevel_OmittedWhenCubeDepthAbbreviationEmpty()
+    public void CubePanel_AnalysisLevel_OmittedWhenCubeDepthEmpty()
     {
         var b = MinimalCubeBuilder(0.4, 0.8);
-        // A non-empty long CubeDepth alone does not force the Analysis Level
-        // line on — the abbreviation is what the panel reads.
-        b.CubeDepth = "XG Roller+";
+        // CubeDepth is what the panel reads; a non-empty abbreviation alone
+        // does not force the Analysis Level line on.
+        b.CubeDepthAbbreviation = "3p1296";
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
         Assert.DoesNotContain("Analysis Level:", svg);

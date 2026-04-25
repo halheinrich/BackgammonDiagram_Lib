@@ -1143,9 +1143,13 @@ public static class DiagramRenderer
         y += CubePanelSectionGap;
 
         // ── Footer lines ───────────────────────────────────────────────
-        if (!string.IsNullOrEmpty(d.CubeDepthAbbreviation))
+        // Cube decisions show one analysis depth — no per-row column to
+        // compress like the play panel — so the full CubeDepth string fits
+        // and is more informative than the abbreviation. (Play panel keeps
+        // PlayCandidate.DepthAbbreviation: per-play column space is tight.)
+        if (!string.IsNullOrEmpty(d.CubeDepth))
         {
-            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelLabelFontSize)}" fill="{dimColor}">{Escape($"Analysis Level: {d.CubeDepthAbbreviation}")}</text>""");
+            sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelLabelFontSize)}" fill="{dimColor}">{Escape($"Analysis Level: {d.CubeDepth}")}</text>""");
             y += CubePanelLineHeight;
         }
 
