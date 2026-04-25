@@ -189,6 +189,21 @@ public class RendererPanelContentTests
         Assert.Contains(">Opponent<", svg);
     }
 
+    [Fact]
+    public void CubePanel_Percentages_ColumnHeadersAtExpectedXPositions()
+    {
+        // textX = PanelMargin(6) + 4 = 10; NumericBlockWidth = 215;
+        // numericRightX = 225. Right-anchored offsets in AppendPctTable:
+        // BG at 0, Gammon at 47, Win at 120. Win offset chosen so the
+        // Win→Gammon header gap visually matches Gammon→BG (~33px).
+        var request = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60).Build();
+        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
+
+        Assert.Matches(@"<text x=""105""[^>]*>Win<",    svg);
+        Assert.Matches(@"<text x=""178""[^>]*>Gammon<", svg);
+        Assert.Matches(@"<text x=""225""[^>]*>BG<",    svg);
+    }
+
     // -----------------------------------------------------------------------
     //  Equity formatting — invariant-culture, signed, 4 decimals
     // -----------------------------------------------------------------------

@@ -1177,10 +1177,13 @@ public static class DiagramRenderer
     {
         // Right-anchored numeric cells. Columns count back from rightX so the
         // pct table's right edge stays flush with the equity/loss table above
-        // regardless of panel width.
+        // regardless of panel width. The Win offset is sized so its header
+        // gap to "Gammon" visually matches the Gammon→BG header gap (~33px):
+        // "Gammon" is ~6 chars / ~42px at the label font, so winX needs to
+        // sit ≈ 42 + 33 = 75 left of gammonX.
         double bgX     = rightX;
         double gammonX = rightX - 47;
-        double winX    = rightX - 96;
+        double winX    = rightX - 120;
 
         // Header row: decision label on the left, column headers right-anchored.
         sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{textColor}">{Escape(decisionLabel)}</text>""");
