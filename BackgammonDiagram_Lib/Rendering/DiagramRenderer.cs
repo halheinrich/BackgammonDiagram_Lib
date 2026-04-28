@@ -42,7 +42,7 @@ public static class DiagramRenderer
     public static string RenderSvg(DiagramRequest request, DiagramOptions options)
     {
         var theme = options.Theme;
-        bool panelOnLeft = request.AnalysisPanelPosition == PanelPosition.Left;
+        bool panelOnLeft = request.PanelOnLeft;
         var (titleAction, titlePosition, titleSource) = ComposeTitleCells(request);
         // Strip visibility keys only off cols 1 and 2 — col 3 (SourceFile)
         // never forces the strip on its own, matching the pre-SourceFile
@@ -110,17 +110,15 @@ public static class DiagramRenderer
 
     /// <summary>
     /// Returns hit-test rectangles for all clickable board regions.
-    /// Coordinates are in SVG viewBox space matching RenderSvg() output
-    /// for a Problem-mode (no panel) diagram.
+    /// Coordinates are in SVG viewBox space matching <see cref="RenderSvg"/>
+    /// output for the same request — including the analysis-panel allocation
+    /// (Problem and Solution share dimensions per the "identical overall
+    /// dimensions" invariant) and the panel side.
     /// </summary>
     public static BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions options)
     {
-        _ = options; // reserved for future use (e.g. theme-aware hit region sizing)
-        var layout = BoardLayout.Default;
         bool homeBoardOnRight = request.HomeBoardOnRight;
-
-        // No panel — hit regions are for interactive (Problem-mode) use
-        const bool panelOnLeft = false;
+        bool panelOnLeft = request.PanelOnLeft;
 
         // Title strip, if present, offsets all board-relative Y coords in the
         // rendered SVG — hit regions must match.
@@ -128,7 +126,12 @@ public static class DiagramRenderer
         bool hasTitle = titleAction.Length > 0 || titlePosition.Length > 0;
         double titleOffset = hasTitle ? TitleStripHeight : 0;
 
-        double totalWidth = layout.TotalWidth(withPanel: false);
+        // Mirror RenderSvg's layout build exactly — same aspect-driven
+        // PanelWidthOverride, same titleOffset — so hit regions and the
+        // rendered SVG live in one coordinate system.
+        var layout = BuildLayout(options.Aspect, titleOffset);
+
+        double totalWidth = layout.TotalWidth(withPanel: true);
         double totalHeight = layout.BoardHeight + titleOffset;
 
         // --- Points 1–24 ---

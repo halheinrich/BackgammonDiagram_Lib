@@ -123,16 +123,25 @@ public class BearOffTests
     [Fact]
     public void GetHitRegions_Trays_OccupyLeftRailXSpan()
     {
-        var layout = BoardLayout.Default;
         var b = TestFixtures.MinimalBuilder();
         b.Mop = MopFor(onRollOff: 4, opponentOff: 6);
-        var regions = DiagramRenderer.GetHitRegions(b.Build(), new DiagramOptions());
+        var request = b.Build();
+        var regions = DiagramRenderer.GetHitRegions(request, new DiagramOptions());
 
         Assert.NotNull(regions.OnRollTray);
         Assert.NotNull(regions.OpponentTray);
+
+        // Re-derive the renderer's layout from the regions' ViewBox so this
+        // assertion holds regardless of the aspect-driven PanelWidth and the
+        // request's panel side. Tray X must sit at the left rail of that
+        // (renderer-consistent) coordinate system.
+        var baseLayout = BoardLayout.Default;
+        double panelWidth = regions.ViewBox.Width - baseLayout.BoardWidth;
+        var layout = baseLayout with { PanelWidthOverride = panelWidth };
+
         foreach (var tray in new[] { regions.OnRollTray!, regions.OpponentTray! })
         {
-            Assert.Equal(layout.LeftRailX(panelOnLeft: false), tray.X, 2);
+            Assert.Equal(layout.LeftRailX(request.PanelOnLeft), tray.X, 2);
             Assert.Equal(layout.LeftRailWidth, tray.Width, 2);
         }
     }

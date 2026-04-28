@@ -17,6 +17,14 @@ public class DiagramRequest
     public PanelPosition AnalysisPanelPosition { get; init; }
 
     /// <summary>
+    /// True when the analysis panel sits to the left of the board. Single
+    /// declaration site for this derivation — both <c>RenderSvg</c> and
+    /// <c>GetHitRegions</c> read it so the two functions share one
+    /// coordinate-system rule and cannot drift.
+    /// </summary>
+    public bool PanelOnLeft => AnalysisPanelPosition == PanelPosition.Left;
+
+    /// <summary>
     /// Optional counter surfaced right-justified in the title strip as
     /// "Position {N}". Callers emitting a deck of decisions typically set
     /// this to a running 1-based counter so readers can cross-reference
