@@ -367,6 +367,15 @@ to supply their own palette.
 - **Locale-dependent `ToString`.** All numeric formatting in the renderer
   must go through `InvariantCulture` — commas for decimals in some locales
   would produce broken SVG.
+- **Play-panel Eq Loss column renders blank for best plays.** The cell is
+  emitted only when `PlayCandidate.EquityLoss > 0`. `EquityLoss == 0.0`
+  marks membership in the best-equity equivalence class (per
+  `BgDataTypes_Lib`'s `PlayCandidate` xmldoc); when multiple candidates tie
+  at zero loss they all render with a blank Eq Loss cell uniformly. This
+  keys off the equivalence class, not `DecisionData.BestPlayIndex` (which
+  names a single canonical best). The cube panel's Equity/Loss table is
+  governed independently — it always renders its loss values, including
+  `0.0000` for the correct option.
 
 ## Subproject-internal next steps
 

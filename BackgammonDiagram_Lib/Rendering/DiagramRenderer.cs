@@ -1010,8 +1010,11 @@ public static class DiagramRenderer
             sb.AppendLine($"""  <text x="{F(rankX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{textColor}">{Escape(rank)}</text>""");
             sb.AppendLine($"""  <text x="{F(moveX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{textColor}">{Escape(moveText)}</text>""");
             sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}"{italicAttr}fill="{textColor}">{FormatEquity(play.Equity)}</text>""");
-            if (play.EquityLoss is double loss && loss > 0)
-                sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}"{italicAttr}fill="{dimColor}">{FormatEquityLoss(loss)}</text>""");
+            // Blank Eq Loss cell for best plays: EquityLoss == 0.0 marks
+            // membership in the best-equity equivalence class (per
+            // PlayCandidate xmldoc); ties at zero all render blank uniformly.
+            if (play.EquityLoss > 0)
+                sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}"{italicAttr}fill="{dimColor}">{FormatEquityLoss(play.EquityLoss)}</text>""");
             if (!string.IsNullOrEmpty(play.DepthAbbreviation))
                 sb.AppendLine($"""  <text x="{F(depthX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}"{italicAttr}fill="{dimColor}">{Escape(play.DepthAbbreviation)}</text>""");
 

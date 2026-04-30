@@ -12,7 +12,9 @@ namespace BackgammonDiagram_Lib.Tests;
 ///   * Caller order is preserved verbatim (no implicit re-sort inside the
 ///     renderer).
 ///   * <see cref="PlayCandidate.EquityLoss"/> is rendered as text for every
-///     non-best entry; omitted only when the field is null or &lt;= 0.
+///     non-best entry; omitted when the field is &lt;= 0 (which in practice
+///     means the candidate is itself a best play — <c>EquityLoss == 0.0</c>
+///     marks membership in the best-equity equivalence class).
 ///
 /// This pins the contract so a future behavior regression shows up here and
 /// upstream data-layer investigations can proceed without having to re-verify
@@ -24,12 +26,13 @@ public class RendererPlayPanelTests
     public void Plays_RenderedInCallerOrder_WithEqLossForEveryNonBestPlay()
     {
         // Five plays pre-sorted descending by Equity. The first (best) play
-        // carries EquityLoss = null; each subsequent loss is bestEquity -
-        // thisEquity. Values chosen so every formatted loss is a unique
-        // substring — makes the negative "absent for best" assertion clean.
+        // takes the default EquityLoss = 0.0 (membership in the best-equity
+        // equivalence class); each subsequent loss is bestEquity - thisEquity.
+        // Values chosen so every formatted loss is a unique substring — makes
+        // the negative "absent for best" assertion clean.
         var plays = new List<PlayCandidate>
         {
-            new() { MoveNotation = "8/5 6/5",     Equity = 0.50, EquityLoss = null },
+            new() { MoveNotation = "8/5 6/5",     Equity = 0.50 },
             new() { MoveNotation = "13/10 8/5",   Equity = 0.48, EquityLoss = 0.02 },
             new() { MoveNotation = "24/21 13/10", Equity = 0.45, EquityLoss = 0.05 },
             new() { MoveNotation = "24/21 8/5",   Equity = 0.42, EquityLoss = 0.08 },
@@ -156,8 +159,9 @@ public class RendererPlayPanelTests
         Assert.DoesNotContain("font-style=\"italic\"", equity[3].Value);  // row 2
 
         // Eq Loss cells: header ("Eq Loss") + rows 1 and 2 at x=326.4 (row 0
-        // has null loss and renders no cell). Header is the only non-numeric
-        // content in the column, so picking by row content is unambiguous.
+        // is a best play with EquityLoss = 0.0 and renders no cell). Header
+        // is the only non-numeric content in the column, so picking by row
+        // content is unambiguous.
         var lossCell = new Regex("""<text x="326\.4" y="[0-9.]+" text-anchor="end" [^>]*>([^<]+)</text>""");
         var loss = lossCell.Matches(svg).ToList();
         Assert.Equal(3, loss.Count);
