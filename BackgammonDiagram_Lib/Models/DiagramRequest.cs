@@ -37,11 +37,13 @@ public class DiagramRequest
     // -----------------------------------------------------------------------
 
     /// <summary>
-    /// Builds a DiagramRequest from a <see cref="BgDecisionData"/> plus the
-    /// renderer-specific parameters that aren't carried by the data layer
-    /// (display mode, board orientation, panel side). This is the single
-    /// canonical mapping — callers (tests, Blazor apps, PPTX exporters)
-    /// should use this rather than open-coding the field-for-field copy.
+    /// Convenience entry point for the <see cref="BgDecisionData"/> →
+    /// <see cref="DiagramRequest"/> mapping, taking the renderer-specific
+    /// parameters that aren't carried by the data layer (display mode,
+    /// board orientation, panel side). Delegates to <see cref="Builder.From"/>
+    /// which holds the field-by-field copy logic; callers (tests, Blazor
+    /// apps, PPTX exporters) should use this entry point rather than
+    /// open-coding the mapping.
     /// </summary>
     public static DiagramRequest FromDecisionData(
         BgDecisionData data,
@@ -131,11 +133,12 @@ public class DiagramRequest
 
         /// <summary>
         /// Starts a Builder pre-populated from the three BgDataTypes_Lib
-        /// records plus renderer-specific parameters. This is the single
-        /// canonical site for the data-layer → rendering-layer field
-        /// mapping — every field BackgammonDiagram_Lib cares about is set
-        /// here, so adding a new DecisionData/PositionData field only
-        /// requires one edit.
+        /// records plus renderer-specific parameters. Single field-mapping
+        /// site for the data-layer → rendering-layer copy, shared by
+        /// <see cref="FromDecisionData"/> and
+        /// <see cref="DiagramRequestExtensions.ToProblemSolutionPair"/> —
+        /// adding a new DecisionData/PositionData field only requires one
+        /// edit here.
         /// </summary>
         public static Builder From(
             PositionData position,

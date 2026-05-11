@@ -44,7 +44,7 @@ public static class DiagramRenderer
         var theme = options.Theme;
         bool panelOnLeft = request.PanelOnLeft;
         var (titleAction, titlePosition, titleSource) = ComposeTitleCells(request);
-        // Strip visibility keys only off cols 1 and 2 — col 3 (SourceFile)
+        // Strip visibility keys only off cols 1 and 3 — col 2 (SourceFile)
         // never forces the strip on its own, matching the pre-SourceFile
         // contract.
         bool hasTitle = titleAction.Length > 0 || titlePosition.Length > 0;

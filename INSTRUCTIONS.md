@@ -22,11 +22,20 @@ https://github.com/halheinrich/BackgammonDiagram_Lib — branch `main`.
   `CubeDepthAbbreviation` / `CubeDepthRank`), `DescriptiveData`, `CubeOwner`,
   `PlayCandidate` (incl. per-play `Depth` / `DepthAbbreviation` / `DepthRank`),
   `BgDecisionData`. The whole shared type layer this library renders from.
-- **SkiaSharp** — PNG rasterization backend.
+- **SkiaSharp.Svg** — PNG rasterization backend (brings `SkiaSharp`
+  transitively, which the rasterizer and `Watermarks` consume directly).
 - **Svg.Skia** — SVG parse/draw path used by the PNG pipeline.
 - **QuestPDF** — PDF layout and output (MIT licensed; license set by caller,
   not this library).
 - **DocumentFormat.OpenXml** — PPTX generation.
+
+Test-only:
+
+- **ConvertXgToJson_Lib** — referenced by `BackgammonDiagram_Lib.Tests` for
+  real-`.xg`-file fixtures used by visual and decision-data round-trip
+  tests. The library itself does not depend on it; standalone test builds
+  outside the umbrella checkout will not have the sibling submodule path
+  available.
 
 ## Directory tree
 
@@ -43,7 +52,7 @@ BackgammonDiagram_Lib/
     DiagramRequest.cs         — immutable class + inner Builder
     DiagramRequestExtensions.cs
     DiagramSize.cs
-    Enums.cs                  — DiagramMode, AnalysisPanelPosition
+    Enums.cs                  — DiagramMode, PanelPosition, DiagramSizePreset
     MathUtils.cs
   Rendering/
     BoardLayout.cs            — geometry derived from CheckerRadius
@@ -60,15 +69,25 @@ BackgammonDiagram_Lib/
     ThemeRegistry.cs          — static Default / Greyscale
 BackgammonDiagram_Lib.Tests/
   BackgammonDiagram_Lib.Tests.csproj
+  BearOffTests.cs
   BoardLayoutTests.cs
   ColourSchemeTests.cs
+  DecisionDataDiagramTests.cs
   DiagramRequestBuilderTests.cs
+  DiagramRequestFactoryTests.cs
   HitRegionsTests.cs
   PptxConformanceTests.cs
+  PptxSizingTests.cs
+  RealFileCheckerDecisionTests.cs
+  RealFileCubeDecisionTests.cs
+  RendererPanelContentTests.cs
+  RendererPlayPanelTests.cs
+  RendererTitleAndRailTests.cs
   SvgStructureTests.cs
   TestFixtures.cs
   TestPaths.cs
   VisualOutputTests.cs
+  WatermarksTests.cs
 ```
 
 ## Architecture
@@ -85,12 +104,30 @@ Builder; `Build()` constructs the nested `PositionData` / `DecisionData` /
 - `IsCube == false` → each die in `1..6`.
 - `CubeSize` must be a power of 2 in `1..4096`.
 
-Exposed properties: `Position` (PositionData), `Decision` (DecisionData),
-`Descriptive` (DescriptiveData), plus rendering-shape fields `HomeBoardOnRight`
-(bool, default `true`), `Mode` (DiagramMode), `AnalysisPanelPosition`.
+Exposed properties:
 
-`Mop`, `Dice`, `Plays` are defensively copied in and exposed as
-`IReadOnlyList<T>`. `BoardHitRegions.Points` is exposed as
+- `Position` (PositionData), `Decision` (DecisionData),
+  `Descriptive` (DescriptiveData) — the three nested data records.
+- `Mode` (DiagramMode) — Problem vs Solution.
+- `HomeBoardOnRight` (bool, default `true`) — geometric reflection.
+- `OnRollAtBottom` (bool, default `true`) — vertical orientation of the
+  on-roll half.
+- `AnalysisPanelPosition` (PanelPosition) — Left or Right of the board.
+- `PanelOnLeft` (bool, derived) — true ⇔
+  `AnalysisPanelPosition == PanelPosition.Left`. Single declaration site
+  for this derivation; both `RenderSvg` and `GetHitRegions` read it to
+  share one coordinate-system rule.
+- `PositionNumber` (int?, default `null`) — optional counter rendered
+  right-justified in the title strip as `"Position {N}"`. Callers
+  emitting a deck typically set this to a 1-based running counter so
+  readers can cross-reference back to the source list.
+
+`Mop`, `Dice`, and `Plays` live on the nested `BgDataTypes_Lib` records
+(`Position.Mop`, `Decision.Dice`, `Decision.Plays`) — they are not
+top-level `DiagramRequest` properties. `Builder.Build()` defensively
+copies them when constructing the nested records, so external mutation
+of caller-owned arrays/lists after `Build()` cannot affect a built
+`DiagramRequest`. `BoardHitRegions.Points` is exposed as
 `IReadOnlyDictionary`. Builder's `CubeOwner` defaults to `CubeOwner.Centered`.
 
 `DiagramRequest` is constructed by clients from `BgDecisionData` plus
@@ -211,8 +248,9 @@ across the bar — with:
   element. MIME is sniffed from the first bytes (PNG magic → `image/png`;
   anything else defaults to `image/jpeg`). Base64 computed once per
   render, emitted twice.
-- SVG-level `opacity` of 0.35 on top of the per-pixel alpha baked into
-  the asset (see `Watermarks.Default` below).
+- SVG-level `opacity` of `DiagramRenderer.WatermarkOpacity` (currently
+  `0.22`) on top of the per-pixel alpha baked into the asset (see
+  `Watermarks.Default` below).
 
 Emitted between points and checkers in `AppendBoard`, so checkers, dice,
 cube, and analysis panel all paint cleanly on top.
@@ -304,12 +342,38 @@ static byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions op
 PDF and PPTX accept `IEnumerable<DiagramRequest>` for multi-page / multi-slide
 output; a single request is handled by the scalar overload.
 
+### `DiagramRequest` factory methods
+
+```csharp
+static DiagramRequest FromDecisionData(
+    BgDecisionData data,
+    DiagramMode    mode                  = DiagramMode.Solution,
+    bool           homeBoardOnRight      = true,
+    bool           onRollAtBottom        = true,
+    PanelPosition  analysisPanelPosition = PanelPosition.Left);
+```
+
+Convenience entry point for the `BgDecisionData` → `DiagramRequest`
+mapping. Takes the renderer-specific parameters (display mode, board
+orientation, panel side) that aren't carried by the data layer. Delegates
+to `Builder.From(...)` which holds the field-by-field copy logic;
+callers (tests, Blazor apps, PPTX exporters) should use this entry point
+rather than open-code the mapping.
+
+`Builder.From(...)` is itself public for advanced "tweak an existing
+request" scenarios — both a three-record overload
+(`From(PositionData, DecisionData, DescriptiveData, …)`) and a
+request-cloning overload (`From(DiagramRequest existing)`) are
+available. `DiagramRequestExtensions.ToProblemSolutionPair` is the
+canonical consumer of the latter.
+
 ### `DiagramRequest.Builder`
 
 Flat property setters for position, dice, cube, scores, plays, `CubeDepth`
 / `CubeDepthAbbreviation` / `CubeDepthRank`, plus `HomeBoardOnRight`,
-`Mode`, `AnalysisPanelPosition`. `Build()` constructs the nested
-`BgDataTypes_Lib` records and validates. Throws on validation failure.
+`OnRollAtBottom`, `Mode`, `AnalysisPanelPosition`, `PositionNumber`.
+`Build()` constructs the nested `BgDataTypes_Lib` records and validates.
+Throws on validation failure.
 
 `PlayCandidate` values flow through unchanged (Builder stores them as
 `List<PlayCandidate>`, so `DepthAbbreviation` / `DepthRank` survive the
