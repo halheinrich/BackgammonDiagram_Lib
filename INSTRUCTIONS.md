@@ -128,7 +128,7 @@ top-level `DiagramRequest` properties. `Builder.Build()` defensively
 copies them when constructing the nested records, so external mutation
 of caller-owned arrays/lists after `Build()` cannot affect a built
 `DiagramRequest`. `BoardHitRegions.Points` is exposed as
-`IReadOnlyDictionary`. Builder's `CubeOwner` defaults to `CubeOwner.Centered`.
+`IReadOnlyDictionary`.
 
 `DiagramRequest` is constructed by clients from `BgDecisionData` plus
 rendering options — it is intentionally *not* produced by `ConvertXgToJson_Lib`.
@@ -137,7 +137,7 @@ rendering options — it is intentionally *not* produced by `ConvertXgToJson_Lib
 
 Selected by `Decision.IsCube`:
 
-- **Checker play** — board with dice; play list panel in Solution mode.
+- **Checker decision** — board with dice; play list panel in Solution mode.
 - **Cube decision** — board with cube indicator (no dice); cube analysis
   panel in Solution mode.
 
@@ -170,7 +170,7 @@ The strip has three cells, composed from context (not from
 - **Col 1** (left edge, left-anchored): action text —
   `"{d1}-{d2} to play"` for checker decisions, `"Cube Action?"` for cube
   decisions. Empty for malformed inputs.
-- **Col 2** (strip centre, centre-anchored): `Descriptive.SourceFile`
+- **Col 2** (middle of strip, centre-anchored): `Descriptive.SourceFile`
   stem — the filename minus its final dot-extension
   (`mochy-falafel.xg` → `mochy-falafel`,
   `abc.weird.xg` → `abc.weird`). Null / empty SourceFile emits no text.
@@ -193,7 +193,7 @@ applicable, and "Money game" labels.
 Rendered in Solution mode only. Two shapes:
 
 - **Play panel** (`Decision.IsCube == false`). One row per `PlayCandidate`
-  in caller order, assumed equity-sorted. Columns: user-play marker, rank,
+  in caller order, assumed equity-sorted. Columns: user's play marker, rank,
   move notation, equity, equity loss, depth. Invariants:
   - The Depth column renders `PlayCandidate.DepthAbbreviation`, not
     `PlayCandidate.Depth`. Rows with empty `DepthAbbreviation` omit the
@@ -204,15 +204,15 @@ Rendered in Solution mode only. Two shapes:
     below a shallower one in the equity-sorted list. The marker, rank,
     and move-notation cells stay upright. Row 0 never italic (no
     predecessor). Check is keyed off source-list position, not display
-    slot — a user-play rescued into the last displayed row carries the
+    slot — a user's play rescued into the last displayed row carries the
     italic state from its original index.
   - When the panel runs out of vertical space, the user's play is
     "rescued" into the last visible slot with its real rank number,
     displacing whichever row would otherwise have been last.
 
 - **Cube panel** (`Decision.IsCube == true`). Best/Actual banner,
-  Equity/Loss table (No Double / Double / Take / Pass), two pct tables
-  (No Double and Take played-out stats), footer lines. Invariants:
+  Equity/Loss table (No Double / Double / Take / Pass), two percentage
+  tables (No Double and Take played-out stats), footer lines. Invariants:
   - The Analysis Level footer renders `Decision.CubeDepth` (the full
     string, e.g. `"Rollout: 1296 trials. 3-ply"`), not
     `Decision.CubeDepthAbbreviation`. The cube panel has one analysis
@@ -221,7 +221,7 @@ Rendered in Solution mode only. Two shapes:
     because per-play column space is tight. An empty `CubeDepth`
     suppresses the entire footer line — a non-empty abbreviation alone
     does not force the line on.
-  - No italic concept — a single analysis depth value has no adjacent
+  - No italic treatment — a single analysis depth value has no adjacent
     rank to compare against.
 
 ### Watermark
@@ -321,19 +321,19 @@ tests carry `[Trait("Category", "Visual")]`.
 There is no constructor; no instance state is held.
 
 ```csharp
-static string  RenderSvg   (DiagramRequest request, DiagramOptions options);
+static string RenderSvg(DiagramRequest request, DiagramOptions options);
 static BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions options);
-static bool    IsPdfSupported();
+static bool IsPdfSupported();
 
 // Rasterization-backed formats take an optional ISvgRasterizer. When null
 // (the default), a shared SkiaSharpRasterizer is used.
-static byte[] RenderPng (DiagramRequest  request,  DiagramOptions options,
-                         ISvgRasterizer? rasterizer = null);
-static byte[] RenderPdf (DiagramRequest  request,  DiagramOptions options,
-                         ISvgRasterizer? rasterizer = null);
-static byte[] RenderPdf (IEnumerable<DiagramRequest> requests, DiagramOptions options,
-                         ISvgRasterizer? rasterizer = null);
-static byte[] RenderPptx(DiagramRequest  request,  DiagramOptions options,
+static byte[] RenderPng(DiagramRequest request, DiagramOptions options,
+                        ISvgRasterizer? rasterizer = null);
+static byte[] RenderPdf(DiagramRequest request, DiagramOptions options,
+                        ISvgRasterizer? rasterizer = null);
+static byte[] RenderPdf(IEnumerable<DiagramRequest> requests, DiagramOptions options,
+                        ISvgRasterizer? rasterizer = null);
+static byte[] RenderPptx(DiagramRequest request, DiagramOptions options,
                          ISvgRasterizer? rasterizer = null);
 static byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options,
                          ISvgRasterizer? rasterizer = null);
@@ -373,7 +373,7 @@ Flat property setters for position, dice, cube, scores, plays, `CubeDepth`
 / `CubeDepthAbbreviation` / `CubeDepthRank`, plus `HomeBoardOnRight`,
 `OnRollAtBottom`, `Mode`, `AnalysisPanelPosition`, `PositionNumber`.
 `Build()` constructs the nested `BgDataTypes_Lib` records and validates.
-Throws on validation failure.
+Throws on validation failure. `CubeOwner` defaults to `CubeOwner.Centered`.
 
 `PlayCandidate` values flow through unchanged (Builder stores them as
 `List<PlayCandidate>`, so `DepthAbbreviation` / `DepthRank` survive the
@@ -434,7 +434,7 @@ to supply their own palette.
 - **Play-panel Eq Loss column renders blank for best plays.** The cell is
   emitted only when `PlayCandidate.EquityLoss > 0`. `EquityLoss == 0.0`
   marks membership in the best-equity equivalence class (per
-  `BgDataTypes_Lib`'s `PlayCandidate` xmldoc); when multiple candidates tie
+  `BgDataTypes_Lib`'s `PlayCandidate` XML doc); when multiple candidates tie
   at zero loss they all render with a blank Eq Loss cell uniformly. This
   keys off the equivalence class, not `DecisionData.BestPlayIndex` (which
   names a single canonical best). The cube panel's Equity/Loss table is
