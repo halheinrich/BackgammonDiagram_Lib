@@ -199,6 +199,7 @@ public class DiagramRequestFactoryTests
 
     private static BgDecisionData FullyPopulatedData() => new()
     {
+        Id = new XgpDecisionId("test.xgp"),
         Position = new PositionData
         {
             Mop = MakeDistinctMop(),
