@@ -1055,54 +1055,49 @@ public static class DiagramRenderer
         double equityX = numericRightX - 70;
 
         var d = request.Decision;
+        // Per-row equity values shown by the Equity/Loss table. These are
+        // rendering values, not scoring values: DecisionData's cube helpers
+        // expose only losses (DoublerActionError / ResponderActionError), so
+        // the equity numbers themselves are still computed here. The "Double"
+        // row shows what the doubler actually earns by doubling against a
+        // rational opponent — the opponent picks the response that's least
+        // bad for them, which minimises the doubler's equity.
         double nd = d.NoDoubleEquity;
         double dt = d.DoubleTakeEquity;
         double pass = PassEquity;
-        // What the doubler actually earns by doubling against a rational
-        // opponent: the opponent picks the response that's least bad for them,
-        // which minimises the doubler's equity.
         double doubleEquity = Math.Min(dt, pass);
 
-        // Loss = mistake cost for the decider of that row.
-        double doubleLoss   = Math.Max(0, nd - doubleEquity);
-        double noDoubleLoss = Math.Max(0, doubleEquity - nd);
-        double takeLoss     = Math.Max(0, dt - pass);
-        double passLoss     = Math.Max(0, pass - dt);
-
         // ── Best / Actual banner ───────────────────────────────────────
-        // "Best" is the correct play at both decision points assuming both
-        // sides are rational. "Actual" is what the user played, derived from
-        // UserDoubleError / UserTakeError (0 = correct, >0 = wrong). Actual
-        // labels never carry the "Too Good to Double" flavor — the user chose
-        // plain "Double" or "No Double".
-        string bestDoubler = nd >= pass
-            ? "Too Good to Double"
-            : (doubleEquity > nd ? "Double" : "No Double");
-        string bestOpp = dt < pass ? "Take" : "Pass";
-        // Opponent's take/pass only arises when the doubler actually doubles;
-        // for "No Double" and "Too Good to Double" there is no opp decision
-        // to show.
-        string bestLine = bestDoubler == "Double"
-            ? $"Best:   {bestDoubler} / {bestOpp}"
-            : $"Best:   {bestDoubler}";
+        // "Best" labels the correct verdict at the verdict-level — the only
+        // place "Too Good to Double" is meaningful, since it's the
+        // NoDouble↔TooGood distinction that lifts NoDouble from "fine" to
+        // "leaving equity on the table". "Actual" is what the user played,
+        // derived from UserDoubleError / UserTakeError (0 = correct, >0 =
+        // wrong). Actuals work at the atomic level — they never carry the
+        // "Too Good to Double" flavor because the user chose plain "Double"
+        // or "No Double".
+        string bestLine = VerdictBestLine(d.BestVerdict);
         sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(bestLine)}</text>""");
         y += CubePanelLineHeight;
 
-        string correctDoublerAction = doubleEquity > nd ? "Double" : "No Double";  // flat form for Actual
-        string? actualDoubler = d.UserDoubleError is double ude
-            ? (ude > 0 ? (correctDoublerAction == "Double" ? "No Double" : "Double") : correctDoublerAction)
+        CubeAction bestDoublerAction = d.BestDoublerAction;
+        CubeAction bestResponderAction = d.BestResponderAction;
+        CubeAction? actualDoublerAction = d.UserDoubleError is double ude
+            ? (ude > 0 ? OppositeDoublerAction(bestDoublerAction) : bestDoublerAction)
             : null;
-        string? actualOpp = d.UserTakeError is double ute
-            ? (ute > 0 ? (bestOpp == "Take" ? "Pass" : "Take") : bestOpp)
+        CubeAction? actualResponderAction = d.UserTakeError is double ute
+            ? (ute > 0 ? OppositeResponderAction(bestResponderAction) : bestResponderAction)
             : null;
-        if (actualDoubler != null || actualOpp != null)
+        if (actualDoublerAction != null || actualResponderAction != null)
         {
             // Same rule as the Best line: suppress the opp half whenever the
             // (actual) doubler action isn't "Double" — a stale UserTakeError
-            // on a "No Double" play isn't a real take/pass decision.
-            string actualLine = "Actual: " + (actualDoubler ?? "?");
-            if (actualOpp != null && actualDoubler != "No Double")
-                actualLine += " / " + actualOpp;
+            // on a "No Double" play isn't a real take/pass decision. A null
+            // doubler action (UserDoubleError absent) is *not* treated as
+            // No Double, preserving the prior "?" / "Take" shape.
+            string actualLine = "Actual: " + (actualDoublerAction is CubeAction ad ? ActionLabel(ad) : "?");
+            if (actualResponderAction is CubeAction ar && actualDoublerAction != CubeAction.NoDouble)
+                actualLine += " / " + ActionLabel(ar);
             sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(actualLine)}</text>""");
             y += CubePanelLineHeight;
         }
@@ -1114,14 +1109,17 @@ public static class DiagramRenderer
         sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(CubePanelLabelFontSize)}" fill="{dimColor}">Loss</text>""");
         y += CubePanelLineHeight;
 
+        // Per-row loss values come from the atomic-level helpers — each row
+        // is the mistake cost for the decider of that row, independent of
+        // any verdict-level NoDouble↔TooGood strategic-confusion override.
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
-            label: "No Double", equity: nd, loss: noDoubleLoss);
+            label: "No Double", equity: nd,           loss: d.DoublerActionError(CubeAction.NoDouble));
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
-            label: "Double",    equity: doubleEquity, loss: doubleLoss);
+            label: "Double",    equity: doubleEquity, loss: d.DoublerActionError(CubeAction.Double));
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
-            label: "Take",      equity: dt, loss: takeLoss);
+            label: "Take",      equity: dt,           loss: d.ResponderActionError(CubeAction.Take));
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
-            label: "Pass",      equity: pass, loss: passLoss);
+            label: "Pass",      equity: pass,         loss: d.ResponderActionError(CubeAction.Pass));
 
         y += CubePanelSectionGap;
 
@@ -1220,6 +1218,54 @@ public static class DiagramRenderer
         sb.AppendLine($"""  <text x="{F(bgX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{color}">{F1(bg * 100)}%</text>""");
         return y + CubePanelLineHeight;
     }
+
+    // -----------------------------------------------------------------------
+    //  Cube label formatting
+    // -----------------------------------------------------------------------
+    //
+    //  Label helpers map BgDataTypes_Lib's CubeAction / CubeVerdict values
+    //  to their user-facing strings. Centralised here rather than scattered
+    //  through AppendCubePanel so the four CubeVerdict cases of the Best
+    //  line, the two-word "No Double" formatting, and the Doubler/Responder
+    //  flips of the Actual line each have one definition site.
+
+    private static string VerdictBestLine(CubeVerdict verdict) => verdict switch
+    {
+        CubeVerdict.NoDouble   => "Best:   No Double",
+        CubeVerdict.DoubleTake => "Best:   Double / Take",
+        CubeVerdict.DoublePass => "Best:   Double / Pass",
+        CubeVerdict.TooGood    => "Best:   Too Good to Double",
+        _ => throw new ArgumentOutOfRangeException(nameof(verdict), verdict, null)
+    };
+
+    private static string ActionLabel(CubeAction action) => action switch
+    {
+        CubeAction.NoDouble => "No Double",
+        CubeAction.Double   => "Double",
+        CubeAction.Take     => "Take",
+        CubeAction.Pass     => "Pass",
+        _ => throw new ArgumentOutOfRangeException(nameof(action), action, null)
+    };
+
+    // Doubler-half flip (Double↔NoDouble) for deriving the Actual doubler
+    // action from the Best doubler action when UserDoubleError > 0.
+    private static CubeAction OppositeDoublerAction(CubeAction action) => action switch
+    {
+        CubeAction.Double   => CubeAction.NoDouble,
+        CubeAction.NoDouble => CubeAction.Double,
+        _ => throw new ArgumentOutOfRangeException(nameof(action), action,
+            "OppositeDoublerAction requires a doubler-half action (Double or NoDouble).")
+    };
+
+    // Responder-half flip (Take↔Pass) for deriving the Actual responder
+    // action from the Best responder action when UserTakeError > 0.
+    private static CubeAction OppositeResponderAction(CubeAction action) => action switch
+    {
+        CubeAction.Take => CubeAction.Pass,
+        CubeAction.Pass => CubeAction.Take,
+        _ => throw new ArgumentOutOfRangeException(nameof(action), action,
+            "OppositeResponderAction requires a responder-half action (Take or Pass).")
+    };
 
     // -----------------------------------------------------------------------
     //  Equity formatting
