@@ -29,16 +29,20 @@ public class RendererPanelContentTests
     }
 
     [Fact]
-    public void CubePanel_BestLine_TooGoodWhenNoDoubleEquityAtLeastOne()
+    public void CubePanel_BestLine_HighNoDoubleEquityRendersPlainNoDouble()
     {
-        // nd=1.20, dt=0.50 → Too Good to Double. Since the best action is not
-        // to double, no opp take/pass decision arises — the Best line carries
-        // only the doubler half.
+        // nd=1.20, dt=0.50 → BestDoublerAction = NoDouble (min(dt,1)=0.50 is
+        // not greater than nd=1.20). The atomic model has no "Too Good to
+        // Double" label: this high-No-Double-equity position renders as the
+        // plain "No Double", and since the best action is not to double, no
+        // opp take/pass decision arises — the Best line carries only the
+        // doubler half. Regression-guards that the dropped label stays gone.
         var request = MinimalCubeBuilder(noDoubleEquity: 1.20, doubleTakeEquity: 0.50).Build();
         var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
 
-        Assert.Contains("Best:   Too Good to Double", svg);
-        Assert.DoesNotContain("Best:   Too Good to Double /", svg);
+        Assert.Contains("Best:   No Double", svg);
+        Assert.DoesNotContain("Best:   No Double /", svg);
+        Assert.DoesNotContain("Too Good to Double", svg);
     }
 
     [Fact]
@@ -96,12 +100,11 @@ public class RendererPanelContentTests
     }
 
     [Fact]
-    public void CubePanel_ActualLine_TooGoodFlavorDroppedInActual()
+    public void CubePanel_ActualLine_HighNoDoubleEquityShowsNoDouble()
     {
-        // Best = "Too Good to Double" when nd >= 1. User's actual choice is
-        // either "No Double" or "Double" — never the stylized "Too Good" form.
-        //   UserDoubleError == 0  → user did the correct thing, which is the
-        //     flat "No Double" in the Actual line.
+        // nd=1.20, dt=0.50 → BestDoublerAction = NoDouble.
+        //   UserDoubleError == 0  → user did the correct thing, so the Actual
+        //     line shows the flat "No Double".
         //   UserTakeError == null → opp never faced a decision; the opp half
         //     is suppressed for any non-Double doubler action.
         var b = MinimalCubeBuilder(noDoubleEquity: 1.20, doubleTakeEquity: 0.50);
@@ -111,7 +114,6 @@ public class RendererPanelContentTests
 
         Assert.Contains("Actual: No Double", svg);
         Assert.DoesNotContain("Actual: No Double /", svg);
-        Assert.DoesNotContain("Actual: Too Good to Double", svg);
     }
 
     [Fact]

@@ -1068,20 +1068,21 @@ public static class DiagramRenderer
         double doubleEquity = Math.Min(dt, pass);
 
         // ── Best / Actual banner ───────────────────────────────────────
-        // "Best" labels the correct verdict at the verdict-level — the only
-        // place "Too Good to Double" is meaningful, since it's the
-        // NoDouble↔TooGood distinction that lifts NoDouble from "fine" to
-        // "leaving equity on the table". "Actual" is what the user played,
-        // derived from UserDoubleError / UserTakeError (0 = correct, >0 =
-        // wrong). Actuals work at the atomic level — they never carry the
-        // "Too Good to Double" flavor because the user chose plain "Double"
-        // or "No Double".
-        string bestLine = VerdictBestLine(d.BestVerdict);
+        // Both lines are atomic-derived from the per-half best actions.
+        // "Best" is the correct play: BestDoublerAction, plus the responder
+        // half only when the doubler actually doubles (a "No Double" best
+        // leaves the opponent no take/pass decision). "Actual" is what the
+        // user played, derived from UserDoubleError / UserTakeError (0 =
+        // correct, >0 = wrong) by flipping each half off its best action.
+        // Both lines run through CubeDecisionLine, so the doubler-side
+        // suppression rule has a single definition.
+        CubeAction bestDoublerAction = d.BestDoublerAction;
+        CubeAction bestResponderAction = d.BestResponderAction;
+
+        string bestLine = CubeDecisionLine("Best:   ", bestDoublerAction, bestResponderAction);
         sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(bestLine)}</text>""");
         y += CubePanelLineHeight;
 
-        CubeAction bestDoublerAction = d.BestDoublerAction;
-        CubeAction bestResponderAction = d.BestResponderAction;
         CubeAction? actualDoublerAction = d.UserDoubleError is double ude
             ? (ude > 0 ? OppositeDoublerAction(bestDoublerAction) : bestDoublerAction)
             : null;
@@ -1090,14 +1091,7 @@ public static class DiagramRenderer
             : null;
         if (actualDoublerAction != null || actualResponderAction != null)
         {
-            // Same rule as the Best line: suppress the opp half whenever the
-            // (actual) doubler action isn't "Double" — a stale UserTakeError
-            // on a "No Double" play isn't a real take/pass decision. A null
-            // doubler action (UserDoubleError absent) is *not* treated as
-            // No Double, preserving the prior "?" / "Take" shape.
-            string actualLine = "Actual: " + (actualDoublerAction is CubeAction ad ? ActionLabel(ad) : "?");
-            if (actualResponderAction is CubeAction ar && actualDoublerAction != CubeAction.NoDouble)
-                actualLine += " / " + ActionLabel(ar);
+            string actualLine = CubeDecisionLine("Actual: ", actualDoublerAction, actualResponderAction);
             sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(actualLine)}</text>""");
             y += CubePanelLineHeight;
         }
@@ -1110,8 +1104,7 @@ public static class DiagramRenderer
         y += CubePanelLineHeight;
 
         // Per-row loss values come from the atomic-level helpers — each row
-        // is the mistake cost for the decider of that row, independent of
-        // any verdict-level NoDouble↔TooGood strategic-confusion override.
+        // is the mistake cost for the decider of that row.
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
             label: "No Double", equity: nd,           loss: d.DoublerActionError(CubeAction.NoDouble));
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
@@ -1223,20 +1216,26 @@ public static class DiagramRenderer
     //  Cube label formatting
     // -----------------------------------------------------------------------
     //
-    //  Label helpers map BgDataTypes_Lib's CubeAction / CubeVerdict values
-    //  to their user-facing strings. Centralised here rather than scattered
-    //  through AppendCubePanel so the four CubeVerdict cases of the Best
-    //  line, the two-word "No Double" formatting, and the Doubler/Responder
-    //  flips of the Actual line each have one definition site.
+    //  Label helpers map BgDataTypes_Lib's CubeAction values to their
+    //  user-facing strings. Centralised here rather than scattered through
+    //  AppendCubePanel so the two-word "No Double" formatting, the Best and
+    //  Actual decision lines, and the Doubler/Responder flips of the Actual
+    //  line each have one definition site.
 
-    private static string VerdictBestLine(CubeVerdict verdict) => verdict switch
+    // Builds a "<prefix><doubler> / <responder>" decision line shared by the
+    // Best and Actual banners, so the two stay consistent by construction.
+    // A null doubler renders "?" (the Actual line when UserDoubleError is
+    // absent but UserTakeError present); a null responder renders the doubler
+    // half alone. The responder half is also suppressed whenever the doubler
+    // action isn't a real double — a "No Double" decision gives the opponent
+    // no take/pass choice, so a (possibly stale) responder action is not shown.
+    private static string CubeDecisionLine(string prefix, CubeAction? doubler, CubeAction? responder)
     {
-        CubeVerdict.NoDouble   => "Best:   No Double",
-        CubeVerdict.DoubleTake => "Best:   Double / Take",
-        CubeVerdict.DoublePass => "Best:   Double / Pass",
-        CubeVerdict.TooGood    => "Best:   Too Good to Double",
-        _ => throw new ArgumentOutOfRangeException(nameof(verdict), verdict, null)
-    };
+        string line = prefix + (doubler is CubeAction d ? ActionLabel(d) : "?");
+        if (responder is CubeAction r && doubler != CubeAction.NoDouble)
+            line += " / " + ActionLabel(r);
+        return line;
+    }
 
     private static string ActionLabel(CubeAction action) => action switch
     {
