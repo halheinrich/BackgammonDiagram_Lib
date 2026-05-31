@@ -215,10 +215,10 @@ Rendered in Solution mode only. Two shapes:
   tables (No Double and Take played-out stats), footer lines. Invariants:
   - The Best/Actual banner is atomic-derived: both lines share one
     builder (`CubeDecisionLine`) over the per-half best actions
-    (`DecisionData.BestDoublerAction` / `BestResponderAction`). Best
+    (`DecisionData.BestDoublerAction` / `BestTakerAction`). Best
     shows those directly; Actual flips each half off its best action by
     `UserDoubleError` / `UserTakeError` (0 = correct, >0 = wrong). The
-    responder half is suppressed whenever the doubler action isn't a real
+    taker half is suppressed whenever the doubler action isn't a real
     double — a "No Double" best leaves the opponent no take/pass choice,
     so the line carries only the doubler half.
   - The Analysis Level footer renders `Decision.CubeDepth` (the full

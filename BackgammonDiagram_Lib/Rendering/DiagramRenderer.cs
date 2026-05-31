@@ -1057,7 +1057,7 @@ public static class DiagramRenderer
         var d = request.Decision;
         // Per-row equity values shown by the Equity/Loss table. These are
         // rendering values, not scoring values: DecisionData's cube helpers
-        // expose only losses (DoublerActionError / ResponderActionError), so
+        // expose only losses (DoublerActionError / TakerActionError), so
         // the equity numbers themselves are still computed here. The "Double"
         // row shows what the doubler actually earns by doubling against a
         // rational opponent — the opponent picks the response that's least
@@ -1069,7 +1069,7 @@ public static class DiagramRenderer
 
         // ── Best / Actual banner ───────────────────────────────────────
         // Both lines are atomic-derived from the per-half best actions.
-        // "Best" is the correct play: BestDoublerAction, plus the responder
+        // "Best" is the correct play: BestDoublerAction, plus the taker
         // half only when the doubler actually doubles (a "No Double" best
         // leaves the opponent no take/pass decision). "Actual" is what the
         // user played, derived from UserDoubleError / UserTakeError (0 =
@@ -1077,21 +1077,21 @@ public static class DiagramRenderer
         // Both lines run through CubeDecisionLine, so the doubler-side
         // suppression rule has a single definition.
         CubeAction bestDoublerAction = d.BestDoublerAction;
-        CubeAction bestResponderAction = d.BestResponderAction;
+        CubeAction bestTakerAction = d.BestTakerAction;
 
-        string bestLine = CubeDecisionLine("Best:   ", bestDoublerAction, bestResponderAction);
+        string bestLine = CubeDecisionLine("Best:   ", bestDoublerAction, bestTakerAction);
         sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(bestLine)}</text>""");
         y += CubePanelLineHeight;
 
         CubeAction? actualDoublerAction = d.UserDoubleError is double ude
             ? (ude > 0 ? OppositeDoublerAction(bestDoublerAction) : bestDoublerAction)
             : null;
-        CubeAction? actualResponderAction = d.UserTakeError is double ute
-            ? (ute > 0 ? OppositeResponderAction(bestResponderAction) : bestResponderAction)
+        CubeAction? actualTakerAction = d.UserTakeError is double ute
+            ? (ute > 0 ? OppositeTakerAction(bestTakerAction) : bestTakerAction)
             : null;
-        if (actualDoublerAction != null || actualResponderAction != null)
+        if (actualDoublerAction != null || actualTakerAction != null)
         {
-            string actualLine = CubeDecisionLine("Actual: ", actualDoublerAction, actualResponderAction);
+            string actualLine = CubeDecisionLine("Actual: ", actualDoublerAction, actualTakerAction);
             sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(actualLine)}</text>""");
             y += CubePanelLineHeight;
         }
@@ -1110,9 +1110,9 @@ public static class DiagramRenderer
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
             label: "Double",    equity: doubleEquity, loss: d.DoublerActionError(CubeAction.Double));
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
-            label: "Take",      equity: dt,           loss: d.ResponderActionError(CubeAction.Take));
+            label: "Take",      equity: dt,           loss: d.TakerActionError(CubeAction.Take));
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
-            label: "Pass",      equity: pass,         loss: d.ResponderActionError(CubeAction.Pass));
+            label: "Pass",      equity: pass,         loss: d.TakerActionError(CubeAction.Pass));
 
         y += CubePanelSectionGap;
 
@@ -1219,20 +1219,20 @@ public static class DiagramRenderer
     //  Label helpers map BgDataTypes_Lib's CubeAction values to their
     //  user-facing strings. Centralised here rather than scattered through
     //  AppendCubePanel so the two-word "No Double" formatting, the Best and
-    //  Actual decision lines, and the Doubler/Responder flips of the Actual
+    //  Actual decision lines, and the Doubler/Taker flips of the Actual
     //  line each have one definition site.
 
-    // Builds a "<prefix><doubler> / <responder>" decision line shared by the
+    // Builds a "<prefix><doubler> / <taker>" decision line shared by the
     // Best and Actual banners, so the two stay consistent by construction.
     // A null doubler renders "?" (the Actual line when UserDoubleError is
-    // absent but UserTakeError present); a null responder renders the doubler
-    // half alone. The responder half is also suppressed whenever the doubler
+    // absent but UserTakeError present); a null taker renders the doubler
+    // half alone. The taker half is also suppressed whenever the doubler
     // action isn't a real double — a "No Double" decision gives the opponent
-    // no take/pass choice, so a (possibly stale) responder action is not shown.
-    private static string CubeDecisionLine(string prefix, CubeAction? doubler, CubeAction? responder)
+    // no take/pass choice, so a (possibly stale) taker action is not shown.
+    private static string CubeDecisionLine(string prefix, CubeAction? doubler, CubeAction? taker)
     {
         string line = prefix + (doubler is CubeAction d ? ActionLabel(d) : "?");
-        if (responder is CubeAction r && doubler != CubeAction.NoDouble)
+        if (taker is CubeAction r && doubler != CubeAction.NoDouble)
             line += " / " + ActionLabel(r);
         return line;
     }
@@ -1256,14 +1256,14 @@ public static class DiagramRenderer
             "OppositeDoublerAction requires a doubler-half action (Double or NoDouble).")
     };
 
-    // Responder-half flip (Take↔Pass) for deriving the Actual responder
-    // action from the Best responder action when UserTakeError > 0.
-    private static CubeAction OppositeResponderAction(CubeAction action) => action switch
+    // Taker-half flip (Take↔Pass) for deriving the Actual taker
+    // action from the Best taker action when UserTakeError > 0.
+    private static CubeAction OppositeTakerAction(CubeAction action) => action switch
     {
         CubeAction.Take => CubeAction.Pass,
         CubeAction.Pass => CubeAction.Take,
         _ => throw new ArgumentOutOfRangeException(nameof(action), action,
-            "OppositeResponderAction requires a responder-half action (Take or Pass).")
+            "OppositeTakerAction requires a taker-half action (Take or Pass).")
     };
 
     // -----------------------------------------------------------------------
