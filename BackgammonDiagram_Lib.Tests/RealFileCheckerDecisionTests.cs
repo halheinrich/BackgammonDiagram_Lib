@@ -1,4 +1,5 @@
 using BackgammonDiagram_Lib.Rendering;
+using BackgammonDiagram_Lib.ExportRaster;
 using BgDataTypes_Lib;
 using ConvertXgToJson_Lib;
 using Xunit;
@@ -57,7 +58,7 @@ public class RealFileCheckerDecisionTests
             .ToList();
         Assert.NotEmpty(all);
 
-        var pptx = DiagramRenderer.RenderPptx(all, TestFixtures.DefaultOptions());
+        var pptx = DiagramRasterRenderer.RenderPptx(all, TestFixtures.DefaultOptions());
         var path = TestPaths.PptxOutputPath("bg_checker_decisions.pptx");
         File.WriteAllBytes(path, pptx);
         Assert.True(pptx.Length > 10_000, $"PPTX too small: {pptx.Length} bytes");

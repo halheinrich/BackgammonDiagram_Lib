@@ -1,7 +1,7 @@
 ﻿using SkiaSharp;
 using System.Text;
 
-namespace BackgammonDiagram_Lib.Rendering;
+namespace BackgammonDiagram_Lib.ExportRaster;
 
 /// <summary>
 /// Rasterizes SVG to PNG using SkiaSharp + Svg.Skia.

@@ -3,6 +3,7 @@ using System.Text;
 using System.Xml.Linq;
 using BackgammonDiagram_Lib;
 using BackgammonDiagram_Lib.Rendering;
+using BackgammonDiagram_Lib.ExportRaster;
 using Xunit;
 
 namespace BackgammonDiagram_Lib.Tests;
@@ -43,7 +44,7 @@ public class PptxConformanceTests
             Size = DiagramSize.Medium
         };
 
-        return DiagramRenderer.RenderPptx(request, options);
+        return DiagramRasterRenderer.RenderPptx(request, options);
     }
 
     private static ZipArchive OpenPptx(byte[] pptx)

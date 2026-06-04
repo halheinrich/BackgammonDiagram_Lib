@@ -2,13 +2,13 @@
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
-namespace BackgammonDiagram_Lib.Rendering;
+namespace BackgammonDiagram_Lib.ExportRaster;
 
 /// <summary>
 /// Builds a PDF byte array from one or more PNG images.
 /// Each PNG becomes one page, rendered full-bleed.
 /// Title is baked into the PNG by the SVG renderer.
-/// Internal — called only by DiagramRenderer.
+/// Internal — called only by DiagramRasterRenderer.
 /// </summary>
 internal static class PdfBuilder
 {

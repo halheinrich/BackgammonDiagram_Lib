@@ -8,6 +8,15 @@
 
 C# / .NET 10 / Class Library / xUnit. Pure rendering — no user interaction, no game state.
 
+Ships as **two assemblies** (one submodule):
+
+- **`BackgammonDiagram_Lib`** (core) — provably **native-free**. Holds the SVG
+  renderer (`RenderSvg`), the model/layout/theme types, and the pre-baked
+  watermark. Safe for Blazor WASM / SVG-only consumers (BgDiag_Razor, BgQuiz).
+- **`BackgammonDiagram_Lib.ExportRaster`** — the raster/export sibling. Owns all
+  native deps (SkiaSharp, Svg.Skia, QuestPDF, OpenXml) and the PNG/PDF/PPTX
+  output. References core; nothing in core references it.
+
 ## Solution
 
 `D:\Users\Hal\Documents\Visual Studio 2026\Projects\backgammon\BackgammonDiagram_Lib\BackgammonDiagram_Lib.slnx`
@@ -18,12 +27,19 @@ https://github.com/halheinrich/BackgammonDiagram_Lib — branch `main`.
 
 ## Depends on
 
+Core (`BackgammonDiagram_Lib`):
+
 - **BgDataTypes_Lib** — `PositionData`, `DecisionData` (incl. `CubeDepth` /
   `CubeDepthAbbreviation` / `CubeDepthRank`), `DescriptiveData`, `CubeOwner`,
   `PlayCandidate` (incl. per-play `Depth` / `DepthAbbreviation` / `DepthRank`),
   `BgDecisionData`. The whole shared type layer this library renders from.
+  **This is core's only dependency** — no native packages.
+
+ExportRaster (`BackgammonDiagram_Lib.ExportRaster`), in addition to a project
+reference to core:
+
 - **SkiaSharp.Svg** — PNG rasterization backend (brings `SkiaSharp`
-  transitively, which the rasterizer and `Watermarks` consume directly).
+  transitively, which the rasterizer consumes directly).
 - **Svg.Skia** — SVG parse/draw path used by the PNG pipeline.
 - **QuestPDF** — PDF layout and output (MIT licensed; license set by caller,
   not this library).
@@ -41,11 +57,11 @@ Test-only:
 
 ```
 BackgammonDiagram_Lib.slnx
-BackgammonDiagram_Lib/
+BackgammonDiagram_Lib/                    (core — native-free)
   BackgammonDiagram_Lib.csproj
   Watermarks.cs               — public static Watermarks.Default byte[] accessor
   Assets/
-    board-watermark.jpg       — built-in watermark asset (EmbeddedResource)
+    board-watermark.png       — pre-baked transparent watermark (EmbeddedResource, SSOT)
   Models/
     BoardHitRegions.cs        — point/bar/cube/tray hit regions
     DiagramOptions.cs         — record: ShowPipCount, Size, WatermarkImage, Theme, Aspect
@@ -56,22 +72,27 @@ BackgammonDiagram_Lib/
     MathUtils.cs
   Rendering/
     BoardLayout.cs            — geometry derived from CheckerRadius
-    DiagramRenderer.cs        — public entry points (RenderSvg/Png/Pdf/Pptx, GetHitRegions)
-    ISvgRasterizer.cs         — PNG backend abstraction
-    PdfBuilder.cs             — internal, QuestPDF-based
-    PptxBuilder.cs            — internal, OpenXml-based
-    SkiaSharpRasterizer.cs    — default ISvgRasterizer implementation
+    DiagramRenderer.cs        — SVG entry points (RenderSvg, GetHitRegions)
   Themes/
     CustomTheme.cs
     DefaultTheme.cs
     GreyscaleTheme.cs
     ITheme.cs
     ThemeRegistry.cs          — static Default / Greyscale
-BackgammonDiagram_Lib.Tests/
+BackgammonDiagram_Lib.ExportRaster/       (raster/export — native deps)
+  BackgammonDiagram_Lib.ExportRaster.csproj
+  DiagramRasterRenderer.cs    — public entry points (RenderPng/Pdf/Pptx, IsPdfSupported)
+  Rendering/
+    ISvgRasterizer.cs         — PNG backend abstraction
+    PdfBuilder.cs             — internal, QuestPDF-based
+    PptxBuilder.cs            — internal, OpenXml-based
+    SkiaSharpRasterizer.cs    — default ISvgRasterizer implementation
+BackgammonDiagram_Lib.Tests/              (refs core + ExportRaster)
   BackgammonDiagram_Lib.Tests.csproj
   BearOffTests.cs
   BoardLayoutTests.cs
   ColourSchemeTests.cs
+  CoreNativeFreeTests.cs        — guard: core references no native package
   DecisionDataDiagramTests.cs
   DiagramRequestBuilderTests.cs
   DiagramRequestFactoryTests.cs
@@ -87,10 +108,30 @@ BackgammonDiagram_Lib.Tests/
   TestFixtures.cs
   TestPaths.cs
   VisualOutputTests.cs
-  WatermarksTests.cs
+  WatermarksTests.cs            — incl. Default_MatchesPreBakedBytes (byte pin)
 ```
 
 ## Architecture
+
+### Assembly structure (native-free core invariant)
+
+The submodule is split so that an SVG-only consumer never drags in native
+raster libraries:
+
+- **`BackgammonDiagram_Lib`** (core) renders to SVG and holds all the data,
+  layout, and theme types. It is **provably native-free** — its only dependency
+  is `BgDataTypes_Lib`. This is what Blazor WASM / SVG-only callers reference.
+  The invariant is enforced at build time by `CoreNativeFreeTests`, which
+  reflects over the core assembly's referenced assemblies and fails if any
+  SkiaSharp / Svg.Skia / QuestPDF / OpenXml reference leaks in.
+- **`BackgammonDiagram_Lib.ExportRaster`** turns that SVG into PNG / PDF / PPTX.
+  It owns the four native packages and references core. `DiagramRasterRenderer`
+  is its public entry point; it calls `DiagramRenderer.RenderSvg`, then
+  rasterizes (`SkiaSharpRasterizer`) and packages (`PdfBuilder` / `PptxBuilder`).
+
+The dependency arrow points one way: ExportRaster → core. Anything that needs
+to rasterize lives in ExportRaster; core must never gain a native package
+reference (see Pitfalls).
 
 ### DiagramRequest
 
@@ -263,15 +304,21 @@ across the bar — with:
 Emitted between points and checkers in `AppendBoard`, so checkers, dice,
 cube, and analysis panel all paint cleanly on top.
 
-`Watermarks.Default` exposes the built-in asset (shipped as a JPG
-`EmbeddedResource`) via a cached `byte[]` accessor. At class init the
-JPG is processed once through SkiaSharp: per-pixel luminance becomes
-inverse alpha (dark pixels opaque, light pixels transparent, near-white
-pixels above a threshold forced fully transparent to kill JPEG noise)
-and RGB is forced to pure black. The result is re-encoded as PNG. This
-way the asset's light background doesn't bleed onto the board colour —
-the rendered silhouette composites cleanly at whatever opacity the SVG
-layer applies.
+`Watermarks.Default` exposes the built-in asset via a cached `byte[]`
+accessor. The asset is a **pre-baked transparent PNG** shipped as an
+`EmbeddedResource` (`Assets/board-watermark.png`) and is the single source
+of truth — `Watermarks` is a pure embedded-resource loader with no native
+code, which is what keeps core WASM-clean.
+
+The PNG was produced once from the original `board-watermark.jpg` by a
+SkiaSharp transform: per-pixel luminance became inverse alpha (dark pixels
+opaque, light pixels transparent, near-white pixels above a threshold of 200
+forced fully transparent to kill JPEG noise) with RGB forced to pure black,
+re-encoded as PNG. That transform pulled SkiaSharp into core, so it was
+removed; the JPG + transform remain recoverable in git history if the
+silhouette ever needs regenerating. `WatermarksTests.Default_MatchesPreBakedBytes`
+pins the exact bytes (SHA-256 + length) so an accidental re-encode can't
+silently shift every rendered diagram's watermark base64.
 
 ### Themes
 
@@ -281,6 +328,10 @@ instances. `DiagramOptions.Theme` is a direct `ITheme` reference — there is
 no string-based lookup.
 
 ### PNG rasterization
+
+These three sections (PNG / PDF / PPTX) all live in the
+**`BackgammonDiagram_Lib.ExportRaster`** assembly, behind
+`DiagramRasterRenderer`. Core is not involved beyond producing the SVG.
 
 - `ISvgRasterizer` is the pluggable backend; `SkiaSharpRasterizer` is the
   default implementation.
@@ -296,9 +347,9 @@ no string-based lookup.
 - Each `DiagramRequest` becomes one page; the page embeds the rendered PNG
   via QuestPDF `FitArea()`.
 - Page size is widescreen landscape 13.33" × 7.5", matching the PPTX slide.
-- `PdfBuilder` is `internal static`. Callers own the QuestPDF license.
-  `DiagramRenderer.IsPdfSupported()` lets callers probe whether a license
-  has been configured before invoking `RenderPdf`.
+- `PdfBuilder` is `internal static` (internal to ExportRaster). Callers own the
+  QuestPDF license. `DiagramRasterRenderer.IsPdfSupported()` lets callers probe
+  whether a license has been configured before invoking `RenderPdf`.
 
 ### PPTX
 
@@ -323,14 +374,24 @@ tests carry `[Trait("Category", "Visual")]`.
 
 ## Public API
 
-### `DiagramRenderer`
+### `DiagramRenderer` (core — `BackgammonDiagram_Lib.Rendering`)
 
-`DiagramRenderer` is a `static class`. Every method is `public static`.
-There is no constructor; no instance state is held.
+`DiagramRenderer` is a native-free `static class`. Every method is
+`public static`. There is no constructor; no instance state is held.
 
 ```csharp
 static string RenderSvg(DiagramRequest request, DiagramOptions options);
 static BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions options);
+```
+
+### `DiagramRasterRenderer` (export — `BackgammonDiagram_Lib.ExportRaster`)
+
+The raster/export entry point, also a `static class`. Lives in the
+`BackgammonDiagram_Lib.ExportRaster` assembly + namespace — consumers of the
+raster formats add `using BackgammonDiagram_Lib.ExportRaster;` and reference
+that project. (`ISvgRasterizer` and `SkiaSharpRasterizer` live here too.)
+
+```csharp
 static bool IsPdfSupported();
 
 // Rasterization-backed formats take an optional ISvgRasterizer. When null
@@ -404,12 +465,13 @@ record DiagramOptions
 
 ### `Watermarks`
 
-`Watermarks.Default` returns the built-in watermark as a cached `byte[]`
-(shipped as a JPG `EmbeddedResource` under `Assets/`, post-processed at
-class init into a transparent-background PNG). It's the default value
-of `DiagramOptions.WatermarkImage`, so every rendered diagram carries
-the mark unless the caller sets `WatermarkImage = null` to opt out. The
-returned array is shared across calls; callers must not mutate it.
+`Watermarks.Default` returns the built-in watermark as a cached `byte[]` —
+a pre-baked transparent PNG shipped as an `EmbeddedResource` under `Assets/`
+and the single source of truth (the loader is pure managed code, no native
+deps). It's the default value of `DiagramOptions.WatermarkImage`, so every
+rendered diagram carries the mark unless the caller sets `WatermarkImage =
+null` to opt out. The returned array is shared across calls; callers must not
+mutate it.
 
 ### `ITheme` and `ThemeRegistry`
 
@@ -420,9 +482,16 @@ to supply their own palette.
 
 ## Pitfalls
 
+- **Core must never gain a native package reference.** SkiaSharp, Svg.Skia,
+  QuestPDF, and DocumentFormat.OpenXml belong in
+  `BackgammonDiagram_Lib.ExportRaster` only — adding any of them (or a `using`
+  that pulls one) to core breaks the WASM-clean invariant that BgDiag_Razor /
+  BgQuiz depend on. `CoreNativeFreeTests` fails the build if one leaks in. New
+  raster/export work goes in the ExportRaster sibling behind
+  `DiagramRasterRenderer`, never in `DiagramRenderer`.
 - **QuestPDF license is the caller's responsibility.** `PdfBuilder` does not
-  call `EnsureLicense`. Use `DiagramRenderer.IsPdfSupported()` to probe before
-  `RenderPdf` in environments where the license may not be set.
+  call `EnsureLicense`. Use `DiagramRasterRenderer.IsPdfSupported()` to probe
+  before `RenderPdf` in environments where the license may not be set.
 - **`Svg.Skia.Drawable.Bounds` lies.** Anywhere you need the SVG's visible
   extent in the PNG path, parse the viewBox yourself and `ClipRect`.
 - **`SKSvg` is not `IDisposable`.** Never wrap it in `using` — the compiler

@@ -6,13 +6,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
-    <PackageReference Include="QuestPDF" Version="2026.2.3" />
-    <PackageReference Include="SkiaSharp.Svg" Version="1.60.0" />
-    <PackageReference Include="Svg.Skia" Version="3.6.0" />
-  </ItemGroup>
-
+  <!-- CORE IS NATIVE-FREE: this project must never reference a native package
+       (SkiaSharp, Svg.Skia, QuestPDF, DocumentFormat.OpenXml). All raster/export
+       work lives in the BackgammonDiagram_Lib.ExportRaster sibling. The
+       CoreNativeFreeTests guard test enforces this at build time. -->
   <ItemGroup>
     <ProjectReference Include="..\..\BgDataTypes_Lib\BgDataTypes_Lib\BgDataTypes_Lib.csproj" />
   </ItemGroup>
@@ -22,7 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Assets\board-watermark.jpg" />
+    <!-- Pre-baked transparent watermark — single source of truth (see Watermarks.cs). -->
+    <EmbeddedResource Include="Assets\board-watermark.png" />
   </ItemGroup>
 
 </Project>

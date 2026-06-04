@@ -5,13 +5,12 @@ using System.Text;
 
 namespace BackgammonDiagram_Lib.Rendering;
 
+// Renders a DiagramRequest to an SVG string. This type is intentionally
+// native-free: it lives in the core assembly that WASM/SVG-only consumers
+// depend on. Rasterization and the PNG/PDF/PPTX export formats live in
+// DiagramRasterRenderer in the BackgammonDiagram_Lib.ExportRaster sibling.
 public static class DiagramRenderer
 {
-    // Built-in rasterizer used when callers don't supply one. SkiaSharpRasterizer
-    // construction is cheap (native Skia libs load lazily on first rasterize);
-    // a single shared readonly instance is safe — rasterization is stateless.
-    private static readonly SkiaSharpRasterizer s_defaultRasterizer = new();
-
     private const double TitleStripHeight = 22;
 
     /// <summary>
@@ -70,42 +69,6 @@ public static class DiagramRenderer
 
         sb.AppendLine("</svg>");
         return sb.ToString();
-    }
-
-    public static byte[] RenderPng(DiagramRequest request, DiagramOptions options,
-        ISvgRasterizer? rasterizer = null)
-    {
-        var svg = RenderSvg(request, options);
-        int targetWidth = ResolveTargetWidth(options.Size);
-        return (rasterizer ?? s_defaultRasterizer).Rasterize(svg, targetWidth);
-    }
-
-    public static byte[] RenderPdf(DiagramRequest request, DiagramOptions options,
-        ISvgRasterizer? rasterizer = null)
-    {
-        var png = RenderPng(request, options, rasterizer);
-        return PdfBuilder.Build([png]);
-    }
-
-    public static byte[] RenderPdf(IEnumerable<DiagramRequest> requests, DiagramOptions options,
-        ISvgRasterizer? rasterizer = null)
-    {
-        var pngs = requests.Select(r => RenderPng(r, options, rasterizer)).ToList();
-        return PdfBuilder.Build(pngs);
-    }
-
-    public static byte[] RenderPptx(DiagramRequest request, DiagramOptions options,
-        ISvgRasterizer? rasterizer = null)
-    {
-        var png = RenderPng(request, options, rasterizer);
-        return PptxBuilder.Build([png]);
-    }
-
-    public static byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options,
-        ISvgRasterizer? rasterizer = null)
-    {
-        var pngs = requests.Select(r => RenderPng(r, options, rasterizer)).ToList();
-        return PptxBuilder.Build(pngs);
     }
 
     /// <summary>
@@ -218,37 +181,6 @@ public static class DiagramRenderer
             layout.LeftRailWidth,
             h);
     }
-
-    /// <summary>
-    /// Returns true if QuestPDF is correctly licensed and operational.
-    /// Call at application startup before serving PDF requests.
-    /// If false, set QuestPDF.Settings.License in your app startup.
-    /// Also returns false if QuestPDF's native dependencies cannot load
-    /// (e.g. unsupported runtime).
-    /// </summary>
-    public static bool IsPdfSupported()
-    {
-        try
-        {
-            return QuestPDF.Settings.License.HasValue;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    //  Size resolution
-    // -----------------------------------------------------------------------
-
-    private static int ResolveTargetWidth(DiagramSize size) => size.Preset switch
-    {
-        DiagramSizePreset.Small => 600,
-        DiagramSizePreset.Large => 1600,
-        DiagramSizePreset.Custom => size.CustomWidth ?? 1000,
-        _ => 1000   // Medium
-    };
 
     /// <summary>
     /// Builds the board layout, widening the analysis panel (if necessary) to
@@ -655,8 +587,8 @@ public static class DiagramRenderer
     /// Alpha for the watermark — low enough to read as a background wash
     /// beneath points and checkers, high enough to be visible on a
     /// light-coloured board. The watermark asset carries per-pixel alpha
-    /// from <see cref="Watermarks.BuildTransparentPng"/>; this multiplier
-    /// tones the whole silhouette down to a quiet background mark.
+    /// (see <see cref="Watermarks.Default"/>); this multiplier tones the
+    /// whole silhouette down to a quiet background mark.
     /// </summary>
     private const double WatermarkOpacity = 0.22;
 

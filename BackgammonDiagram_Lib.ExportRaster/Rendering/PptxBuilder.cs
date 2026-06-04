@@ -8,12 +8,12 @@ using System.Xml.Linq;
 using A = DocumentFormat.OpenXml.Drawing;
 using P = DocumentFormat.OpenXml.Presentation;
 
-namespace BackgammonDiagram_Lib.Rendering;
+namespace BackgammonDiagram_Lib.ExportRaster;
 
 /// <summary>
 /// Builds a .pptx byte array from one or more PNG images.
 /// Each PNG becomes one slide. Title is baked into the PNG by the SVG renderer.
-/// Internal — called only by DiagramRenderer.
+/// Internal — called only by DiagramRasterRenderer.
 /// </summary>
 internal static class PptxBuilder
 {

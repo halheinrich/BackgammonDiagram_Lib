@@ -17,7 +17,6 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
-    <PackageReference Include="Svg.Skia" Version="3.6.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
       <PrivateAssets>all</PrivateAssets>
@@ -28,6 +27,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\BgDataTypes_Lib\BgDataTypes_Lib\BgDataTypes_Lib.csproj" />
     <ProjectReference Include="..\BackgammonDiagram_Lib\BackgammonDiagram_Lib.csproj" />
+    <ProjectReference Include="..\BackgammonDiagram_Lib.ExportRaster\BackgammonDiagram_Lib.ExportRaster.csproj" />
     <!-- Test-only dependency: real .xg / .xgp parsing for visual fixtures.
          Couples this test project to the sibling submodule's checkout layout;
          standalone builds of BackgammonDiagram_Lib without the umbrella will

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using BackgammonDiagram_Lib;
 using Xunit;
 
@@ -36,5 +37,25 @@ public class WatermarksTests
         var a = Watermarks.Default;
         var b = Watermarks.Default;
         Assert.Same(a, b);
+    }
+
+    // Exact byte content of the pre-baked watermark PNG, captured from the
+    // original SkiaSharp transform output at the time the asset was baked
+    // (see Watermarks.Default xmldoc). This pins the *single source of truth*:
+    // because RenderSvg embeds these bytes as base64, an identical hash here
+    // guarantees byte-identical SVG watermark output. If the embedded asset is
+    // ever regenerated, this hash must be updated deliberately — an accidental
+    // change (re-encode, re-tune, wrong file) fails the build instead of
+    // silently shifting every rendered diagram.
+    private const string ExpectedSha256 =
+        "E3B7E458CB3C9C0589F525F497EF10CE64028B89B992D3A2C843B2522B30EA6C";
+    private const int ExpectedLength = 183289;
+
+    [Fact]
+    public void Default_MatchesPreBakedBytes()
+    {
+        var bytes = Watermarks.Default;
+        Assert.Equal(ExpectedLength, bytes.Length);
+        Assert.Equal(ExpectedSha256, Convert.ToHexString(SHA256.HashData(bytes)));
     }
 }

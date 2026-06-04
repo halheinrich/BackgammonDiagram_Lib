@@ -3,6 +3,7 @@ using System.Text;
 using System.Xml.Linq;
 using BackgammonDiagram_Lib;
 using BackgammonDiagram_Lib.Rendering;
+using BackgammonDiagram_Lib.ExportRaster;
 using Xunit;
 
 namespace BackgammonDiagram_Lib.Tests;
@@ -31,8 +32,8 @@ public class PptxSizingTests
             Size = DiagramSize.Medium,
             Aspect = AspectPreset.Widescreen16x9,
         };
-        var png = DiagramRenderer.RenderPng(request, options);
-        var pptx = DiagramRenderer.RenderPptx(request, options);
+        var png = DiagramRasterRenderer.RenderPng(request, options);
+        var pptx = DiagramRasterRenderer.RenderPptx(request, options);
 
         var (pngW, pngH) = ReadPngDimensions(png);
         double pngAspect = pngW / (double)pngH;
@@ -49,8 +50,8 @@ public class PptxSizingTests
     {
         var request = TestFixtures.MinimalRequest();
         var options = new DiagramOptions { Aspect = AspectPreset.Natural };
-        var png = DiagramRenderer.RenderPng(request, options);
-        var pptx = DiagramRenderer.RenderPptx(request, options);
+        var png = DiagramRasterRenderer.RenderPng(request, options);
+        var pptx = DiagramRasterRenderer.RenderPptx(request, options);
 
         var (pngW, pngH) = ReadPngDimensions(png);
         double pngAspect = pngW / (double)pngH;
@@ -69,15 +70,15 @@ public class PptxSizingTests
     [Fact]
     public void Pptx_MismatchedPngDimensions_Throws()
     {
-        // DiagramRenderer.RenderPptx(IEnumerable<DiagramRequest>) shares one
+        // DiagramRasterRenderer.RenderPptx(IEnumerable<DiagramRequest>) shares one
         // DiagramOptions across all requests, so its callers can't trigger a
         // mismatch via the public renderer API alone. Call PptxBuilder
         // directly (InternalsVisibleTo makes this available to the test
         // project) to exercise the guard.
         var req = TestFixtures.MinimalRequest();
-        var pngNatural = DiagramRenderer.RenderPng(req,
+        var pngNatural = DiagramRasterRenderer.RenderPng(req,
             new DiagramOptions { Aspect = AspectPreset.Natural });
-        var pngWide = DiagramRenderer.RenderPng(req,
+        var pngWide = DiagramRasterRenderer.RenderPng(req,
             new DiagramOptions { Aspect = AspectPreset.Widescreen16x9 });
 
         var ex = Assert.Throws<InvalidOperationException>(() =>

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using BgDataTypes_Lib;
 using BackgammonDiagram_Lib.Rendering;
+using BackgammonDiagram_Lib.ExportRaster;
 using QuestPDF.Infrastructure;
 using Xunit;
 
@@ -90,7 +91,7 @@ public class DecisionDataDiagramTests
 
         for (int i = 0; i < requests.Length; i++)
         {
-            var png = DiagramRenderer.RenderPng(requests[i], options);
+            var png = DiagramRasterRenderer.RenderPng(requests[i], options);
             Assert.True(png.Length > 1000, $"PNG too small: {png.Length} bytes");
             var path = TestPaths.PngOutputPath($"{names[i]}.png");
             File.WriteAllBytes(path, png);
@@ -107,7 +108,7 @@ public class DecisionDataDiagramTests
         var (requests, _) = LoadAndBuild(filename);
         var options = TestFixtures.DefaultOptions();
 
-        var pptx = DiagramRenderer.RenderPptx(requests, options);
+        var pptx = DiagramRasterRenderer.RenderPptx(requests, options);
         var outputName = Path.GetFileNameWithoutExtension(filename) + "_all.pptx";
         var path = TestPaths.PptxOutputPath(outputName);
         File.WriteAllBytes(path, pptx);
@@ -123,7 +124,7 @@ public class DecisionDataDiagramTests
         var (requests, _) = LoadAndBuild(filename);
         var options = TestFixtures.DefaultOptions();
 
-        var pdf = DiagramRenderer.RenderPdf(requests, options);
+        var pdf = DiagramRasterRenderer.RenderPdf(requests, options);
         var outputName = Path.GetFileNameWithoutExtension(filename) + "_all.pdf";
         var path = TestPaths.PdfOutputPath(outputName);
         File.WriteAllBytes(path, pdf);

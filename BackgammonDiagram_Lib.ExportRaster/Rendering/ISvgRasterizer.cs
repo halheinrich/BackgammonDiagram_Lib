@@ -1,9 +1,9 @@
-﻿namespace BackgammonDiagram_Lib.Rendering;
+﻿namespace BackgammonDiagram_Lib.ExportRaster;
 
 /// <summary>
 /// Converts a hand-rolled SVG string to a rasterized PNG byte array.
 /// Abstracted so the SkiaSharp implementation can be replaced without
-/// touching DiagramRenderer.
+/// touching DiagramRasterRenderer.
 /// </summary>
 public interface ISvgRasterizer
 {
