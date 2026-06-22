@@ -31,6 +31,17 @@ public record DiagramOptions
     /// modern projector / PPTX slide edge-to-edge.
     /// </summary>
     public AspectPreset Aspect { get; init; } = AspectPreset.Widescreen16x9;
+
+    /// <summary>
+    /// When <c>true</c>, the SVG renderer bakes the request's
+    /// <see cref="DiagramRequest.Xgid"/> into the diagram as an upper-right
+    /// label (skipped when the XGID is empty). Defaults to <c>false</c> so
+    /// interactive consumers (BgDiag_Razor, BgQuiz) render unchanged. The
+    /// export formats use this for PNG, where the label can only be pixels;
+    /// PDF and PPTX instead overlay the XGID as real selectable text and
+    /// force this off so the baked label can't duplicate the overlay.
+    /// </summary>
+    public bool ShowXgid { get; init; } = false;
 }
 
 /// <summary>

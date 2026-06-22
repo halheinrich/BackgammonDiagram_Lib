@@ -32,6 +32,17 @@ public class DiagramRequest
     /// </summary>
     public int? PositionNumber { get; init; }
 
+    /// <summary>
+    /// The position's XGID (eXtreme Gammon ID) — the canonical string encoding
+    /// of the board, cube, and match state. Surfaced top-level on
+    /// <see cref="BgDecisionData"/> (not in the three data records), so it is
+    /// carried here directly rather than through the record-based mapping.
+    /// Consumed by the export formats as an upper-right label: real selectable
+    /// text in PDF/PPTX, and — when <see cref="DiagramOptions.ShowXgid"/> is
+    /// set — baked pixels in the rendered SVG/PNG. Defaults to empty (no label).
+    /// </summary>
+    public string Xgid { get; init; } = string.Empty;
+
     // -----------------------------------------------------------------------
     //  Factory: BgDecisionData → DiagramRequest
     // -----------------------------------------------------------------------
@@ -52,8 +63,10 @@ public class DiagramRequest
         bool onRollAtBottom = true,
         PanelPosition analysisPanelPosition = PanelPosition.Left)
     {
-        return Builder.From(data.Position, data.Decision, data.Descriptive,
-            mode, homeBoardOnRight, onRollAtBottom, analysisPanelPosition).Build();
+        var b = Builder.From(data.Position, data.Decision, data.Descriptive,
+            mode, homeBoardOnRight, onRollAtBottom, analysisPanelPosition);
+        b.Xgid = data.Xgid;
+        return b.Build();
     }
 
     // -----------------------------------------------------------------------
@@ -126,6 +139,7 @@ public class DiagramRequest
         public bool OnRollAtBottom { get; set; } = true;
         public PanelPosition AnalysisPanelPosition { get; set; }
         public int? PositionNumber { get; set; }
+        public string Xgid { get; set; } = string.Empty;
 
         // -------------------------------------------------------------------
         //  Factories — single field-mapping site for data → builder
@@ -217,6 +231,7 @@ public class DiagramRequest
                 existing.Mode, existing.HomeBoardOnRight, existing.OnRollAtBottom,
                 existing.AnalysisPanelPosition);
             b.PositionNumber = existing.PositionNumber;
+            b.Xgid = existing.Xgid;
             return b;
         }
 
@@ -279,6 +294,7 @@ public class DiagramRequest
                 OnRollAtBottom = OnRollAtBottom,
                 AnalysisPanelPosition = AnalysisPanelPosition,
                 PositionNumber = PositionNumber,
+                Xgid = Xgid,
             };
         }
 

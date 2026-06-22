@@ -67,6 +67,14 @@ public static class DiagramRenderer
         if (hasTitle)
             sb.AppendLine("  </g>");
 
+        // Opt-in baked XGID label. Emitted last so it draws over the board,
+        // in the upper-right corner clear of the title strip. Default-off
+        // (ShowXgid) keeps interactive consumers unchanged; the export formats
+        // that overlay the XGID as real text force it off (see
+        // DiagramRasterRenderer) so a baked label can't duplicate the overlay.
+        if (options.ShowXgid && !string.IsNullOrEmpty(request.Xgid))
+            AppendXgidLabel(sb, totalWidth, titleOffset, theme, request.Xgid);
+
         sb.AppendLine("</svg>");
         return sb.ToString();
     }
@@ -286,6 +294,31 @@ public static class DiagramRenderer
             sb.AppendLine($"""  <text x="{F(sourceX)}" y="{F(textY)}" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(source)}</text>""");
         if (position.Length > 0)
             sb.AppendLine($"""  <text x="{F(positionX)}" y="{F(textY)}" text-anchor="end" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(position)}</text>""");
+    }
+
+    // -----------------------------------------------------------------------
+    //  XGID label (opt-in baked overlay)
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Draws the XGID as a right-aligned label in the upper-right corner of
+    /// the canvas, just below the title strip (or the top edge when no strip
+    /// is shown). Plain SVG <c>&lt;text&gt;</c> in a normal visible font; it
+    /// sits over the top rail, so its colour contrasts that rail's
+    /// background. Only emitted when <see cref="DiagramOptions.ShowXgid"/> is
+    /// set and the XGID is non-empty (caller-gated).
+    /// </summary>
+    private static void AppendXgidLabel(StringBuilder sb, double totalWidth,
+        double titleOffset, ITheme theme, string xgid)
+    {
+        const double edgeMargin = 8;
+        const double fontSize = 11;
+        double x = totalWidth - edgeMargin;
+        double y = titleOffset + fontSize + 2;   // baseline just below the strip
+        // The label overlays the top rail (Darken(BoardColor, 0.1)); match the
+        // rail's own text-contrast rule so it stays legible across themes.
+        string textColor = ContrastText(Darken(theme.BoardColor, 0.1));
+        sb.AppendLine($"""  <text x="{F(x)}" y="{F(y)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{textColor}">{Escape(xgid)}</text>""");
     }
 
     // -----------------------------------------------------------------------

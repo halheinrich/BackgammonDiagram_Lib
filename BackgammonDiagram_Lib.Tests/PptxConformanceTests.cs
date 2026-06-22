@@ -37,6 +37,10 @@ public class PptxConformanceTests
             CubeSize = 1,
             Mode = DiagramMode.Problem,
             Title = "Conformance Test",
+            // Carry an XGID so the conformance assertions run against a slide
+            // that includes the upper-right text-box shape — guarding that the
+            // post-process fixers keep the XGID-bearing slide repair-free.
+            Xgid = "XGID=-b----E-C---eE---c-e----B-:0:0:1:00:0:0:0:0:10",
         }.Build();
 
         var options = new DiagramOptions

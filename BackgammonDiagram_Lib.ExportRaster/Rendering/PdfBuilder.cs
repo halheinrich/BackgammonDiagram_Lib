@@ -7,7 +7,8 @@ namespace BackgammonDiagram_Lib.ExportRaster;
 /// <summary>
 /// Builds a PDF byte array from one or more PNG images.
 /// Each PNG becomes one page, rendered full-bleed.
-/// Title is baked into the PNG by the SVG renderer.
+/// Title is baked into the PNG by the SVG renderer; the XGID (when non-empty)
+/// is overlaid per page as real, selectable text in the upper-right corner.
 /// Internal — called only by DiagramRasterRenderer.
 /// </summary>
 internal static class PdfBuilder
@@ -19,13 +20,17 @@ internal static class PdfBuilder
 
     private const float MarginPt = 36;               // 0.5"
 
-    public static byte[] Build(IEnumerable<byte[]> pages)
+    // XGID overlay: normal visible text, inset from the top-right page edges.
+    private const float XgidFontSizePt = 9;
+    private const float XgidInsetPt = 8;
+
+    public static byte[] Build(IEnumerable<(byte[] Png, string Xgid)> pages)
     {
         var pageList = pages.ToList();
 
         var document = Document.Create(container =>
         {
-            foreach (var png in pageList)
+            foreach (var (png, xgid) in pageList)
             {
                 container.Page(page =>
                 {
@@ -37,6 +42,21 @@ internal static class PdfBuilder
                         .AlignCenter()
                         .Image(png)
                         .FitArea();
+
+                    // Real, selectable XGID text in the upper-right. Drawn on
+                    // the foreground layer so it sits over the image; skipped
+                    // when the request carries no XGID.
+                    if (!string.IsNullOrEmpty(xgid))
+                    {
+                        page.Foreground()
+                            .AlignTop()
+                            .AlignRight()
+                            .PaddingTop(XgidInsetPt)
+                            .PaddingRight(XgidInsetPt)
+                            .Text(xgid)
+                            .FontSize(XgidFontSizePt)
+                            .FontColor(Colors.Black);
+                    }
                 });
             }
         });

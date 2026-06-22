@@ -12,7 +12,9 @@ namespace BackgammonDiagram_Lib.ExportRaster;
 
 /// <summary>
 /// Builds a .pptx byte array from one or more PNG images.
-/// Each PNG becomes one slide. Title is baked into the PNG by the SVG renderer.
+/// Each PNG becomes one slide. Title is baked into the PNG by the SVG renderer;
+/// the XGID (when non-empty) is added per slide as a real text box in the
+/// upper-right corner, layered over the picture.
 /// Internal — called only by DiagramRasterRenderer.
 /// </summary>
 internal static class PptxBuilder
@@ -30,7 +32,7 @@ internal static class PptxBuilder
     private const long MarginH = 457200L;  // 0.5"
     private const long MarginV = 457200L;  // 0.5"
 
-    public static byte[] Build(IEnumerable<byte[]> slides)
+    public static byte[] Build(IEnumerable<(byte[] Png, string Xgid)> slides)
     {
         var slideList = slides.ToList();
         if (slideList.Count == 0)
@@ -40,10 +42,10 @@ internal static class PptxBuilder
         // exactly — PPTX allows only one slide size per deck, so silently
         // using the first would let odd-sized images overflow or float in
         // whitespace. Fail fast instead.
-        var (firstW, firstH) = ReadPngDimensions(slideList[0]);
+        var (firstW, firstH) = ReadPngDimensions(slideList[0].Png);
         for (int i = 1; i < slideList.Count; i++)
         {
-            var (w, h) = ReadPngDimensions(slideList[i]);
+            var (w, h) = ReadPngDimensions(slideList[i].Png);
             if (w != firstW || h != firstH)
             {
                 throw new InvalidOperationException(
@@ -94,7 +96,7 @@ internal static class PptxBuilder
             var slideIdList = presentationPart.Presentation.GetFirstChild<SlideIdList>()!;
 
             uint slideId = 256;
-            foreach (var png in slides)
+            foreach (var (png, xgid) in slideList)
             {
                 var slidePart = presentationPart.AddNewPart<SlidePart>();
                 slidePart.AddPart(slideLayoutPart);
@@ -104,7 +106,7 @@ internal static class PptxBuilder
                     imagePart.FeedData(imgStream);
 
                 string rId = slidePart.GetIdOfPart(imagePart);
-                var slide = BuildSlide(rId, png, slideWidth);
+                var slide = BuildSlide(rId, png, slideWidth, xgid);
                 slidePart.Slide = slide;
                 slide.Save();
 
@@ -921,7 +923,7 @@ internal static class PptxBuilder
     //  Slide content
     // -----------------------------------------------------------------------
 
-    private static Slide BuildSlide(string imageRId, byte[] png, int slideWidth)
+    private static Slide BuildSlide(string imageRId, byte[] png, int slideWidth, string xgid)
     {
         long availW = slideWidth - MarginH * 2;
         long availH = SlideHeight - MarginV * 2;
@@ -958,9 +960,58 @@ internal static class PptxBuilder
             new GroupShapeProperties(BuildZeroTransformGroup()),
             BuildPicture(imageRId, imgX, imgY, imgW, imgH));
 
+        // XGID text box, appended after the picture so it layers on top.
+        // Skipped when empty so slides without an XGID stay shape-for-shape
+        // identical to the pre-XGID output.
+        if (!string.IsNullOrEmpty(xgid))
+            tree.AppendChild(BuildXgidTextBox(xgid, slideWidth));
+
         return new Slide(
             new CommonSlideData(tree),
             new P.ColorMapOverride(new A.MasterColorMapping()));
+    }
+
+    // -----------------------------------------------------------------------
+    //  XGID text box
+    // -----------------------------------------------------------------------
+
+    // XGID box geometry (EMUs). Sits in the top margin band, right-aligned,
+    // clear of the centered picture below it. Width spans roughly half the
+    // slide so a full XGID fits on one line without wrapping.
+    private const long XgidBoxHeight = (long)(0.3 * EmuPerInch);   // 274,320
+    private const long XgidBoxTop = (long)(0.1 * EmuPerInch);      // 91,440
+    private const int XgidFontSize = 1000;                          // 10pt (hundredths)
+
+    /// <summary>
+    /// Builds a real (selectable) text-box shape carrying the XGID in the
+    /// upper-right corner. Right-aligned within a box that ends at the right
+    /// margin, so the text hugs the slide's right edge. Uses a normal visible
+    /// font; no fill/outline so only the glyphs paint over the picture.
+    /// </summary>
+    private static P.Shape BuildXgidTextBox(string xgid, int slideWidth)
+    {
+        long boxWidth = slideWidth / 2;
+        long boxX = slideWidth - MarginH - boxWidth;
+
+        return new P.Shape(
+            new P.NonVisualShapeProperties(
+                new P.NonVisualDrawingProperties { Id = 3, Name = "XGID" },
+                new P.NonVisualShapeDrawingProperties(new A.ShapeLocks { NoGrouping = true }),
+                new ApplicationNonVisualDrawingProperties()),
+            new P.ShapeProperties(
+                new A.Transform2D(
+                    new A.Offset { X = boxX, Y = XgidBoxTop },
+                    new A.Extents { Cx = boxWidth, Cy = XgidBoxHeight }),
+                new A.PresetGeometry(new A.AdjustValueList())
+                { Preset = A.ShapeTypeValues.Rectangle }),
+            new P.TextBody(
+                new A.BodyProperties { Wrap = A.TextWrappingValues.None },
+                new A.ListStyle(),
+                new A.Paragraph(
+                    new A.ParagraphProperties { Alignment = A.TextAlignmentTypeValues.Right },
+                    new A.Run(
+                        new A.RunProperties { Language = "en-US", FontSize = XgidFontSize },
+                        new A.Text(xgid)))));
     }
 
     // -----------------------------------------------------------------------

@@ -80,6 +80,18 @@ public class DiagramRequestFactoryTests
     }
 
     [Fact]
+    public void FromDecisionData_PreservesXgid()
+    {
+        // Xgid is top-level on BgDecisionData (not in the three records), so
+        // it rides the dedicated b.Xgid assignment rather than Builder.From's
+        // record copy — assert that wiring survives.
+        var data = FullyPopulatedData();
+        var req = DiagramRequest.FromDecisionData(data);
+
+        Assert.Equal(data.Xgid, req.Xgid);
+    }
+
+    [Fact]
     public void FromDecisionData_AppliesRendererParameters()
     {
         var data = FullyPopulatedData();
@@ -192,6 +204,18 @@ public class DiagramRequestFactoryTests
         Assert.Equal(7, solution.PositionNumber);
     }
 
+    [Fact]
+    public void ToProblemSolutionPair_PreservesXgid()
+    {
+        const string xgid = "XGID=-b----E-C---eE---c-e----B-:0:0:1:63:0:0:3:0:10";
+        var b = TestFixtures.MinimalBuilder();
+        b.Xgid = xgid;
+        var (problem, solution) = b.Build().ToProblemSolutionPair();
+
+        Assert.Equal(xgid, problem.Xgid);
+        Assert.Equal(xgid, solution.Xgid);
+    }
+
     // -----------------------------------------------------------------------
     //  Fixture builder — every mappable field set to a distinct non-default
     //  value so any dropped mapping shows up as a failed equality assertion.
@@ -200,6 +224,7 @@ public class DiagramRequestFactoryTests
     private static BgDecisionData FullyPopulatedData() => new()
     {
         Id = new XgpDecisionId("test.xgp"),
+        Xgid = "XGID=-b----E-C---eE---c-e----B-:0:0:1:00:0:0:0:0:10",
         Position = new PositionData
         {
             Mop = MakeDistinctMop(),

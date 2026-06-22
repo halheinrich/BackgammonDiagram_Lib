@@ -30,29 +30,41 @@ public static class DiagramRasterRenderer
     public static byte[] RenderPdf(DiagramRequest request, DiagramOptions options,
         ISvgRasterizer? rasterizer = null)
     {
-        var png = RenderPng(request, options, rasterizer);
-        return PdfBuilder.Build([png]);
+        return PdfBuilder.Build([RenderOverlayPage(request, options, rasterizer)]);
     }
 
     public static byte[] RenderPdf(IEnumerable<DiagramRequest> requests, DiagramOptions options,
         ISvgRasterizer? rasterizer = null)
     {
-        var pngs = requests.Select(r => RenderPng(r, options, rasterizer)).ToList();
-        return PdfBuilder.Build(pngs);
+        var pages = requests.Select(r => RenderOverlayPage(r, options, rasterizer)).ToList();
+        return PdfBuilder.Build(pages);
     }
 
     public static byte[] RenderPptx(DiagramRequest request, DiagramOptions options,
         ISvgRasterizer? rasterizer = null)
     {
-        var png = RenderPng(request, options, rasterizer);
-        return PptxBuilder.Build([png]);
+        return PptxBuilder.Build([RenderOverlayPage(request, options, rasterizer)]);
     }
 
     public static byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options,
         ISvgRasterizer? rasterizer = null)
     {
-        var pngs = requests.Select(r => RenderPng(r, options, rasterizer)).ToList();
-        return PptxBuilder.Build(pngs);
+        var pages = requests.Select(r => RenderOverlayPage(r, options, rasterizer)).ToList();
+        return PptxBuilder.Build(pages);
+    }
+
+    /// <summary>
+    /// Renders one request's PNG with the baked XGID label forced off, pairing
+    /// it with the request's XGID for the builder to overlay as real selectable
+    /// text. Forcing <see cref="DiagramOptions.ShowXgid"/> off here (regardless
+    /// of what the caller passed) guarantees the baked pixels can't duplicate
+    /// the text overlay — the PDF/PPTX label is always the real-text one.
+    /// </summary>
+    private static (byte[] Png, string Xgid) RenderOverlayPage(DiagramRequest request,
+        DiagramOptions options, ISvgRasterizer? rasterizer)
+    {
+        var png = RenderPng(request, options with { ShowXgid = false }, rasterizer);
+        return (png, request.Xgid);
     }
 
     /// <summary>

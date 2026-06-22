@@ -82,7 +82,7 @@ public class PptxSizingTests
             new DiagramOptions { Aspect = AspectPreset.Widescreen16x9 });
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            PptxBuilder.Build(new[] { pngNatural, pngWide }));
+            PptxBuilder.Build(new[] { (pngNatural, string.Empty), (pngWide, string.Empty) }));
 
         Assert.Contains("one size", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
