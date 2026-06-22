@@ -91,21 +91,27 @@ public class RendererTitleAndRailTests
     }
 
     [Fact]
-    public void Title_SourceFile_IsCentreAnchored()
+    public void Title_SourceFile_IsLeftAnchoredAfterActionColumn()
     {
-        // Col 2 carries text-anchor="middle" in the title-strip attribute
-        // ordering. Point numbers and cube text also use text-anchor="middle"
-        // but point numbers are font-size="11" (not "12") and cube text has
-        // no dominant-baseline attribute — so this specific sequence is
-        // unique to the centred title cell.
+        // Col 2 (source) is now left-anchored at a fixed x just right of the
+        // reserved action column (edgeMargin 8 + ActionColumnWidth 110 = 118),
+        // not centred — so it can't collide with the upper-right XGID label.
+        // The attribute order matches the action cell (no text-anchor); x=118
+        // pins it to the source column specifically.
         var b = TestFixtures.MinimalBuilder();
         b.SourceFile = "game.xg";
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
         Assert.Contains(
-            """text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" """,
+            """<text x="118" y="11" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" """,
             svg);
         Assert.Contains(">game</text>", svg);
+
+        // The former centred title cell (text-anchor="middle" at 12px bold) is
+        // gone — nothing else in the strip uses that sequence.
+        Assert.DoesNotContain(
+            """text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" """,
+            svg);
     }
 
     [Fact]

@@ -14,6 +14,17 @@ public static class DiagramRenderer
     private const double TitleStripHeight = 22;
 
     /// <summary>
+    /// Fixed horizontal reservation for the title strip's action column
+    /// ("Cube Action?" / "{dice} to play"). The source (match name) cell is
+    /// left-anchored at <c>edgeMargin + ActionColumnWidth</c> so it always
+    /// starts at the same x, a clean gap to the right of the action text —
+    /// chosen generously to clear the widest label ("Cube Action?" at 12px
+    /// bold) without measuring font metrics. Left-anchoring (vs. the former
+    /// centre anchor) keeps the source clear of the upper-right XGID label.
+    /// </summary>
+    private const double ActionColumnWidth = 110;
+
+    /// <summary>
     /// Equity when the opponent passes a double. Always 1.0 because cube
     /// equities are normalised per cube — a pass forfeits exactly one cube
     /// by definition, independent of match score or cube value.
@@ -231,7 +242,8 @@ public static class DiagramRenderer
     /// Composes the three title-strip cells from the request. Column 1
     /// (left edge of the full diagram, left-anchored) is the action text —
     /// "{dice} to play" for checker decisions, "Cube Action?" for cube
-    /// decisions. Column 2 (strip centre, centre-anchored) is the
+    /// decisions. Column 2 (left-anchored at a fixed offset just right of the
+    /// action column — see <see cref="ActionColumnWidth"/>) is the
     /// SourceFile stem (filename minus its last extension) when
     /// Descriptive.SourceFile is populated. Column 3 (right edge,
     /// right-anchored) is "Position {N}" when PositionNumber is set. A
@@ -278,11 +290,12 @@ public static class DiagramRenderer
         string action, string position, string source)
     {
         // Col 1: left edge of full diagram (left-anchored).
-        // Col 2: centre of the strip (centre-anchored via text-anchor="middle").
+        // Col 2: source (match name), left-anchored at a fixed offset just
+        //        right of the action column — see ActionColumnWidth.
         // Col 3: right edge of full diagram (right-anchored via text-anchor="end").
         const double edgeMargin = 8;
         double actionX   = edgeMargin;
-        double sourceX   = totalWidth / 2;
+        double sourceX   = edgeMargin + ActionColumnWidth;
         double positionX = totalWidth - edgeMargin;
         string bg = theme.PanelBackgroundColor;
         string textColor = ContrastText(bg);
@@ -291,7 +304,7 @@ public static class DiagramRenderer
         if (action.Length > 0)
             sb.AppendLine($"""  <text x="{F(actionX)}" y="{F(textY)}" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(action)}</text>""");
         if (source.Length > 0)
-            sb.AppendLine($"""  <text x="{F(sourceX)}" y="{F(textY)}" text-anchor="middle" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(source)}</text>""");
+            sb.AppendLine($"""  <text x="{F(sourceX)}" y="{F(textY)}" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(source)}</text>""");
         if (position.Length > 0)
             sb.AppendLine($"""  <text x="{F(positionX)}" y="{F(textY)}" text-anchor="end" dominant-baseline="central" font-family="sans-serif" font-size="12" font-weight="bold" fill="{textColor}">{Escape(position)}</text>""");
     }
