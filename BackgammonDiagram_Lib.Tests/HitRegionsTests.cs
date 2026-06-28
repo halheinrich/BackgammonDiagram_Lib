@@ -55,9 +55,13 @@ public class HitRegionsTests
     }
 
     [Fact]
-    public void GetHitRegions_TopPointsSpanTopTriangleArea()
+    public void GetHitRegions_TopPointsSpanCheckerStackExtent()
     {
+        // Top points anchor their hit rect at the triangle base (top edge) and
+        // extend down toward centre by the full max-stack height, not just the
+        // triangle height — so the 6th checker of a tall stack is clickable.
         var layout = BoardLayout.Default;
+        double expectedHeight = Math.Max(layout.PointHeight, layout.MaxStackHeight);
         var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
         double titleOffset = regions.ViewBox.Height - layout.BoardHeight;
 
@@ -65,23 +69,99 @@ public class HitRegionsTests
         {
             var rect = regions.Points[pt];
             Assert.Equal(layout.TopCheckerBaseY + titleOffset, rect.Y, 2);
-            Assert.Equal(layout.PointHeight, rect.Height, 2);
+            Assert.Equal(expectedHeight, rect.Height, 2);
         }
     }
 
     [Fact]
-    public void GetHitRegions_BottomPointsSpanBottomTriangleArea()
+    public void GetHitRegions_BottomPointsSpanCheckerStackExtent()
     {
+        // Bottom points anchor their hit rect at the triangle base (bottom
+        // edge) and extend up toward centre by the full max-stack height. The
+        // base stays put; only the toward-centre edge moves out to cover the
+        // stack.
         var layout = BoardLayout.Default;
+        double expectedHeight = Math.Max(layout.PointHeight, layout.MaxStackHeight);
+        double baseY = layout.BottomCheckerBaseY + layout.PointHeight;
         var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
         double titleOffset = regions.ViewBox.Height - layout.BoardHeight;
 
         for (int pt = 1; pt <= 12; pt++)
         {
             var rect = regions.Points[pt];
-            Assert.Equal(layout.BottomCheckerBaseY + titleOffset, rect.Y, 2);
-            Assert.Equal(layout.PointHeight, rect.Height, 2);
+            // Bottom edge unchanged (still at the triangle base)...
+            Assert.Equal(baseY + titleOffset, rect.Y + rect.Height, 2);
+            // ...and the rect now spans the full stack height.
+            Assert.Equal(expectedHeight, rect.Height, 2);
         }
+    }
+
+    [Fact]
+    public void GetHitRegions_TallStackTopCheckerStaysInsideHitRect()
+    {
+        // Regression for dogfooding finding #4: a point with a full
+        // MaxStackCheckers-high stack draws its topmost checker beyond the
+        // triangle, so a triangle-only hit rect left it unclickable (couldn't
+        // play e.g. 6/5 off a 6-stack on point 6). Pin render/hit agreement by
+        // computing the top checker's centre from the SAME layout quantities
+        // the renderer uses (see AppendCheckerStack) and asserting the point's
+        // HitRect fully contains that checker — both a bottom point (stacks up)
+        // and a top point (stacks down).
+        var layout = BoardLayout.Default;
+        double r = layout.CheckerRadius;
+        int n = BoardLayout.MaxStackCheckers;
+
+        var b = TestFixtures.MinimalBuilder();
+        b.HomeBoardOnRight = true;
+        var mop = new int[26];
+        mop[6] = n;     // bottom point, on-roll: 6-high stack
+        mop[19] = -n;   // top point, opponent: 6-high stack
+        b.Mop = mop;
+        var request = b.Build();
+
+        var regions = DiagramRenderer.GetHitRegions(request, _defaultOptions);
+        double titleOffset = regions.ViewBox.Height - layout.BoardHeight;
+
+        // Bottom point 6: checkers grow upward from the base; topmost is i=n-1.
+        double bottomTopCy = layout.BottomCheckerBaseY + layout.PointHeight - r
+                             - (n - 1) * r * 2 + titleOffset;
+        AssertRectContainsChecker(regions.Points[6], bottomTopCy, r);
+
+        // Top point 19: checkers grow downward from the base.
+        double topTopCy = layout.TopCheckerBaseY + r + (n - 1) * r * 2 + titleOffset;
+        AssertRectContainsChecker(regions.Points[19], topTopCy, r);
+    }
+
+    [Fact]
+    public void GetHitRegions_PointsDoNotOverlapBar()
+    {
+        // The extended (stack-height) point rects must not bleed into the bar's
+        // hit region — points live in their own X columns flush against the
+        // bar, so X separation (touching at most) is the guarantee.
+        var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
+        var bar = regions.Bar;
+        double barLeft = bar.X;
+        double barRight = bar.X + bar.Width;
+
+        for (int pt = 1; pt <= 24; pt++)
+        {
+            var rect = regions.Points[pt];
+            double rectRight = rect.X + rect.Width;
+            bool xSeparated = rectRight <= barLeft + 0.01 || rect.X >= barRight - 0.01;
+            Assert.True(xSeparated,
+                $"Point {pt} rect X [{rect.X}, {rectRight}] overlaps bar X [{barLeft}, {barRight}].");
+        }
+    }
+
+    private static void AssertRectContainsChecker(HitRect rect, double checkerCy, double r)
+    {
+        double checkerTop = checkerCy - r;
+        double checkerBottom = checkerCy + r;
+        double rectTop = rect.Y;
+        double rectBottom = rect.Y + rect.Height;
+        Assert.True(rectTop <= checkerTop + 0.01 && checkerBottom <= rectBottom + 0.01,
+            $"Checker spanning Y [{checkerTop}, {checkerBottom}] is not contained in " +
+            $"hit rect Y [{rectTop}, {rectBottom}].");
     }
 
     [Fact]

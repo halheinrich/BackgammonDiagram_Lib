@@ -125,18 +125,29 @@ public static class DiagramRenderer
             double x = cx - layout.ColumnWidth / 2;
             double w = layout.ColumnWidth;
 
-            double y, h;
+            // Cover the full checker-stack extent, not just the triangle: a
+            // max-height stack is MaxStackHeight tall (6 checkers), which is
+            // taller than the triangle (PointHeight, 5 checkers). Keying off
+            // the same MaxStackCheckers bound the renderer caps the stack at
+            // (see AppendCheckerStack) keeps the topmost checker clickable and
+            // prevents render/hit drift. max() guards the degenerate case where
+            // a future PointHeight exceeds the stack — the rect still covers the
+            // triangle. The rect stays anchored at the point base and extends
+            // toward the board centre (up for bottom points, down for top).
+            double h = Math.Max(layout.PointHeight, layout.MaxStackHeight);
+
+            double y;
             if (pt >= 13)
             {
-                // Top points: triangle area only
+                // Top points: base at the top edge, stack grows downward.
                 y = layout.TopCheckerBaseY + titleOffset;
-                h = layout.PointHeight;
             }
             else
             {
-                // Bottom points: triangle area only
-                y = layout.BottomCheckerBaseY + titleOffset;
-                h = layout.PointHeight;
+                // Bottom points: base at the bottom edge, stack grows upward —
+                // anchor the rect's bottom to the base and extend it up.
+                double baseY = layout.BottomCheckerBaseY + layout.PointHeight;
+                y = baseY - h + titleOffset;
             }
 
             points[pt] = new HitRect(x, y, w, h);
@@ -534,8 +545,8 @@ public static class DiagramRenderer
         string fill = onRoll ? theme.CheckerColorOnRoll : theme.CheckerColorOpponent;
         string stroke = "#888888";
         double r = layout.CheckerRadius;
-        int draw = Math.Min(abs, 6);
-        bool capped = abs > 6;
+        int draw = Math.Min(abs, BoardLayout.MaxStackCheckers);
+        bool capped = abs > BoardLayout.MaxStackCheckers;
 
         for (int i = 0; i < draw; i++)
         {

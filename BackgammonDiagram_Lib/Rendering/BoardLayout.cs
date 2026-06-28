@@ -20,6 +20,33 @@ public readonly struct BoardLayout
     public double MiddleGap     => D * 2.5;     // 2.5 checker gap between point tips
 
     // -----------------------------------------------------------------------
+    //  Checker stacking
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Maximum number of checkers drawn in a single point or bar stack before
+    /// the renderer collapses the remainder into a numeric count label.
+    /// Single source of truth: the checker renderer caps its drawn circles at
+    /// this value (see DiagramRenderer.AppendCheckerStack) and the hit-region
+    /// builder sizes each point's clickable rect from the resulting stack
+    /// height (see <see cref="MaxStackHeight"/>), so the topmost drawn checker
+    /// is always inside its point's hit region. Do not hardcode this bound at
+    /// either site — both must read it here or they drift apart.
+    /// </summary>
+    public const int MaxStackCheckers = 6;
+
+    /// <summary>
+    /// Vertical extent of a maximum-height checker stack, measured from the
+    /// point base toward the board centre. A stack of
+    /// <see cref="MaxStackCheckers"/> contiguous checkers — each one diameter
+    /// tall, the first sitting on the point base — spans exactly this far.
+    /// Exceeds <see cref="PointHeight"/> (the triangle is only 5 checkers tall),
+    /// which is precisely why point hit-rects key off this rather than the
+    /// triangle height.
+    /// </summary>
+    public double MaxStackHeight => MaxStackCheckers * D;
+
+    // -----------------------------------------------------------------------
     //  Rails
     // -----------------------------------------------------------------------
     public double LeftRailWidth  => D * 1.5;    // cube lives here
