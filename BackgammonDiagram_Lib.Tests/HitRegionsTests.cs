@@ -251,6 +251,98 @@ public class HitRegionsTests
         Assert.Equal(layout.LeftRailX(panelOnLeft), regions.Cube!.X, 2);
     }
 
+    [Fact]
+    public void GetHitRegions_DiceRegionCoversBothDrawnDice()
+    {
+        // Producer step 1 of finding #2 (clickable dice). Pin draw/hit
+        // agreement the way the finding-#4 checker test does: derive the dice
+        // geometry from the SAME shared source AppendDice draws from
+        // (DiagramRenderer.DicePairBounds) rather than hand-copying the formula,
+        // then assert the Dice hit-region is exactly that bounding box (shifted
+        // by the title-strip offset) and that the two actually-rendered dice
+        // fall inside it.
+        var request = MinimalRequest();
+
+        string svg = DiagramRenderer.RenderSvg(request, _defaultOptions);
+        var regions = DiagramRenderer.GetHitRegions(request, _defaultOptions);
+
+        // Re-derive the renderer's layout from the rendered SVG width — same
+        // aspect-driven PanelWidthOverride GetHitRegions used (default options
+        // force 16:9) — so the shared-source bounds are computed in the same
+        // coordinate system. (BoardHeight is panel-independent.)
+        var (svgWidth, _) = ParseSvgViewBox(svg);
+        double panelWidth = svgWidth - BoardLayout.Default.BoardWidth;
+        var layout = BoardLayout.Default with { PanelWidthOverride = panelWidth };
+        double titleOffset = regions.ViewBox.Height - layout.BoardHeight;
+
+        Assert.NotNull(regions.Dice);
+        var dice = regions.Dice!;
+
+        // The hit-region is exactly the shared dice-pair bounding box, shifted
+        // by the title offset every region carries.
+        var bounds = DiagramRenderer.DicePairBounds(layout, request, request.PanelOnLeft).Bounds;
+        Assert.Equal(bounds.X, dice.X, 2);
+        Assert.Equal(bounds.Y + titleOffset, dice.Y, 2);
+        Assert.Equal(bounds.Width, dice.Width, 2);
+        Assert.Equal(bounds.Height, dice.Height, 2);
+
+        // End-to-end: the two real dice <rect>s in the rendered SVG (board
+        // space — drawn inside the title-offset <g>) lie inside the hit-region
+        // once the same offset is applied. Closes the loop SVG ↔ shared source
+        // ↔ hit-region, so AppendDice and GetHitRegions can't silently drift.
+        var drawn = ParseDiceRects(svg);
+        Assert.Equal(2, drawn.Count);
+        foreach (var d in drawn)
+            AssertRectContainsRect(dice, d with { Y = d.Y + titleOffset });
+    }
+
+    [Fact]
+    public void GetHitRegions_DiceRegionNullForCubeDecision()
+    {
+        // Cube decisions draw no dice (mirrors the AppendDice call-site gate),
+        // so the hit-region must be absent rather than sitting over empty board.
+        var b = TestFixtures.MinimalBuilder();
+        b.IsCube = true;
+        b.Dice = [0, 0];
+
+        var regions = DiagramRenderer.GetHitRegions(b.Build(), _defaultOptions);
+
+        Assert.Null(regions.Dice);
+    }
+
+    private static void AssertRectContainsRect(HitRect outer, HitRect inner)
+    {
+        Assert.True(
+            outer.X <= inner.X + 0.01 &&
+            outer.Y <= inner.Y + 0.01 &&
+            inner.X + inner.Width <= outer.X + outer.Width + 0.01 &&
+            inner.Y + inner.Height <= outer.Y + outer.Height + 0.01,
+            $"Rect [{inner.X}, {inner.Y}, {inner.Width}, {inner.Height}] is not contained in " +
+            $"[{outer.X}, {outer.Y}, {outer.Width}, {outer.Height}].");
+    }
+
+    /// <summary>
+    /// Parses the two die face rects from rendered SVG. Dice are the only
+    /// <c>&lt;rect&gt;</c>s drawn with <c>stroke-width="0.75"</c> (the cube and
+    /// bear-off bars use 0.5; board/rails are unstroked), so that attribute
+    /// uniquely identifies them.
+    /// </summary>
+    private static List<HitRect> ParseDiceRects(string svg)
+    {
+        var matches = Regex.Matches(svg,
+            @"<rect x=""([\d.]+)"" y=""([\d.]+)"" width=""([\d.]+)"" height=""([\d.]+)"" rx=""[\d.]+"" fill=""[^""]*"" stroke=""#888"" stroke-width=""0\.75""");
+        var rects = new List<HitRect>();
+        foreach (Match m in matches)
+        {
+            rects.Add(new HitRect(
+                double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture),
+                double.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture),
+                double.Parse(m.Groups[3].Value, CultureInfo.InvariantCulture),
+                double.Parse(m.Groups[4].Value, CultureInfo.InvariantCulture)));
+        }
+        return rects;
+    }
+
     private static (double Width, double Height) ParseSvgViewBox(string svg)
     {
         var match = Regex.Match(svg,

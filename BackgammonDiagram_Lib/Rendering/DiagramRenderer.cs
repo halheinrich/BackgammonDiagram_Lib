@@ -180,6 +180,18 @@ public static class DiagramRenderer
             ? TrayHitRect(layout, panelOnLeft, titleOffset, cubeSize, atBottom: !request.OnRollAtBottom)
             : null;
 
+        // --- Dice: bounding box over the pair, from the same geometry source
+        //     AppendDice draws from. Only checker decisions draw dice, mirroring
+        //     the AppendDice call site; cube decisions get a null region. The
+        //     board-space bounds are shifted by titleOffset like every other
+        //     region so they line up with the rendered dice.
+        HitRect? dice = null;
+        if (!request.Decision.IsCube)
+        {
+            var bounds = DicePairBounds(layout, request, panelOnLeft).Bounds;
+            dice = bounds with { Y = bounds.Y + titleOffset };
+        }
+
         return new BoardHitRegions
         {
             ViewBox = new SvgViewBox(0, 0, totalWidth, totalHeight),
@@ -188,6 +200,7 @@ public static class DiagramRenderer
             Cube = cube,
             OnRollTray = onRollTray,
             OpponentTray = opponentTray,
+            Dice = dice,
         };
     }
 
@@ -574,33 +587,60 @@ public static class DiagramRenderer
     //  Dice
     // -----------------------------------------------------------------------
 
-    private static void AppendDice(StringBuilder sb, BoardLayout layout, ITheme theme,
+    /// <summary>
+    /// Geometry of the two-die pair. Both dice are <see cref="Size"/> square and
+    /// share the top edge <see cref="Y"/>; the left die sits at <see cref="D1X"/>
+    /// and the right at <see cref="D2X"/>, both in board space (no title offset).
+    /// Single source of truth for dice placement: <see cref="AppendDice"/> draws
+    /// from it and <see cref="GetHitRegions"/> sizes the dice hit-region from
+    /// <see cref="Bounds"/>, so the hit region can never drift from the drawn
+    /// dice (cf. the point-stack draw/hit drift behind finding #4).
+    /// </summary>
+    internal readonly record struct DicePairGeometry(double D1X, double D2X, double Y, double Size, double Rx)
+    {
+        /// <summary>Axis-aligned bounding box enclosing both dice, in board space.</summary>
+        public HitRect Bounds => new(D1X, Y, D2X + Size - D1X, Size);
+    }
+
+    /// <summary>
+    /// Computes the dice-pair geometry for the current request. Caller-gated to
+    /// checker decisions — for cube decisions no dice are drawn and there is no
+    /// dice hit-region (mirrors the <see cref="AppendDice"/> call site).
+    /// </summary>
+    internal static DicePairGeometry DicePairBounds(BoardLayout layout,
         DiagramRequest request, bool panelOnLeft)
     {
         double r = layout.CheckerRadius;
         double size = r * 1.6;          // die face size
-        double gap = size * 0.3;       // gap between the two dice
-        double rx = size * 0.15;      // corner radius
+        double gap = size * 0.3;        // gap between the two dice
+        double rx = size * 0.15;        // corner radius
 
-        // Dice sit in the middle gap, vertically centred
+        // Dice sit in the middle gap, vertically centred.
         double cy = layout.MiddleY + layout.MiddleGap / 2;
         double pairW = size * 2 + gap;
 
-        // Horizontal centre: right half when on-roll is at bottom, left half otherwise
+        // Horizontal centre: right half when on-roll is at bottom, left half otherwise.
         double halfCx = request.OnRollAtBottom
             ? layout.InnerHalfX(panelOnLeft) + layout.HalfWidth / 2
             : layout.OuterHalfX(panelOnLeft) + layout.HalfWidth / 2;
 
         double d1X = halfCx - pairW / 2;          // left die top-left x
-        double d2X = halfCx - pairW / 2 + size + gap; // right die top-left x
-        double dY = cy - size / 2;               // top-left y (same for both)
+        double d2X = d1X + size + gap;            // right die top-left x
+        double dY = cy - size / 2;                // top-left y (same for both)
+        return new DicePairGeometry(d1X, d2X, dY, size, rx);
+    }
+
+    private static void AppendDice(StringBuilder sb, BoardLayout layout, ITheme theme,
+        DiagramRequest request, bool panelOnLeft)
+    {
+        var dice = DicePairBounds(layout, request, panelOnLeft);
 
         // Dice take the on-roll player's checker colour; pips contrast against it.
         string faceFill = theme.CheckerColorOnRoll;
         string pipFill  = ContrastText(faceFill);
 
-        AppendDie(sb, d1X, dY, size, rx, request.Decision.Dice[0], faceFill, pipFill);
-        AppendDie(sb, d2X, dY, size, rx, request.Decision.Dice[1], faceFill, pipFill);
+        AppendDie(sb, dice.D1X, dice.Y, dice.Size, dice.Rx, request.Decision.Dice[0], faceFill, pipFill);
+        AppendDie(sb, dice.D2X, dice.Y, dice.Size, dice.Rx, request.Decision.Dice[1], faceFill, pipFill);
     }
 
     private static void AppendDie(StringBuilder sb,
