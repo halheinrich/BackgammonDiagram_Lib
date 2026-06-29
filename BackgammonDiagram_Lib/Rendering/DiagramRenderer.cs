@@ -173,10 +173,10 @@ public static class DiagramRenderer
         // for the stack, minus the bar-specific padding.
         var (onRollOff, opponentOff) = CountBorneOff(request.Position.Mop);
         double cubeSize = layout.LeftRailWidth * 0.7;
-        HitRect? onRollTray = onRollOff is >= BearOffMinCount and <= BearOffMaxCount
+        HitRect? onRollTray = onRollOff is >= OnRollTrayMinCount and <= BearOffMaxCount
             ? TrayHitRect(layout, panelOnLeft, titleOffset, cubeSize, atBottom: request.OnRollAtBottom)
             : null;
-        HitRect? opponentTray = opponentOff is >= BearOffMinCount and <= BearOffMaxCount
+        HitRect? opponentTray = opponentOff is >= OpponentTrayMinCount and <= BearOffMaxCount
             ? TrayHitRect(layout, panelOnLeft, titleOffset, cubeSize, atBottom: !request.OnRollAtBottom)
             : null;
 
@@ -835,11 +835,23 @@ public static class DiagramRenderer
     //  Bear-off tray
     // -----------------------------------------------------------------------
 
-    // Trigger band — render a player's bear-off stack only when at least one
-    // checker is off and at least one is still on the board. Excludes both the
-    // "game hasn't started" case (0 off) and the degenerate "all zeros" Mop
-    // fixture (15 off / 0 on, which doesn't represent a meaningful position).
-    private const int BearOffMinCount = 1;
+    // Trigger bands — how many checkers off makes a player's bear-off tray
+    // render (visual stack + hit-region). The two players differ at the lower
+    // edge:
+    //
+    //  * On-roll tray: shown throughout play, [0,14]. At 0 off it draws an
+    //    empty tray (count-0 stack — the rail region, no checkers) so the first
+    //    checker can be borne off by clicking the tray. Without this the tray
+    //    was missing at the start of a bear-off and TryBearOffMax was
+    //    unreachable from a 15-on-board position.
+    //  * Opponent tray: display-only (no hit-region drives interaction), so it
+    //    keeps the original "at least one off" floor, [1,14] — an empty
+    //    opponent tray would be visual noise with nothing to click.
+    //
+    // Both share the upper bound 14: 15 off is all checkers borne off (game
+    // over), which renders no tray.
+    private const int OnRollTrayMinCount = 0;
+    private const int OpponentTrayMinCount = 1;
     private const int BearOffMaxCount = 14;
 
     private static void AppendBearOff(StringBuilder sb, BoardLayout layout, ITheme theme,
@@ -848,12 +860,12 @@ public static class DiagramRenderer
         var (onRollOff, opponentOff) = CountBorneOff(request.Position.Mop);
         double cubeSize = layout.LeftRailWidth * 0.7;
 
-        if (onRollOff >= BearOffMinCount && onRollOff <= BearOffMaxCount)
+        if (onRollOff >= OnRollTrayMinCount && onRollOff <= BearOffMaxCount)
         {
             AppendBearOffStack(sb, layout, bx, request.OnRollAtBottom,
                 count: onRollOff, cubeSize: cubeSize, fill: theme.CheckerColorOnRoll);
         }
-        if (opponentOff >= BearOffMinCount && opponentOff <= BearOffMaxCount)
+        if (opponentOff >= OpponentTrayMinCount && opponentOff <= BearOffMaxCount)
         {
             AppendBearOffStack(sb, layout, bx, !request.OnRollAtBottom,
                 count: opponentOff, cubeSize: cubeSize, fill: theme.CheckerColorOpponent);
@@ -887,6 +899,12 @@ public static class DiagramRenderer
     private static void AppendBearOffStack(StringBuilder sb, BoardLayout layout, double bx,
         bool atBottom, int count, double cubeSize, string fill)
     {
+        // Empty tray: the rail region is the tray, so an empty stack is simply
+        // no bars. Return before the stack-height math (which would go negative
+        // for count 0) so the count-0 case is an explicit, clean no-op.
+        if (count <= 0)
+            return;
+
         double d = layout.ColumnWidth;
         double barWidth = layout.LeftRailWidth * 0.55;
         double barHeight = d * 0.22;

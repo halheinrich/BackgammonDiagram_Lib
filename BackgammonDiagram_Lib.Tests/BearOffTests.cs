@@ -88,14 +88,126 @@ public class BearOffTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void GetHitRegions_StartingPosition_BothTraysNull()
+    public void GetHitRegions_StartingPosition_OnRollTrayPresentOpponentNull()
     {
+        // At the start of play both players have 0 off. The on-roll tray now
+        // renders from 0 (so the first checker can be borne off by clicking an
+        // empty tray); the opponent tray is display-only and stays hidden until
+        // it has something to show.
         var b = TestFixtures.MinimalBuilder();
         b.Mop = TestFixtures.StartingMop();
         var regions = DiagramRenderer.GetHitRegions(b.Build(), new DiagramOptions());
 
-        Assert.Null(regions.OnRollTray);
+        Assert.NotNull(regions.OnRollTray);
         Assert.Null(regions.OpponentTray);
+    }
+
+    // -----------------------------------------------------------------------
+    //  On-roll tray extended to 0 off — E1 regression
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void GetHitRegions_ZeroOnRollOff_OnRollTrayPopulated()
+    {
+        // E1 regression: with all 15 on the board (0 off), the on-roll tray's
+        // hit-region was gated out at the old [1,14] floor, so the first
+        // checker couldn't be borne off by clicking the tray. It must now be
+        // present at 0.
+        var b = TestFixtures.MinimalBuilder();
+        b.Mop = MopFor(onRollOff: 0, opponentOff: 0);  // 15 on board each
+        var regions = DiagramRenderer.GetHitRegions(b.Build(), new DiagramOptions());
+
+        Assert.NotNull(regions.OnRollTray);
+    }
+
+    [Fact]
+    public void GetHitRegions_ZeroOpponentOff_OpponentTrayHidden()
+    {
+        // The opponent tray keeps its [1,14] floor (display-only, nothing to
+        // click), so 0 opponent-off leaves it null even though the on-roll
+        // tray now shows at 0.
+        var b = TestFixtures.MinimalBuilder();
+        b.Mop = MopFor(onRollOff: 0, opponentOff: 0);
+        var regions = DiagramRenderer.GetHitRegions(b.Build(), new DiagramOptions());
+
+        Assert.Null(regions.OpponentTray);
+    }
+
+    [Fact]
+    public void GetHitRegions_AllOnRollOff_OnRollTrayNull()
+    {
+        // Upper edge of the band: 15 off is all checkers borne off (game over),
+        // which is outside [0,14] — no tray.
+        var b = TestFixtures.MinimalBuilder();
+        b.Mop = MopFor(onRollOff: 15, opponentOff: 0);
+        var regions = DiagramRenderer.GetHitRegions(b.Build(), new DiagramOptions());
+
+        Assert.Null(regions.OnRollTray);
+    }
+
+    [Fact]
+    public void EmptyOnRollTray_AtZeroOff_RendersNoOnRollBars()
+    {
+        // The empty on-roll tray is the rail region with no checkers — it must
+        // draw zero bars. Pair it with a non-empty opponent stack so the count
+        // pins the on-roll contribution exactly: total stroked rects must equal
+        // cube (1) + the opponent's bars, with nothing added by the on-roll
+        // tray. If the count-0 stack glitched into drawing anything, this trips.
+        var b = TestFixtures.MinimalBuilder();
+        b.Mop = MopFor(onRollOff: 0, opponentOff: 7);
+
+        int strokedRects = CountStroke05Rects(TestFixtures.Render(b.Build()));
+        Assert.Equal(8, strokedRects);  // cube + 7 opponent bars + 0 on-roll
+    }
+
+    [Fact]
+    public void GetHitRegions_EmptyOnRollTray_DoesNotOverlapCubeSlots()
+    {
+        // Mirror of the finding-#4 overlap guard, for the tray now drawn at 0
+        // off. The on-roll tray occupies its half of the left rail — the band
+        // between the centered-cube slot and the on-roll player's turned-cube
+        // slot — and must abut, not overlap, either neighbour. (It necessarily
+        // sits inside the full-rail Cube hit-region, which is a deliberate
+        // catch-all column, so the guard is against the cube *slots*, derived
+        // from the same geometry the renderer uses.)
+        var b = TestFixtures.MinimalBuilder();
+        b.OnRollAtBottom = true;
+        b.Mop = MopFor(onRollOff: 0, opponentOff: 0);
+        var request = b.Build();
+        var regions = DiagramRenderer.GetHitRegions(request, new DiagramOptions());
+
+        var tray = regions.OnRollTray;
+        Assert.NotNull(tray);
+
+        var baseLayout = BoardLayout.Default;
+        double panelWidth = regions.ViewBox.Width - baseLayout.BoardWidth;
+        var layout = baseLayout with { PanelWidthOverride = panelWidth };
+        double titleOffset = regions.ViewBox.Height - layout.BoardHeight;
+
+        // Tray stays within the left-rail X span.
+        Assert.Equal(layout.LeftRailX(request.PanelOnLeft), tray!.X, 2);
+        Assert.Equal(layout.LeftRailWidth, tray.Width, 2);
+
+        // Cube-slot geometry, re-derived as the renderer computes it.
+        double cubeSize = layout.LeftRailWidth * 0.7;
+        double centeredCubeBottom = layout.BoardHeight / 2 + cubeSize / 2;
+        const double turnedCubeEdgeMargin = 8;  // DiagramRenderer.TurnedCubeEdgeMargin
+        double onRollTurnedTop = layout.BoardHeight - turnedCubeEdgeMargin - cubeSize;
+
+        double trayTop = tray.Y;
+        double trayBottom = tray.Y + tray.Height;
+
+        // Below the centered cube (no intrusion into the centre slot)...
+        Assert.True(trayTop >= centeredCubeBottom + titleOffset - 0.01,
+            $"Tray top {trayTop} overlaps the centered-cube slot " +
+            $"(bottom {centeredCubeBottom + titleOffset}).");
+        // ...and above the on-roll turned-cube slot at the bottom edge.
+        Assert.True(trayBottom <= onRollTurnedTop + titleOffset + 0.01,
+            $"Tray bottom {trayBottom} overlaps the turned-cube slot " +
+            $"(top {onRollTurnedTop + titleOffset}).");
+        // And it stays on the board.
+        Assert.True(trayBottom <= layout.BoardHeight + titleOffset + 0.01,
+            $"Tray bottom {trayBottom} runs past the board.");
     }
 
     [Fact]
@@ -110,13 +222,16 @@ public class BearOffTests
     }
 
     [Fact]
-    public void GetHitRegions_OnlyOpponentBearingOff_OpponentTrayPopulatedOnRollNull()
+    public void GetHitRegions_OpponentBearingOffOnRollNotYet_BothTraysPresent()
     {
+        // Opponent has borne off, on-roll has not (0 off). The opponent tray is
+        // populated as before; the on-roll tray is now also present (empty) so
+        // the on-roll player can start bearing off by clicking it.
         var b = TestFixtures.MinimalBuilder();
         b.Mop = MopFor(onRollOff: 0, opponentOff: 4);
         var regions = DiagramRenderer.GetHitRegions(b.Build(), new DiagramOptions());
 
-        Assert.Null(regions.OnRollTray);
+        Assert.NotNull(regions.OnRollTray);
         Assert.NotNull(regions.OpponentTray);
     }
 
