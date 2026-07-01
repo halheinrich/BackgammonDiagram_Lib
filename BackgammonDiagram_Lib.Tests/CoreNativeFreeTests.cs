@@ -20,7 +20,7 @@ public class CoreNativeFreeTests
     // assembly directly references.
     private static readonly string[] ForbiddenAssemblyTokens =
     [
-        "SkiaSharp",            // SkiaSharp + SkiaSharp.Svg
+        "SkiaSharp",            // SkiaSharp (transitive via Svg.Skia / QuestPDF)
         "Svg.Skia",             // Svg.Skia (+ its ShimSkiaSharp/Svg.* friends carry "Skia")
         "QuestPDF",
         "DocumentFormat.OpenXml",

@@ -38,9 +38,9 @@ Core (`BackgammonDiagram_Lib`):
 ExportRaster (`BackgammonDiagram_Lib.ExportRaster`), in addition to a project
 reference to core:
 
-- **SkiaSharp.Svg** — PNG rasterization backend (brings `SkiaSharp`
-  transitively, which the rasterizer consumes directly).
-- **Svg.Skia** — SVG parse/draw path used by the PNG pipeline.
+- **Svg.Skia** — SVG parse/draw backend for the PNG pipeline (its `SKSvg` is
+  what the rasterizer loads); brings `SkiaSharp` transitively, which the
+  rasterizer consumes directly.
 - **QuestPDF** — PDF layout and output (MIT licensed; license set by caller,
   not this library).
 - **DocumentFormat.OpenXml** — PPTX generation.
