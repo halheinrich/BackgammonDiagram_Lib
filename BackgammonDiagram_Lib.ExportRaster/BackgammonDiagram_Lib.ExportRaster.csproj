@@ -10,9 +10,9 @@
        submodule allowed to reference SkiaSharp / Svg.Skia / QuestPDF /
        DocumentFormat.OpenXml. -->
   <ItemGroup>
-    <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
-    <PackageReference Include="QuestPDF" Version="2026.2.3" />
-    <PackageReference Include="Svg.Skia" Version="3.6.0" />
+    <PackageReference Include="DocumentFormat.OpenXml" />
+    <PackageReference Include="QuestPDF" />
+    <PackageReference Include="Svg.Skia" />
   </ItemGroup>
 
   <ItemGroup>
