@@ -92,6 +92,49 @@ public class DiagramRequestFactoryTests
     }
 
     [Fact]
+    public void FromDecisionData_LeavesSecondaryPlayIndexUnset()
+    {
+        // SecondaryPlayIndex is a render-only overlay the consumer sets
+        // directly — it is NOT sourced from the data layer, so the data-record
+        // factory must leave it at the default −1. This is the exports-untouched
+        // guard: every export path builds through here (or FromDecisionData),
+        // so a stray mapping would silently start marking a second play.
+        var data = FullyPopulatedData();
+        var req = DiagramRequest.FromDecisionData(data);
+
+        Assert.Equal(-1, req.SecondaryPlayIndex);
+    }
+
+    [Fact]
+    public void BuilderFrom_ExistingRequest_PreservesSecondaryPlayIndex()
+    {
+        // Builder.From(DiagramRequest) reproduces a request faithfully, so the
+        // overlay must ride across the round-trip (like Xgid / PositionNumber),
+        // even though the three-record From does not carry it.
+        var b = TestFixtures.MinimalBuilder();
+        b.SecondaryPlayIndex = 3;
+        var original = b.Build();
+
+        var rebuilt = DiagramRequest.Builder.From(original).Build();
+
+        Assert.Equal(3, rebuilt.SecondaryPlayIndex);
+    }
+
+    [Fact]
+    public void ToProblemSolutionPair_PreservesSecondaryPlayIndex()
+    {
+        // The quiz consumer sets the overlay then expands to a Problem/Solution
+        // pair — the overlay must survive on both sides so the solution view
+        // can mark the second play.
+        var b = TestFixtures.MinimalBuilder();
+        b.SecondaryPlayIndex = 2;
+        var (problem, solution) = b.Build().ToProblemSolutionPair();
+
+        Assert.Equal(2, problem.SecondaryPlayIndex);
+        Assert.Equal(2, solution.SecondaryPlayIndex);
+    }
+
+    [Fact]
     public void FromDecisionData_AppliesRendererParameters()
     {
         var data = FullyPopulatedData();

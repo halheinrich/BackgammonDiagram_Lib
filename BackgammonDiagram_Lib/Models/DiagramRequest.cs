@@ -43,6 +43,36 @@ public class DiagramRequest
     /// </summary>
     public string Xgid { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Optional index of a <em>second</em> play to mark in the solution play
+    /// panel, rendered with a bold † to set it apart from the primary play
+    /// (marked with a bold * at <see cref="BgDataTypes_Lib.DecisionData.UserPlayIndex"/>).
+    /// This lets a quiz solution view show the originally-played move (*) and
+    /// the user's differing answer (†) side by side.
+    /// <para>
+    /// It is a <b>render-only overlay the consumer sets directly</b>, not a
+    /// value sourced from <see cref="BgDecisionData"/> —  the "second play" is
+    /// a consumer concept (e.g. a quiz answer), not an .xg-derived field. The
+    /// data-sourcing factories (<see cref="FromDecisionData"/> and the
+    /// three-record <c>Builder.From</c>) leave it at the default −1, so every
+    /// export path — which sets only the primary index — is visually
+    /// unchanged. Only <c>Builder.From(DiagramRequest)</c> carries it across,
+    /// so round-tripping a request (e.g. <c>ToProblemSolutionPair</c>)
+    /// preserves the overlay.
+    /// </para>
+    /// <para>
+    /// The renderer draws † only when <c>SecondaryPlayIndex &gt;= 0</c> and it
+    /// differs from <see cref="BgDataTypes_Lib.DecisionData.UserPlayIndex"/>; a
+    /// secondary that coincides with the primary collapses to a single *. The
+    /// producer owns this "don't double-mark a row" suppression, so the
+    /// consumer can pass both indices blindly. Both marked rows are always kept
+    /// visible: one ranking beyond the panel's visible window is rescued into
+    /// view with its real rank, exactly as the primary play already is.
+    /// Defaults to −1 (no secondary mark).
+    /// </para>
+    /// </summary>
+    public int SecondaryPlayIndex { get; init; } = -1;
+
     // -----------------------------------------------------------------------
     //  Factory: BgDecisionData → DiagramRequest
     // -----------------------------------------------------------------------
@@ -141,6 +171,15 @@ public class DiagramRequest
         public int? PositionNumber { get; set; }
         public string Xgid { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Render-only overlay: index of the second play to mark with † in the
+        /// solution play panel. See <see cref="DiagramRequest.SecondaryPlayIndex"/>.
+        /// Sits with the renderer-specific fields (not the Decision block)
+        /// because it is set by the consumer, not copied from
+        /// <see cref="DecisionData"/>. Defaults to −1 (no secondary mark).
+        /// </summary>
+        public int SecondaryPlayIndex { get; set; } = -1;
+
         // -------------------------------------------------------------------
         //  Factories — single field-mapping site for data → builder
         // -------------------------------------------------------------------
@@ -232,6 +271,9 @@ public class DiagramRequest
                 existing.AnalysisPanelPosition);
             b.PositionNumber = existing.PositionNumber;
             b.Xgid = existing.Xgid;
+            // Render-only overlay — not carried by the three-record From, so
+            // copy it here to keep this "reproduce a request" factory faithful.
+            b.SecondaryPlayIndex = existing.SecondaryPlayIndex;
             return b;
         }
 
@@ -295,6 +337,7 @@ public class DiagramRequest
                 AnalysisPanelPosition = AnalysisPanelPosition,
                 PositionNumber = PositionNumber,
                 Xgid = Xgid,
+                SecondaryPlayIndex = SecondaryPlayIndex,
             };
         }
 

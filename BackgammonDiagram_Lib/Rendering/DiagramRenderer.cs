@@ -1015,26 +1015,60 @@ public static class DiagramRenderer
         int total = plays.Count;
 
         // Decide the visible index set. Normally [0 .. min(fitCount, total)).
-        // If the user's play would be cut (userIndex >= fitCount), displace
-        // the last otherwise-visible entry and append the user's play with
-        // its real rank.
+        // Up to two plays are marked and must both stay visible: the primary
+        // (*) at UserPlayIndex and the secondary (†) at SecondaryPlayIndex. Any
+        // marked play ranking beyond the cut (index >= fitCount) is "rescued"
+        // by displacing a tail entry, so it still shows with its real rank —
+        // so up to two tail rows may be displaced (neither, one, or both).
         int userIndex = request.Decision.UserPlayIndex;
-        bool userNeedsRescue = userIndex >= 0
-                               && userIndex < total
-                               && userIndex >= fitCount
-                               && fitCount > 0;
+        int secondaryIndex = request.SecondaryPlayIndex;
+
+        // The secondary mark is active only when set, in range, and distinct
+        // from the primary. A coincident secondary collapses to a single *:
+        // the producer owns the "don't double-mark a row" rule so consumers can
+        // pass both indices blindly.
+        bool secondaryActive = secondaryIndex >= 0
+                               && secondaryIndex < total
+                               && secondaryIndex != userIndex;
 
         int visibleCount = Math.Min(fitCount, total);
-        for (int slot = 0; slot < visibleCount; slot++)
-        {
-            // Last slot swaps to the rescued user play when needed.
-            int playIdx = (userNeedsRescue && slot == visibleCount - 1)
-                ? userIndex
-                : slot;
 
+        // Marked plays that fall outside the natural [0 .. fitCount) window and
+        // must be rescued into view. Sorted ascending so rescued rows read in
+        // rank order at the foot of the panel. (fitCount == 0 leaves no room to
+        // rescue into, matching the pre-existing guard.)
+        var rescued = new List<int>(2);
+        if (fitCount > 0)
+        {
+            if (userIndex >= 0 && userIndex < total && userIndex >= fitCount)
+                rescued.Add(userIndex);
+            if (secondaryActive && secondaryIndex >= fitCount)
+                rescued.Add(secondaryIndex);
+            rescued.Sort();
+        }
+
+        // Keep the top rows, then give the remaining slots to the rescued
+        // plays. keepCount never goes negative; if more plays need rescue than
+        // there are slots (a panel with room for only a single row), show as
+        // many as fit rather than overflow the budget.
+        int keepCount = Math.Max(0, visibleCount - rescued.Count);
+        var visible = new List<int>(visibleCount);
+        for (int i = 0; i < keepCount; i++)
+            visible.Add(i);
+        foreach (int idx in rescued)
+        {
+            if (visible.Count >= visibleCount) break;
+            visible.Add(idx);
+        }
+
+        foreach (int playIdx in visible)
+        {
             var play = plays[playIdx];
             bool isUser = playIdx == userIndex;
-            string marker = isUser ? "*" : string.Empty;
+            bool isSecondary = secondaryActive && playIdx == secondaryIndex;
+            // Primary * wins over secondary †. They can't both be true (an
+            // active secondary is a distinct index), but keep * authoritative.
+            string marker = isUser ? "*" : isSecondary ? "†" : string.Empty;
             string rank = $"{playIdx + 1}";
             string moveText = play.MoveNotation;
 
