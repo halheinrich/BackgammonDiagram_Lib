@@ -57,6 +57,7 @@ Test-only:
 
 ```
 BackgammonDiagram_Lib.slnx
+Directory.Packages.props
 BackgammonDiagram_Lib/                    (core — native-free)
   BackgammonDiagram_Lib.csproj
   Watermarks.cs               — public static Watermarks.Default byte[] accessor
@@ -96,6 +97,7 @@ BackgammonDiagram_Lib.Tests/              (refs core + ExportRaster)
   DecisionDataDiagramTests.cs
   DiagramRequestBuilderTests.cs
   DiagramRequestFactoryTests.cs
+  DualPlayMarkerTests.cs
   HitRegionsTests.cs
   PptxConformanceTests.cs
   PptxSizingTests.cs
@@ -109,6 +111,7 @@ BackgammonDiagram_Lib.Tests/              (refs core + ExportRaster)
   TestPaths.cs
   VisualOutputTests.cs
   WatermarksTests.cs            — incl. Default_MatchesPreBakedBytes (byte pin)
+  XgidLabelTests.cs
 ```
 
 ## Architecture
