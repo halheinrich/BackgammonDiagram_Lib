@@ -64,8 +64,13 @@ public static class DiagramRenderer
         double totalWidth = layout.TotalWidth(withPanel: true);
         double totalHeight = layout.BoardHeight + titleOffset;
 
+        // Single-sourced with GetHitRegions' ViewBox: both describe the same
+        // canvas, and SvgViewBox.ToAttributeString is the one place the
+        // attribute value is assembled.
+        var viewBox = new SvgViewBox(0, 0, totalWidth, totalHeight);
+
         var sb = new StringBuilder();
-        sb.AppendLine($"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {F(totalWidth)} {F(totalHeight)}" width="100%">""");
+        sb.AppendLine($"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="{viewBox.ToAttributeString()}" width="100%">""");
 
         if (hasTitle)
         {
@@ -1368,7 +1373,9 @@ public static class DiagramRenderer
     //  Helpers
     // -----------------------------------------------------------------------
 
-    private static string F(double v) => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    // Delegates to the public SSOT so the "SVG numbers are invariant" rule
+    // has exactly one home (see SvgFormat).
+    private static string F(double v) => SvgFormat.Number(v);
 
     // Invariant 1-decimal format, used for percentages where "42.0%" looks
     // better than the trimmed "42%" that F() would produce.

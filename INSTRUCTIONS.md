@@ -200,7 +200,7 @@ All geometry constants derive from `CheckerRadius` (default 14 px). The SVG
 viewBox is derived from layout totals. `HomeBoardOnRight` is a purely
 geometric reflection applied in `ColumnCentreX` — no data is flipped. Hot-path
 formatting uses `InvariantCulture` throughout `DiagramRenderer` to stay
-locale-safe.
+locale-safe, single-sourced in the public `SvgFormat.Number`.
 
 ### Title and analysis panel
 
@@ -368,6 +368,11 @@ These three sections (PNG / PDF / PPTX) all live in the
 `DiagramRequest` is required (not just `DiagramOptions`) because
 `HomeBoardOnRight` controls the orientation mapping.
 
+Consumers rendering overlays from these rectangles must format the
+coordinates with `SvgFormat.Number` (and the viewBox with
+`SvgViewBox.ToAttributeString()`) — never culture-sensitive interpolation.
+See `SvgFormat` under Public API.
+
 ### TestData
 
 Shared at `backgammon\TestData`. `TestPaths._root` resolves with five `..`
@@ -386,6 +391,23 @@ tests carry `[Trait("Category", "Visual")]`.
 static string RenderSvg(DiagramRequest request, DiagramOptions options);
 static BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions options);
 ```
+
+### `SvgFormat` (core — `BackgammonDiagram_Lib`)
+
+Single source of truth for the "SVG numbers are formatted invariantly"
+convention. Consumers that assemble their own SVG fragments (hit-region
+overlays, custom annotations) must format every number through it — culture-
+sensitive interpolation emits comma decimals in locales like `nb-NO`, which
+browsers parse as 0.
+
+```csharp
+static string Number(double value);   // invariant, "0.##"; throws on non-finite
+```
+
+`SvgViewBox.ToAttributeString()` builds on it: a valid `viewBox` attribute
+value, identical to what `RenderSvg` emits for the same dimensions. The
+renderer's internal formatting delegates to `SvgFormat.Number` — one rule,
+one home.
 
 ### `DiagramRasterRenderer` (export — `BackgammonDiagram_Lib.ExportRaster`)
 
