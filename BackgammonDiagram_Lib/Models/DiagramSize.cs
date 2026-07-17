@@ -1,7 +1,13 @@
 namespace BackgammonDiagram_Lib;
 
+/// <summary>
+/// The target size of a rendered diagram: either a named preset or a custom
+/// width. Width is the only degree of freedom — height always follows from it
+/// by the fixed board aspect ratio.
+/// </summary>
 public class DiagramSize
 {
+    /// <summary>Which size class this instance selects.</summary>
     public DiagramSizePreset Preset { get; init; }
 
     /// <summary>
@@ -12,8 +18,11 @@ public class DiagramSize
     /// </summary>
     public int? CustomWidth { get; init; }
 
+    /// <summary>The small preset.</summary>
     public static readonly DiagramSize Small = new() { Preset = DiagramSizePreset.Small };
+    /// <summary>The medium preset (the default size).</summary>
     public static readonly DiagramSize Medium = new() { Preset = DiagramSizePreset.Medium };
+    /// <summary>The large preset.</summary>
     public static readonly DiagramSize Large = new() { Preset = DiagramSizePreset.Large };
 
     /// <summary>

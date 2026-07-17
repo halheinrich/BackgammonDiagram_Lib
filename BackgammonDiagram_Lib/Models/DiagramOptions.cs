@@ -2,8 +2,15 @@ using BackgammonDiagram_Lib.Themes;
 
 namespace BackgammonDiagram_Lib;
 
+/// <summary>
+/// Display options for a render — size, theme, watermark, target aspect ratio,
+/// and the XGID-label toggle. Separate from <see cref="DiagramRequest"/> (which
+/// carries the board/match data) so the same request can be rendered at
+/// different sizes or themes without rebuilding it.
+/// </summary>
 public record DiagramOptions
 {
+    /// <summary>Target diagram size. Defaults to <see cref="DiagramSize.Medium"/>.</summary>
     public DiagramSize Size { get; init; } = DiagramSize.Medium;
 
     /// <summary>

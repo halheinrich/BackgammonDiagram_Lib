@@ -1,10 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+  <!-- Framework / nullable / warnings-as-errors / doc-file policy is hoisted to
+       the repo-root Directory.Build.props. -->
 
   <!-- CORE IS NATIVE-FREE: this project must never reference a native package
        (SkiaSharp, Svg.Skia, QuestPDF, DocumentFormat.OpenXml). All raster/export

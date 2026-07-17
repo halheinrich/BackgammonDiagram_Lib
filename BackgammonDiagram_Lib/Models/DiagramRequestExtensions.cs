@@ -1,5 +1,6 @@
 namespace BackgammonDiagram_Lib;
 
+/// <summary>Extension helpers over <see cref="DiagramRequest"/>.</summary>
 public static class DiagramRequestExtensions
 {
     /// <summary>

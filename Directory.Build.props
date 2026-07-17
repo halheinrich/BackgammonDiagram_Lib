@@ -1,0 +1,22 @@
+<Project>
+
+  <!-- Repo-wide build policy. What belongs here: properties that are uniform
+       across this repo's projects *by policy*, so a change is one edit (a
+       future .NET 11 bump is one line). What stays in a csproj: anything
+       encoding a per-project decision — OutputType / RootNamespace /
+       AssemblyName and other identity properties, IsPackable, InternalsVisibleTo,
+       the native package references (ExportRaster only), and any LangVersion pin.
+
+       Warnings are errors everywhere, and shipping projects generate an XML
+       doc file so every public symbol carries documentation. The test project
+       keeps warnings-as-errors but opts out of doc-file generation in its own
+       csproj (it has no public surface to document). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>

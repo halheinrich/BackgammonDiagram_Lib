@@ -2,18 +2,58 @@ using BgDataTypes_Lib;
 
 namespace BackgammonDiagram_Lib;
 
+/// <summary>
+/// An immutable, validated rendering request: the board/match state plus the
+/// renderer-specific display options a diagram needs. Constructed through the
+/// nested <see cref="Builder"/> (directly, or via <see cref="FromDecisionData"/>
+/// / <see cref="Builder.From(DiagramRequest)"/>); there is no public
+/// constructor, so a <see cref="DiagramRequest"/> in hand is always one that
+/// passed <see cref="Builder.Build"/>'s validation. The three data records are
+/// defensively copied at build time, so a built request cannot be mutated by
+/// later changes to the caller's arrays or lists.
+/// </summary>
 public class DiagramRequest
 {
     internal DiagramRequest() { }
 
+    /// <summary>The board and match state (checkers, cube, scores) to render.</summary>
     public PositionData Position { get; init; } = new();
+
+    /// <summary>The decision data (dice, plays, or cube-equity analysis) to render.</summary>
     public DecisionData Decision { get; init; } = new();
+
+    /// <summary>Descriptive metadata (player names, source file, match length) to render.</summary>
     public DescriptiveData Descriptive { get; init; } = new();
 
     // Renderer-specific
+
+    /// <summary>
+    /// Whether to render board-only (<see cref="DiagramMode.Problem"/>) or the
+    /// board plus analysis panel (<see cref="DiagramMode.Solution"/>). Both
+    /// modes share identical overall dimensions — the panel region is always
+    /// allocated — so swapping modes never reflows surrounding content.
+    /// </summary>
     public DiagramMode Mode { get; init; }
+
+    /// <summary>
+    /// When <c>true</c> (the default), the on-roll player's home board is drawn
+    /// on the right. Purely geometric: the board array is never flipped, only
+    /// <c>ColumnCentreX</c> mirrors, so anything indexing <c>Points</c> uses the
+    /// unflipped convention regardless of this flag.
+    /// </summary>
     public bool HomeBoardOnRight { get; init; } = true;
+
+    /// <summary>
+    /// When <c>true</c> (the default), the on-roll half of the board is drawn
+    /// at the bottom. Controls only the vertical orientation of the two halves.
+    /// </summary>
     public bool OnRollAtBottom { get; init; } = true;
+
+    /// <summary>
+    /// Which side of the board the Solution-mode analysis panel occupies.
+    /// Read through the derived <see cref="PanelOnLeft"/> so both
+    /// <c>RenderSvg</c> and <c>GetHitRegions</c> share one coordinate rule.
+    /// </summary>
     public PanelPosition AnalysisPanelPosition { get; init; }
 
     /// <summary>
@@ -81,7 +121,8 @@ public class DiagramRequest
     /// Convenience entry point for the <see cref="BgDecisionData"/> →
     /// <see cref="DiagramRequest"/> mapping, taking the renderer-specific
     /// parameters that aren't carried by the data layer (display mode,
-    /// board orientation, panel side). Delegates to <see cref="Builder.From"/>
+    /// board orientation, panel side). Delegates to
+    /// <see cref="Builder.From(PositionData, DecisionData, DescriptiveData, DiagramMode, bool, bool, PanelPosition)"/>
     /// which holds the field-by-field copy logic; callers (tests, Blazor
     /// apps, PPTX exporters) should use this entry point rather than
     /// open-coding the mapping.
@@ -103,41 +144,81 @@ public class DiagramRequest
     //  Builder
     // -----------------------------------------------------------------------
 
+    /// <summary>
+    /// Mutable builder for a <see cref="DiagramRequest"/>. Callers set flat
+    /// fields — the position, decision, and descriptive values mirror the
+    /// <c>BgDataTypes_Lib</c> records field-for-field — and <see cref="Build"/>
+    /// assembles the nested records, defensively copying <see cref="Mop"/>,
+    /// <see cref="Dice"/>, and <see cref="Plays"/>, then validates. The
+    /// data-mirroring fields inherit their documentation from the corresponding
+    /// record members, keeping their meaning single-sourced in the data layer.
+    /// </summary>
     public class Builder
     {
         // Position
+        /// <inheritdoc cref="PositionData.Mop"/>
         public int[] Mop { get; set; } = new int[26];
+        /// <inheritdoc cref="PositionData.OnRollNeeds"/>
         public int OnRollNeeds { get; set; }
+        /// <inheritdoc cref="PositionData.OpponentNeeds"/>
         public int OpponentNeeds { get; set; }
+        /// <inheritdoc cref="PositionData.OnRollPipCount"/>
         public int OnRollPipCount { get; set; }
+        /// <inheritdoc cref="PositionData.OpponentPipCount"/>
         public int OpponentPipCount { get; set; }
+        /// <inheritdoc cref="PositionData.CubeSize"/>
         public int CubeSize { get; set; } = 1;
+        /// <inheritdoc cref="PositionData.CubeOwner"/>
         public CubeOwner CubeOwner { get; set; } = CubeOwner.Centered;
+        /// <inheritdoc cref="PositionData.IsCrawford"/>
         public bool IsCrawford { get; set; }
 
         // Decision
+        /// <inheritdoc cref="DecisionData.IsCube"/>
         public bool IsCube { get; set; }
+        /// <inheritdoc cref="DecisionData.Dice"/>
         public int[] Dice { get; set; } = new int[2];
+        /// <inheritdoc cref="DecisionData.Plays"/>
         public List<PlayCandidate> Plays { get; set; } = [];
+        /// <inheritdoc cref="DecisionData.CubeDepth"/>
         public string CubeDepth { get; set; } = string.Empty;
+        /// <inheritdoc cref="DecisionData.CubeDepthAbbreviation"/>
         public string CubeDepthAbbreviation { get; set; } = string.Empty;
+        /// <inheritdoc cref="DecisionData.CubeDepthRank"/>
         public int CubeDepthRank { get; set; }
+        /// <inheritdoc cref="DecisionData.BestPlayIndex"/>
         public int BestPlayIndex { get; set; }
+        /// <inheritdoc cref="DecisionData.UserPlayIndex"/>
         public int UserPlayIndex { get; set; } = -1;
+        /// <inheritdoc cref="DecisionData.NoDoubleEquity"/>
         public double NoDoubleEquity { get; set; }
+        /// <inheritdoc cref="DecisionData.DoubleTakeEquity"/>
         public double DoubleTakeEquity { get; set; }
+        /// <inheritdoc cref="DecisionData.WinPctAfterNoDouble"/>
         public double WinPctAfterNoDouble { get; set; }
+        /// <inheritdoc cref="DecisionData.GammonPctAfterNoDouble"/>
         public double GammonPctAfterNoDouble { get; set; }
+        /// <inheritdoc cref="DecisionData.BgPctAfterNoDouble"/>
         public double BgPctAfterNoDouble { get; set; }
+        /// <inheritdoc cref="DecisionData.LosePctAfterNoDouble"/>
         public double LosePctAfterNoDouble { get; set; }
+        /// <inheritdoc cref="DecisionData.LoseGammonPctAfterNoDouble"/>
         public double LoseGammonPctAfterNoDouble { get; set; }
+        /// <inheritdoc cref="DecisionData.LoseBgPctAfterNoDouble"/>
         public double LoseBgPctAfterNoDouble { get; set; }
+        /// <inheritdoc cref="DecisionData.WinPctAfterDoubleTake"/>
         public double WinPctAfterDoubleTake { get; set; }
+        /// <inheritdoc cref="DecisionData.GammonPctAfterDoubleTake"/>
         public double GammonPctAfterDoubleTake { get; set; }
+        /// <inheritdoc cref="DecisionData.BgPctAfterDoubleTake"/>
         public double BgPctAfterDoubleTake { get; set; }
+        /// <inheritdoc cref="DecisionData.LosePctAfterDoubleTake"/>
         public double LosePctAfterDoubleTake { get; set; }
+        /// <inheritdoc cref="DecisionData.LoseGammonPctAfterDoubleTake"/>
         public double LoseGammonPctAfterDoubleTake { get; set; }
+        /// <inheritdoc cref="DecisionData.LoseBgPctAfterDoubleTake"/>
         public double LoseBgPctAfterDoubleTake { get; set; }
+        /// <inheritdoc cref="DecisionData.ProbOfOpponentErrorJustifyingDouble"/>
         public double ProbOfOpponentErrorJustifyingDouble { get; set; }
 
         /// <summary>
@@ -155,20 +236,33 @@ public class DiagramRequest
         public double? UserTakeError { get; set; }
 
         // Descriptive
+        /// <inheritdoc cref="DescriptiveData.OnRollName"/>
         public string OnRollName { get; set; } = string.Empty;
+        /// <inheritdoc cref="DescriptiveData.OpponentName"/>
         public string OpponentName { get; set; } = string.Empty;
+        /// <inheritdoc cref="DescriptiveData.Title"/>
         public string? Title { get; set; }
+        /// <inheritdoc cref="DescriptiveData.MatchLength"/>
         public int MatchLength { get; set; }
+        /// <inheritdoc cref="DescriptiveData.Date"/>
         public DateOnly? Date { get; set; }
+        /// <inheritdoc cref="DescriptiveData.Event"/>
         public string? Event { get; set; }
+        /// <inheritdoc cref="DescriptiveData.SourceFile"/>
         public string? SourceFile { get; set; }
 
         // Renderer-specific
+        /// <inheritdoc cref="DiagramRequest.Mode"/>
         public DiagramMode Mode { get; set; }
+        /// <inheritdoc cref="DiagramRequest.HomeBoardOnRight"/>
         public bool HomeBoardOnRight { get; set; } = true;
+        /// <inheritdoc cref="DiagramRequest.OnRollAtBottom"/>
         public bool OnRollAtBottom { get; set; } = true;
+        /// <inheritdoc cref="DiagramRequest.AnalysisPanelPosition"/>
         public PanelPosition AnalysisPanelPosition { get; set; }
+        /// <inheritdoc cref="DiagramRequest.PositionNumber"/>
         public int? PositionNumber { get; set; }
+        /// <inheritdoc cref="DiagramRequest.Xgid"/>
         public string Xgid { get; set; } = string.Empty;
 
         /// <summary>
@@ -277,6 +371,17 @@ public class DiagramRequest
             return b;
         }
 
+        /// <summary>
+        /// Validates the accumulated fields and constructs the immutable
+        /// <see cref="DiagramRequest"/>, defensively copying <see cref="Mop"/>,
+        /// <see cref="Dice"/>, and <see cref="Plays"/> into the nested records.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown when validation fails: <see cref="Mop"/> is not length 26,
+        /// <see cref="Dice"/> is not length 2, a cube decision does not carry
+        /// <c>[0, 0]</c> dice (or a checker decision carries an out-of-range
+        /// die), or <see cref="CubeSize"/> is not a power of two in 1..4096.
+        /// </exception>
         public DiagramRequest Build()
         {
             Validate();

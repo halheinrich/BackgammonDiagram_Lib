@@ -5,10 +5,15 @@ using System.Text;
 
 namespace BackgammonDiagram_Lib.Rendering;
 
-// Renders a DiagramRequest to an SVG string. This type is intentionally
-// native-free: it lives in the core assembly that WASM/SVG-only consumers
-// depend on. Rasterization and the PNG/PDF/PPTX export formats live in
-// DiagramRasterRenderer in the BackgammonDiagram_Lib.ExportRaster sibling.
+/// <summary>
+/// Renders a <see cref="DiagramRequest"/> to an SVG string, and exposes the
+/// matching hit-test geometry via <see cref="GetHitRegions"/>. This type is
+/// intentionally native-free: it lives in the core assembly that WASM /
+/// SVG-only consumers depend on. Rasterization and the PNG / PDF / PPTX export
+/// formats live in <c>DiagramRasterRenderer</c> in the
+/// <c>BackgammonDiagram_Lib.ExportRaster</c> sibling. All members are
+/// <see langword="static"/>; the renderer holds no instance state.
+/// </summary>
 public static class DiagramRenderer
 {
     private const double TitleStripHeight = 22;
@@ -49,6 +54,18 @@ public static class DiagramRenderer
     //  Public API
     // -----------------------------------------------------------------------
 
+    /// <summary>
+    /// Renders <paramref name="request"/> to a complete, self-contained SVG
+    /// document string, honouring <paramref name="options"/> for size, theme,
+    /// watermark, target aspect ratio, and the optional XGID label. The result
+    /// shares its viewBox with <see cref="GetHitRegions"/> for the same inputs,
+    /// so overlay coordinates align with the drawing. All numbers are formatted
+    /// culture-invariantly (see <see cref="SvgFormat.Number"/>), so the output
+    /// is valid regardless of the current thread culture.
+    /// </summary>
+    /// <param name="request">The board/match state and display flags to render.</param>
+    /// <param name="options">Size, theme, watermark, aspect, and XGID options.</param>
+    /// <returns>The rendered SVG document as a string.</returns>
     public static string RenderSvg(DiagramRequest request, DiagramOptions options)
     {
         var theme = options.Theme;

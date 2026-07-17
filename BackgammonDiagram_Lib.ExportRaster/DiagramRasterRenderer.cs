@@ -19,6 +19,16 @@ public static class DiagramRasterRenderer
     // a single shared readonly instance is safe — rasterization is stateless.
     private static readonly SkiaSharpRasterizer s_defaultRasterizer = new();
 
+    /// <summary>
+    /// Renders <paramref name="request"/> to a PNG. The core SVG is produced by
+    /// <see cref="DiagramRenderer.RenderSvg"/> and rasterized at the pixel width
+    /// resolved from <paramref name="options"/>'s <see cref="DiagramSize"/>.
+    /// </summary>
+    /// <param name="request">The diagram to render.</param>
+    /// <param name="options">Size, theme, watermark, aspect, and XGID options.</param>
+    /// <param name="rasterizer">SVG→PNG backend; when <c>null</c>, a shared
+    /// built-in <see cref="SkiaSharpRasterizer"/> is used.</param>
+    /// <returns>The rendered PNG bytes.</returns>
     public static byte[] RenderPng(DiagramRequest request, DiagramOptions options,
         ISvgRasterizer? rasterizer = null)
     {
@@ -27,12 +37,37 @@ public static class DiagramRasterRenderer
         return (rasterizer ?? s_defaultRasterizer).Rasterize(svg, targetWidth);
     }
 
+    /// <summary>
+    /// Renders <paramref name="request"/> to a single-page PDF (widescreen
+    /// landscape, matching the PPTX slide), embedding the rasterized PNG and
+    /// overlaying the request's XGID as real selectable text.
+    /// </summary>
+    /// <param name="request">The diagram to render.</param>
+    /// <param name="options">Render options; the baked XGID label is forced off
+    /// so it cannot duplicate the text overlay.</param>
+    /// <param name="rasterizer">SVG→PNG backend; when <c>null</c>, a shared
+    /// built-in <see cref="SkiaSharpRasterizer"/> is used.</param>
+    /// <returns>The PDF file bytes.</returns>
+    /// <remarks>The caller owns the QuestPDF license: set
+    /// <c>QuestPDF.Settings.License</c> before calling.</remarks>
     public static byte[] RenderPdf(DiagramRequest request, DiagramOptions options,
         ISvgRasterizer? rasterizer = null)
     {
         return PdfBuilder.Build([RenderOverlayPage(request, options, rasterizer)]);
     }
 
+    /// <summary>
+    /// Renders <paramref name="requests"/> to a multi-page PDF — one page per
+    /// request, in order — otherwise identical to the single-request overload.
+    /// </summary>
+    /// <param name="requests">The diagrams to render, one page each.</param>
+    /// <param name="options">Render options; the baked XGID label is forced off
+    /// so it cannot duplicate the text overlay.</param>
+    /// <param name="rasterizer">SVG→PNG backend; when <c>null</c>, a shared
+    /// built-in <see cref="SkiaSharpRasterizer"/> is used.</param>
+    /// <returns>The PDF file bytes.</returns>
+    /// <remarks>The caller owns the QuestPDF license: set
+    /// <c>QuestPDF.Settings.License</c> before calling.</remarks>
     public static byte[] RenderPdf(IEnumerable<DiagramRequest> requests, DiagramOptions options,
         ISvgRasterizer? rasterizer = null)
     {
@@ -40,12 +75,32 @@ public static class DiagramRasterRenderer
         return PdfBuilder.Build(pages);
     }
 
+    /// <summary>
+    /// Renders <paramref name="request"/> to a single-slide PPTX, embedding the
+    /// rasterized PNG and overlaying the request's XGID as real selectable text.
+    /// </summary>
+    /// <param name="request">The diagram to render.</param>
+    /// <param name="options">Render options; the baked XGID label is forced off
+    /// so it cannot duplicate the text overlay.</param>
+    /// <param name="rasterizer">SVG→PNG backend; when <c>null</c>, a shared
+    /// built-in <see cref="SkiaSharpRasterizer"/> is used.</param>
+    /// <returns>The PPTX file bytes.</returns>
     public static byte[] RenderPptx(DiagramRequest request, DiagramOptions options,
         ISvgRasterizer? rasterizer = null)
     {
         return PptxBuilder.Build([RenderOverlayPage(request, options, rasterizer)]);
     }
 
+    /// <summary>
+    /// Renders <paramref name="requests"/> to a multi-slide PPTX — one slide per
+    /// request, in order — otherwise identical to the single-request overload.
+    /// </summary>
+    /// <param name="requests">The diagrams to render, one slide each.</param>
+    /// <param name="options">Render options; the baked XGID label is forced off
+    /// so it cannot duplicate the text overlay.</param>
+    /// <param name="rasterizer">SVG→PNG backend; when <c>null</c>, a shared
+    /// built-in <see cref="SkiaSharpRasterizer"/> is used.</param>
+    /// <returns>The PPTX file bytes.</returns>
     public static byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options,
         ISvgRasterizer? rasterizer = null)
     {

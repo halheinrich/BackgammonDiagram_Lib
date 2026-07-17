@@ -57,6 +57,7 @@ Test-only:
 
 ```
 BackgammonDiagram_Lib.slnx
+Directory.Build.props         — repo-wide build policy (TFM, nullable, warnings-as-errors, doc file)
 Directory.Packages.props
 BackgammonDiagram_Lib/                    (core — native-free)
   BackgammonDiagram_Lib.csproj

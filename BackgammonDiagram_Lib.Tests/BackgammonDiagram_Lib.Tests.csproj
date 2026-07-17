@@ -1,10 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Framework / nullable / warnings-as-errors policy is hoisted to the
+       repo-root Directory.Build.props. Doc-file generation is overridden off
+       here: a test project has no public API surface to document, so leaving
+       it on would only emit empty XML and force needless doc comments. -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
