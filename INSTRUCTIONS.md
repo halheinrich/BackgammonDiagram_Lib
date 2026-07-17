@@ -65,29 +65,29 @@ BackgammonDiagram_Lib/                    (core — native-free)
     board-watermark.png       — pre-baked transparent watermark (EmbeddedResource, SSOT)
   Models/
     BoardHitRegions.cs        — point/bar/cube/tray hit regions
-    DiagramOptions.cs         — record: ShowPipCount, Size, WatermarkImage, Theme, Aspect
+    DiagramOptions.cs         — record: Size, WatermarkImage, Theme, Aspect, ShowXgid
     DiagramRequest.cs         — immutable class + inner Builder
     DiagramRequestExtensions.cs
     DiagramSize.cs
     Enums.cs                  — DiagramMode, PanelPosition, DiagramSizePreset
     MathUtils.cs
   Rendering/
-    BoardLayout.cs            — geometry derived from CheckerRadius
+    BoardLayout.cs            — internal geometry derived from CheckerRadius
     DiagramRenderer.cs        — SVG entry points (RenderSvg, GetHitRegions)
   Themes/
-    CustomTheme.cs
-    DefaultTheme.cs
-    GreyscaleTheme.cs
+    CustomTheme.cs            — public: caller-supplied palette
+    DefaultTheme.cs           — internal ITheme impl (reached via ThemeRegistry.Default)
+    GreyscaleTheme.cs         — internal ITheme impl (reached via ThemeRegistry.Greyscale)
     ITheme.cs
     ThemeRegistry.cs          — static Default / Greyscale
 BackgammonDiagram_Lib.ExportRaster/       (raster/export — native deps)
   BackgammonDiagram_Lib.ExportRaster.csproj
-  DiagramRasterRenderer.cs    — public entry points (RenderPng/Pdf/Pptx, IsPdfSupported)
+  DiagramRasterRenderer.cs    — public entry points (RenderPng/Pdf/Pptx)
   Rendering/
     ISvgRasterizer.cs         — PNG backend abstraction
     PdfBuilder.cs             — internal, QuestPDF-based
     PptxBuilder.cs            — internal, OpenXml-based
-    SkiaSharpRasterizer.cs    — default ISvgRasterizer implementation
+    SkiaSharpRasterizer.cs    — internal default ISvgRasterizer implementation
 BackgammonDiagram_Lib.Tests/              (refs core + ExportRaster)
   BackgammonDiagram_Lib.Tests.csproj
   BearOffTests.cs
@@ -196,7 +196,10 @@ surrounding content.
 
 ### BoardLayout
 
-All geometry constants derive from `CheckerRadius` (default 14 px). The SVG
+`BoardLayout` is `internal` — it is a geometry-derivation detail of the
+renderer, not consumer surface. Core's own tests reach it through the
+existing `InternalsVisibleTo`. All geometry constants derive from
+`CheckerRadius` (default 14 px). The SVG
 viewBox is derived from layout totals. `HomeBoardOnRight` is a purely
 geometric reflection applied in `ColumnCentreX` — no data is flipped. Hot-path
 formatting uses `InvariantCulture` throughout `DiagramRenderer` to stay
@@ -325,10 +328,12 @@ silently shift every rendered diagram's watermark base64.
 
 ### Themes
 
-`ITheme` interface, concrete implementations `DefaultTheme`, `GreyscaleTheme`,
-`CustomTheme`. `ThemeRegistry` exposes `Default` and `Greyscale` as static
-instances. `DiagramOptions.Theme` is a direct `ITheme` reference — there is
-no string-based lookup.
+`ITheme` interface with three concrete implementations. `DefaultTheme` and
+`GreyscaleTheme` are `internal` — the built-in palettes are reached only as
+`ITheme` through `ThemeRegistry.Default` / `ThemeRegistry.Greyscale`, never
+by their concrete type. `CustomTheme` is `public`: it is the supported way
+for a caller to supply its own palette. `DiagramOptions.Theme` is a direct
+`ITheme` reference — there is no string-based lookup.
 
 ### PNG rasterization
 
@@ -351,8 +356,8 @@ These three sections (PNG / PDF / PPTX) all live in the
   via QuestPDF `FitArea()`.
 - Page size is widescreen landscape 13.33" × 7.5", matching the PPTX slide.
 - `PdfBuilder` is `internal static` (internal to ExportRaster). Callers own the
-  QuestPDF license. `DiagramRasterRenderer.IsPdfSupported()` lets callers probe
-  whether a license has been configured before invoking `RenderPdf`.
+  QuestPDF license and must configure `QuestPDF.Settings.License` themselves
+  before invoking `RenderPdf`.
 
 ### PPTX
 
@@ -414,11 +419,12 @@ one home.
 The raster/export entry point, also a `static class`. Lives in the
 `BackgammonDiagram_Lib.ExportRaster` assembly + namespace — consumers of the
 raster formats add `using BackgammonDiagram_Lib.ExportRaster;` and reference
-that project. (`ISvgRasterizer` and `SkiaSharpRasterizer` live here too.)
+that project. The pluggable-backend abstraction `ISvgRasterizer` is `public`
+and lives here too; its default implementation `SkiaSharpRasterizer` is
+`internal` — callers pass their own `ISvgRasterizer` to substitute a backend,
+they never name the built-in one.
 
 ```csharp
-static bool IsPdfSupported();
-
 // Rasterization-backed formats take an optional ISvgRasterizer. When null
 // (the default), a shared SkiaSharpRasterizer is used.
 static byte[] RenderPng(DiagramRequest request, DiagramOptions options,
@@ -480,13 +486,17 @@ field-for-field, not as a held record.
 ```csharp
 record DiagramOptions
 {
-    bool         ShowPipCount     { get; init; }
     DiagramSize  Size             { get; init; } = DiagramSize.Medium;
     byte[]?      WatermarkImage   { get; init; } = Watermarks.Default;
     ITheme       Theme            { get; init; } = ThemeRegistry.Default;
     AspectPreset Aspect           { get; init; } = AspectPreset.Widescreen16x9;
+    bool         ShowXgid         { get; init; } = false;
 }
 ```
+
+`ShowXgid` bakes the request's `Xgid` into the SVG as an upper-right label
+(off by default; the export path forces it off and overlays the XGID as
+real selectable text instead — see `DiagramRasterRenderer`).
 
 ### `Watermarks`
 
@@ -515,8 +525,8 @@ to supply their own palette.
   raster/export work goes in the ExportRaster sibling behind
   `DiagramRasterRenderer`, never in `DiagramRenderer`.
 - **QuestPDF license is the caller's responsibility.** `PdfBuilder` does not
-  call `EnsureLicense`. Use `DiagramRasterRenderer.IsPdfSupported()` to probe
-  before `RenderPdf` in environments where the license may not be set.
+  call `EnsureLicense`. Configure `QuestPDF.Settings.License` in app startup
+  before invoking `RenderPdf`; there is no library-side probe helper.
 - **`Svg.Skia.Drawable.Bounds` lies.** Anywhere you need the SVG's visible
   extent in the PNG path, parse the viewBox yourself and `ClipRect`.
 - **`SKSvg` is not `IDisposable`.** Never wrap it in `using` — the compiler

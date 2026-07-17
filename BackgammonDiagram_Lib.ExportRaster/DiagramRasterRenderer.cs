@@ -67,25 +67,6 @@ public static class DiagramRasterRenderer
         return (png, request.Xgid);
     }
 
-    /// <summary>
-    /// Returns true if QuestPDF is correctly licensed and operational.
-    /// Call at application startup before serving PDF requests.
-    /// If false, set QuestPDF.Settings.License in your app startup.
-    /// Also returns false if QuestPDF's native dependencies cannot load
-    /// (e.g. unsupported runtime).
-    /// </summary>
-    public static bool IsPdfSupported()
-    {
-        try
-        {
-            return QuestPDF.Settings.License.HasValue;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     // -----------------------------------------------------------------------
     //  Size resolution
     // -----------------------------------------------------------------------

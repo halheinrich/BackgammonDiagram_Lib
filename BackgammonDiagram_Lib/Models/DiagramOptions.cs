@@ -4,7 +4,6 @@ namespace BackgammonDiagram_Lib;
 
 public record DiagramOptions
 {
-    public bool ShowPipCount { get; init; }
     public DiagramSize Size { get; init; } = DiagramSize.Medium;
 
     /// <summary>

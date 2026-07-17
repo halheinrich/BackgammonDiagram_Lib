@@ -1,6 +1,6 @@
 namespace BackgammonDiagram_Lib.Themes;
 
-public class DefaultTheme : ITheme
+internal class DefaultTheme : ITheme
 {
     public string Name               => "Default";
     public string BoardColor         => "#C8A96E";

@@ -7,7 +7,7 @@ namespace BackgammonDiagram_Lib.ExportRaster;
 /// Rasterizes SVG to PNG using SkiaSharp + Svg.Skia.
 /// All SkiaSharp dependencies are contained here.
 /// </summary>
-public partial class SkiaSharpRasterizer : ISvgRasterizer
+internal partial class SkiaSharpRasterizer : ISvgRasterizer
 {
     public byte[] Rasterize(string svgContent, int targetWidth)
     {

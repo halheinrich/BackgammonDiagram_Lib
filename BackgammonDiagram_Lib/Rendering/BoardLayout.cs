@@ -4,7 +4,7 @@ namespace BackgammonDiagram_Lib.Rendering;
 /// All board layout constants derived from the base checker radius.
 /// Change CheckerRadius and everything else scales accordingly.
 /// </summary>
-public readonly struct BoardLayout
+internal readonly struct BoardLayout
 {
     // -----------------------------------------------------------------------
     //  Core unit — everything derives from this

@@ -1,6 +1,6 @@
 ﻿namespace BackgammonDiagram_Lib.Themes;
 
-public class GreyscaleTheme : ITheme
+internal class GreyscaleTheme : ITheme
 {
     public string Name => "Greyscale";
     public string BoardColor => "#C0C0C0";
