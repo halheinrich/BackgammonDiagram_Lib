@@ -1173,12 +1173,14 @@ public static class DiagramRenderer
         // ── Best / Actual banner ───────────────────────────────────────
         // Both lines are atomic-derived from the per-half best actions.
         // "Best" is the correct play: BestDoublerAction, plus the taker
-        // half only when the doubler actually doubles (a "No Double" best
-        // leaves the opponent no take/pass decision). "Actual" is what the
-        // user played, derived from UserDoubleError / UserTakeError (0 =
-        // correct, >0 = wrong) by flipping each half off its best action.
-        // Both lines run through CubeDecisionLine, so the doubler-side
-        // suppression rule has a single definition.
+        // half — except that (NoDouble, Pass) is the too-good-to-double
+        // pair and reads "Too Good", and a (NoDouble, Take) best leaves the
+        // opponent no take/pass decision and so shows the doubler half
+        // alone. "Actual" is what the user played, derived from
+        // UserDoubleError / UserTakeError (0 = correct, >0 = wrong) by
+        // flipping each half off its best action. Both lines run through
+        // CubeDecisionLine, so the too-good classification and the
+        // doubler-side suppression rule each have a single definition.
         CubeAction bestDoublerAction = d.BestDoublerAction;
         CubeAction bestTakerAction = d.BestTakerAction;
 
@@ -1319,26 +1321,57 @@ public static class DiagramRenderer
     //  Cube label formatting
     // -----------------------------------------------------------------------
     //
-    //  Label helpers map BgDataTypes_Lib's CubeAction values to their
-    //  user-facing strings. Centralised here rather than scattered through
+    //  Label helpers map BgDataTypes_Lib's CubeAction values — and, for the
+    //  too-good case, a whole CubeDecisionPair — to their user-facing
+    //  strings. Centralised here rather than scattered through
     //  AppendCubePanel so the two-word "No Double" formatting, the Best and
     //  Actual decision lines, and the Doubler/Taker flips of the Actual
     //  line each have one definition site.
 
     // Builds a "<prefix><doubler> / <taker>" decision line shared by the
     // Best and Actual banners, so the two stay consistent by construction.
-    // A null doubler renders "?" (the Actual line when UserDoubleError is
-    // absent but UserTakeError present); a null taker renders the doubler
-    // half alone. The taker half is also suppressed whenever the doubler
-    // action isn't a real double — a "No Double" decision gives the opponent
-    // no take/pass choice, so a (possibly stale) taker action is not shown.
+    //
+    // When both halves are present they form a complete cube decision, so the
+    // line is classified as a pair rather than assembled from the two labels:
+    // (NoDouble, Pass) is the too-good-to-double case and renders as the
+    // single word-pair "Too Good". Classification is CubeDecisionPair's job —
+    // BgDataTypes_Lib owns the "NoDouble + Pass means too good" rule, and this
+    // renderer must not re-encode it. The pair constructor rejects cross-half
+    // values, but cannot throw here: both halves arrive half-correct by
+    // construction, from DecisionData's guarded BestDoublerAction /
+    // BestTakerAction or from the Opposite*Action flips, which stay within
+    // their own half.
+    //
+    // Otherwise: a null doubler renders "?" (the Actual line when
+    // UserDoubleError is absent but UserTakeError present); a null taker
+    // renders the doubler half alone. The taker half is also suppressed
+    // whenever the doubler action isn't a real double — a "No Double" with no
+    // taker half decided gives the opponent no take/pass choice, so a
+    // (possibly stale) taker action is not shown.
+    //
+    // The two rules do not conflict, because both halves present means both
+    // halves were actually decided — by the analysis, on the Best line, or by
+    // the user's submitted answer on the Actual line, where UserDoubleError
+    // and UserTakeError jointly encode the pair the user picked. The stale
+    // taker the suppression rule guards against is the one-sided case: a
+    // recorded position where no double happened and the opponent never faced
+    // the cube, for which the producer omits the taker error entirely.
     private static string CubeDecisionLine(string prefix, CubeAction? doubler, CubeAction? taker)
     {
+        if (doubler is CubeAction dh && taker is CubeAction th
+            && new CubeDecisionPair(dh, th).IsTooGood)
+            return prefix + TooGoodLabel;
+
         string line = prefix + (doubler is CubeAction d ? ActionLabel(d) : "?");
         if (taker is CubeAction r && doubler != CubeAction.NoDouble)
             line += " / " + ActionLabel(r);
         return line;
     }
+
+    // Pair-level banner label, the one case where a complete cube decision
+    // reads as something other than its two halves joined by " / ". Title-caps
+    // to match the atomic "No Double" styling of the labels below.
+    private const string TooGoodLabel = "Too Good";
 
     private static string ActionLabel(CubeAction action) => action switch
     {

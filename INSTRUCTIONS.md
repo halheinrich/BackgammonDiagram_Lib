@@ -265,10 +265,19 @@ Rendered in Solution mode only. Two shapes:
     builder (`CubeDecisionLine`) over the per-half best actions
     (`DecisionData.BestDoublerAction` / `BestTakerAction`). Best
     shows those directly; Actual flips each half off its best action by
-    `UserDoubleError` / `UserTakeError` (0 = correct, >0 = wrong). The
-    taker half is suppressed whenever the doubler action isn't a real
-    double — a "No Double" best leaves the opponent no take/pass choice,
-    so the line carries only the doubler half.
+    `UserDoubleError` / `UserTakeError` (0 = correct, >0 = wrong).
+    When both halves are present they form a complete decision and are
+    classified as a `BgDataTypes_Lib.CubeDecisionPair`: the too-good pair
+    (NoDouble, Pass) renders as `"Too Good"` instead of its two halves.
+    That rule lives in `CubeDecisionPair.IsTooGood`, not here — the
+    renderer must not re-encode "NoDouble + Pass means too good".
+    Otherwise the taker half is suppressed whenever the doubler action
+    isn't a real double — a (NoDouble, Take) best leaves the opponent no
+    take/pass choice, so the line carries only the doubler half. The two
+    rules don't collide: both halves present means both were decided (by
+    the analysis, or by the user's submitted answer on the Actual line),
+    while the stale-taker case the suppression guards against is the
+    one-sided line, where the producer omits the taker error entirely.
   - The Analysis Level footer renders `Decision.CubeDepth` (the full
     string, e.g. `"Rollout: 1296 trials. 3-ply"`), not
     `Decision.CubeDepthAbbreviation`. The cube panel has one analysis

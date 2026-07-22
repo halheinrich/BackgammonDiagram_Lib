@@ -32,17 +32,36 @@ public class RendererPanelContentTests
     public void CubePanel_BestLine_HighNoDoubleEquityRendersPlainNoDouble()
     {
         // nd=1.20, dt=0.50 → BestDoublerAction = NoDouble (min(dt,1)=0.50 is
-        // not greater than nd=1.20). The atomic model has no "Too Good to
-        // Double" label: this high-No-Double-equity position renders as the
-        // plain "No Double", and since the best action is not to double, no
-        // opp take/pass decision arises — the Best line carries only the
-        // doubler half. Regression-guards that the dropped label stays gone.
+        // not greater than nd=1.20), BestTakerAction = Take (dt < 1). That is
+        // the (NoDouble, Take) pair, NOT the too-good (NoDouble, Pass) one:
+        // No Double is right because doubling gains nothing, not because the
+        // position is too good. So the plain "No Double" stands, and since
+        // the best action is not to double, no opp take/pass decision arises
+        // — the Best line carries only the doubler half. Guards the boundary
+        // of the Too Good rule from the low side.
         var request = MinimalCubeBuilder(noDoubleEquity: 1.20, doubleTakeEquity: 0.50).Build();
         var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
 
         Assert.Contains("Best:   No Double", svg);
         Assert.DoesNotContain("Best:   No Double /", svg);
-        Assert.DoesNotContain("Too Good to Double", svg);
+        Assert.DoesNotContain("Too Good", svg);
+    }
+
+    [Fact]
+    public void CubePanel_BestLine_TooGoodRendersTooGood()
+    {
+        // nd=1.50, dt=1.20 → BestDoublerAction = NoDouble (min(dt,1)=1.00 is
+        // not greater than nd=1.50) and BestTakerAction = Pass (dt >= 1).
+        // (NoDouble, Pass) is CubeDecisionPair.TooGood: the doubler wins more
+        // playing on than cashing. The banner names that pair rather than
+        // printing the bare doubler half.
+        var request = MinimalCubeBuilder(noDoubleEquity: 1.50, doubleTakeEquity: 1.20).Build();
+        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
+
+        Assert.Contains("Best:   Too Good", svg);
+        Assert.DoesNotContain("Best:   No Double", svg);
+        // The pair label replaces the halves — no " / Pass" tail.
+        Assert.DoesNotContain("Too Good /", svg);
     }
 
     [Fact]
@@ -114,6 +133,62 @@ public class RendererPanelContentTests
 
         Assert.Contains("Actual: No Double", svg);
         Assert.DoesNotContain("Actual: No Double /", svg);
+    }
+
+    [Fact]
+    public void CubePanel_ActualLine_TooGoodRendersTooGood()
+    {
+        // nd=1.50, dt=1.20 → Best = (NoDouble, Pass) = Too Good.
+        //   Both errors 0 → the user answered both halves correctly, so the
+        //   Actual pair is the same Too Good pair. The rule is pair-level and
+        //   applies to Actual exactly as it does to Best.
+        var b = MinimalCubeBuilder(noDoubleEquity: 1.50, doubleTakeEquity: 1.20);
+        b.UserDoubleError = 0;
+        b.UserTakeError = 0;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains("Actual: Too Good", svg);
+        Assert.DoesNotContain("Actual: No Double", svg);
+    }
+
+    [Fact]
+    public void CubePanel_ActualLine_BothErrorsOnDoubleTakeBestRenderTooGood()
+    {
+        // nd=0.40, dt=0.60 → Best = (Double, Take).
+        //   UserDoubleError > 0 → against a Double best, the user chose No Double.
+        //   UserTakeError  > 0 → against a Take best, the user chose Pass.
+        // The two error fields jointly encode the pair the user submitted, so
+        // the answer was (NoDouble, Pass) — the user picked "too good" — and
+        // the Actual line names it. The taker half here is decided, not stale:
+        // a producer with no taker decision to report omits UserTakeError,
+        // which is the one-sided case covered below.
+        var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
+        b.UserDoubleError = 0.1;
+        b.UserTakeError = 0.1;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains("Actual: Too Good", svg);
+        Assert.DoesNotContain("Actual: No Double", svg);
+    }
+
+    [Fact]
+    public void CubePanel_ActualLine_OneSidedOnTooGoodBestStaysNoDouble()
+    {
+        // nd=1.50, dt=1.20 → Best = (NoDouble, Pass) = Too Good.
+        //   UserDoubleError == 0  → the user did not double, correctly.
+        //   UserTakeError == null → no taker half was reported at all.
+        // A pair needs both halves to be classified, so the one-sided Actual
+        // line keeps the plain doubler label even though the *best* pair is
+        // Too Good. Guards that the new rule reads the Actual halves rather
+        // than leaking the Best classification onto a half-known answer.
+        var b = MinimalCubeBuilder(noDoubleEquity: 1.50, doubleTakeEquity: 1.20);
+        b.UserDoubleError = 0;
+        b.UserTakeError = null;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains("Actual: No Double", svg);
+        Assert.DoesNotContain("Actual: No Double /", svg);
+        Assert.DoesNotContain("Actual: Too Good", svg);
     }
 
     [Fact]
