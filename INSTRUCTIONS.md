@@ -568,3 +568,18 @@ to supply their own palette.
 - Additional themes beyond `Default` and `Greyscale`.
 - `FromBoard` / `FromXgid` factory methods on `DiagramRequest`.
 - Animation support.
+- Single-source the per-checker stacking-Y formula. `AppendCheckerStack`
+  computes each checker's centre Y inline (`base ± i·2·CheckerRadius`), and
+  `HitRegionsTests` hand-copies that same formula to pin render/hit
+  agreement. The stack *bound* is now single-sourced
+  (`BoardLayout.MaxStackCheckers` / `MaxStackHeight`, finding-#4 fix
+  `61cd0dc`), but the per-index position formula remains duplicated — so the
+  test cross-checks against a copy rather than the real method, and the two
+  could drift. Expose a `BoardLayout`-level checker-centre helper (e.g.
+  `CheckerCentreY(stackIndex, bottomHalf, baseY)`) that both
+  `AppendCheckerStack` and the test call. Small encapsulation cleanup; do at
+  the next touch. Surfaced in the #4 hit-region fix review.
+- Defensive-copy paragraph polish in this doc: after the Pass C edit that
+  relocated the CubeOwner-default sentence, the paragraph's remaining tail
+  (the `BoardHitRegions.Points` exposure sentence) is topically
+  off-paragraph. Future polish candidate.
