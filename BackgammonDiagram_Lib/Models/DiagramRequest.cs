@@ -224,16 +224,28 @@ public class DiagramRequest
         /// <summary>
         /// Equity loss from the user's double / no-double decision vs. the
         /// correct cube action (>= 0). Null when the user did not face a cube
-        /// decision or no data is recorded. Drives the "Actual" banner row.
+        /// decision or no data is recorded.
         /// </summary>
         public double? UserDoubleError { get; set; }
 
         /// <summary>
         /// Equity loss from the user's take / pass decision vs. the correct
         /// response (>= 0). Null when the user did not face a take decision
-        /// or no data is recorded. Drives the "Actual" banner row.
+        /// or no data is recorded.
         /// </summary>
         public double? UserTakeError { get; set; }
+
+        // The played cube actions drive the "Actual" banner row. Carried as
+        // plain nullable setters: the half-guard (doubler half is Double or
+        // NoDouble, taker half is Take or Pass) lives on DecisionData's init
+        // accessors and fires when Build() constructs the record, so the
+        // Builder must not re-encode it.
+
+        /// <inheritdoc cref="DecisionData.UserDoublerAction"/>
+        public CubeAction? UserDoublerAction { get; set; }
+
+        /// <inheritdoc cref="DecisionData.UserTakerAction"/>
+        public CubeAction? UserTakerAction { get; set; }
 
         // Descriptive
         /// <inheritdoc cref="DescriptiveData.OnRollName"/>
@@ -334,6 +346,8 @@ public class DiagramRequest
                 ProbOfOpponentErrorJustifyingDouble = decision.ProbOfOpponentErrorJustifyingDouble,
                 UserDoubleError = decision.UserDoubleError,
                 UserTakeError = decision.UserTakeError,
+                UserDoublerAction = decision.UserDoublerAction,
+                UserTakerAction = decision.UserTakerAction,
 
                 // Descriptive
                 OnRollName = descriptive.OnRollName,
@@ -425,6 +439,8 @@ public class DiagramRequest
                     ProbOfOpponentErrorJustifyingDouble = ProbOfOpponentErrorJustifyingDouble,
                     UserDoubleError = UserDoubleError,
                     UserTakeError = UserTakeError,
+                    UserDoublerAction = UserDoublerAction,
+                    UserTakerAction = UserTakerAction,
                 },
                 Descriptive = new DescriptiveData
                 {

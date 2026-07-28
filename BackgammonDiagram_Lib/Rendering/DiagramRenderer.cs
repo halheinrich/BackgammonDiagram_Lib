@@ -1171,16 +1171,20 @@ public static class DiagramRenderer
         double doubleEquity = Math.Min(dt, pass);
 
         // ── Best / Actual banner ───────────────────────────────────────
-        // Both lines are atomic-derived from the per-half best actions.
-        // "Best" is the correct play: BestDoublerAction, plus the taker
-        // half — except that (NoDouble, Pass) is the too-good-to-double
-        // pair and reads "Too Good", and a (NoDouble, Take) best leaves the
-        // opponent no take/pass decision and so shows the doubler half
-        // alone. "Actual" is what the user played, derived from
-        // UserDoubleError / UserTakeError (0 = correct, >0 = wrong) by
-        // flipping each half off its best action. Both lines run through
-        // CubeDecisionLine, so the too-good classification and the
-        // doubler-side suppression rule each have a single definition.
+        // Both lines are atomic: each is a pair of per-half cube actions,
+        // and both run through CubeDecisionLine, so the too-good
+        // classification and the doubler-side suppression rule each have a
+        // single definition.
+        //
+        // "Best" is the correct play — BestDoublerAction plus the taker half.
+        // "Actual" is what was played, read straight off the stamped
+        // UserDoublerAction / UserTakerAction. It is not inferred from
+        // UserDoubleError / UserTakeError: a zero error does not identify the
+        // action when the two cube equities tie, so an equity-tie double
+        // (NoDoubleEquity == DoubleTakeEquity, error 0, tie-break best
+        // NoDouble) used to be misreported as "No Double". Null means the
+        // producer recorded no action for that half — that half is omitted,
+        // and a wholly unrecorded decision drops the Actual line entirely.
         CubeAction bestDoublerAction = d.BestDoublerAction;
         CubeAction bestTakerAction = d.BestTakerAction;
 
@@ -1188,12 +1192,8 @@ public static class DiagramRenderer
         sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(bestLine)}</text>""");
         y += CubePanelLineHeight;
 
-        CubeAction? actualDoublerAction = d.UserDoubleError is double ude
-            ? (ude > 0 ? OppositeDoublerAction(bestDoublerAction) : bestDoublerAction)
-            : null;
-        CubeAction? actualTakerAction = d.UserTakeError is double ute
-            ? (ute > 0 ? OppositeTakerAction(bestTakerAction) : bestTakerAction)
-            : null;
+        CubeAction? actualDoublerAction = d.UserDoublerAction;
+        CubeAction? actualTakerAction = d.UserTakerAction;
         if (actualDoublerAction != null || actualTakerAction != null)
         {
             string actualLine = CubeDecisionLine("Actual: ", actualDoublerAction, actualTakerAction);
@@ -1324,9 +1324,8 @@ public static class DiagramRenderer
     //  Label helpers map BgDataTypes_Lib's CubeAction values — and, for the
     //  too-good case, a whole CubeDecisionPair — to their user-facing
     //  strings. Centralised here rather than scattered through
-    //  AppendCubePanel so the two-word "No Double" formatting, the Best and
-    //  Actual decision lines, and the Doubler/Taker flips of the Actual
-    //  line each have one definition site.
+    //  AppendCubePanel so the two-word "No Double" formatting and the Best
+    //  and Actual decision lines each have one definition site.
 
     // Builds a "<prefix><doubler> / <taker>" decision line shared by the
     // Best and Actual banners, so the two stay consistent by construction.
@@ -1339,23 +1338,22 @@ public static class DiagramRenderer
     // renderer must not re-encode it. The pair constructor rejects cross-half
     // values, but cannot throw here: both halves arrive half-correct by
     // construction, from DecisionData's guarded BestDoublerAction /
-    // BestTakerAction or from the Opposite*Action flips, which stay within
-    // their own half.
+    // BestTakerAction or its equally guarded UserDoublerAction /
+    // UserTakerAction.
     //
-    // Otherwise: a null doubler renders "?" (the Actual line when
-    // UserDoubleError is absent but UserTakeError present); a null taker
-    // renders the doubler half alone. The taker half is also suppressed
-    // whenever the doubler action isn't a real double — a "No Double" with no
-    // taker half decided gives the opponent no take/pass choice, so a
-    // (possibly stale) taker action is not shown.
+    // Otherwise: a null doubler renders "?" (the Actual line when the producer
+    // stamped a taker action but no doubler action); a null taker renders the
+    // doubler half alone. The taker half is also suppressed whenever the
+    // doubler action isn't a real double — a "No Double" with no taker half
+    // decided gives the opponent no take/pass choice, so a (possibly stale)
+    // taker action is not shown.
     //
     // The two rules do not conflict, because both halves present means both
-    // halves were actually decided — by the analysis, on the Best line, or by
-    // the user's submitted answer on the Actual line, where UserDoubleError
-    // and UserTakeError jointly encode the pair the user picked. The stale
-    // taker the suppression rule guards against is the one-sided case: a
-    // recorded position where no double happened and the opponent never faced
-    // the cube, for which the producer omits the taker error entirely.
+    // halves were actually decided — by the analysis on the Best line, or by
+    // the cube record on the Actual line. The stale taker the suppression rule
+    // guards against is the one-sided case: an undoubled position where the
+    // opponent never faced the cube, for which the producer stamps the doubler
+    // half alone and leaves the taker half null.
     private static string CubeDecisionLine(string prefix, CubeAction? doubler, CubeAction? taker)
     {
         if (doubler is CubeAction dh && taker is CubeAction th
@@ -1380,26 +1378,6 @@ public static class DiagramRenderer
         CubeAction.Take     => "Take",
         CubeAction.Pass     => "Pass",
         _ => throw new ArgumentOutOfRangeException(nameof(action), action, null)
-    };
-
-    // Doubler-half flip (Double↔NoDouble) for deriving the Actual doubler
-    // action from the Best doubler action when UserDoubleError > 0.
-    private static CubeAction OppositeDoublerAction(CubeAction action) => action switch
-    {
-        CubeAction.Double   => CubeAction.NoDouble,
-        CubeAction.NoDouble => CubeAction.Double,
-        _ => throw new ArgumentOutOfRangeException(nameof(action), action,
-            "OppositeDoublerAction requires a doubler-half action (Double or NoDouble).")
-    };
-
-    // Taker-half flip (Take↔Pass) for deriving the Actual taker
-    // action from the Best taker action when UserTakeError > 0.
-    private static CubeAction OppositeTakerAction(CubeAction action) => action switch
-    {
-        CubeAction.Take => CubeAction.Pass,
-        CubeAction.Pass => CubeAction.Take,
-        _ => throw new ArgumentOutOfRangeException(nameof(action), action,
-            "OppositeTakerAction requires a taker-half action (Take or Pass).")
     };
 
     // -----------------------------------------------------------------------

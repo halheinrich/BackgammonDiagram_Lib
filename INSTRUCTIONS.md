@@ -261,11 +261,18 @@ Rendered in Solution mode only. Two shapes:
 - **Cube panel** (`Decision.IsCube == true`). Best/Actual banner,
   Equity/Loss table (No Double / Double / Take / Pass), two percentage
   tables (No Double and Take played-out stats), footer lines. Invariants:
-  - The Best/Actual banner is atomic-derived: both lines share one
-    builder (`CubeDecisionLine`) over the per-half best actions
-    (`DecisionData.BestDoublerAction` / `BestTakerAction`). Best
-    shows those directly; Actual flips each half off its best action by
-    `UserDoubleError` / `UserTakeError` (0 = correct, >0 = wrong).
+  - The Best/Actual banner is atomic: both lines are a pair of per-half
+    cube actions run through one builder (`CubeDecisionLine`). Best reads
+    `DecisionData.BestDoublerAction` / `BestTakerAction`; Actual reads the
+    stamped `DecisionData.UserDoublerAction` / `UserTakerAction`.
+    Actual is **not** inferred from `UserDoubleError` / `UserTakeError`,
+    and there is no legacy fallback to that inference: a zero error does
+    not identify the action when the two cube equities tie, which used to
+    misreport an equity-tie double as "No Double". A null half means the
+    producer recorded no action for it — that half is omitted, and a cube
+    decision with neither half stamped (a resignation-terminal record, or
+    JSON written before the fields existed) drops the Actual line
+    entirely.
     When both halves are present they form a complete decision and are
     classified as a `BgDataTypes_Lib.CubeDecisionPair`: the too-good pair
     (NoDouble, Pass) renders as `"Too Good"` instead of its two halves.
@@ -275,9 +282,9 @@ Rendered in Solution mode only. Two shapes:
     isn't a real double — a (NoDouble, Take) best leaves the opponent no
     take/pass choice, so the line carries only the doubler half. The two
     rules don't collide: both halves present means both were decided (by
-    the analysis, or by the user's submitted answer on the Actual line),
-    while the stale-taker case the suppression guards against is the
-    one-sided line, where the producer omits the taker error entirely.
+    the analysis on the Best line, or by the cube record on the Actual
+    line), while the stale-taker case the suppression guards against is
+    the one-sided line, where the producer stamps the doubler half alone.
   - The Analysis Level footer renders `Decision.CubeDepth` (the full
     string, e.g. `"Rollout: 1296 trials. 3-ply"`), not
     `Decision.CubeDepthAbbreviation`. The cube panel has one analysis

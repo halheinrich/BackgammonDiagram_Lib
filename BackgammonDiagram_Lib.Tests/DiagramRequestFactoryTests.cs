@@ -62,6 +62,8 @@ public class DiagramRequestFactoryTests
         Assert.Equal(data.Decision.ProbOfOpponentErrorJustifyingDouble, req.Decision.ProbOfOpponentErrorJustifyingDouble);
         Assert.Equal(data.Decision.UserDoubleError, req.Decision.UserDoubleError);
         Assert.Equal(data.Decision.UserTakeError, req.Decision.UserTakeError);
+        Assert.Equal(data.Decision.UserDoublerAction, req.Decision.UserDoublerAction);
+        Assert.Equal(data.Decision.UserTakerAction, req.Decision.UserTakerAction);
     }
 
     [Fact]
@@ -179,6 +181,8 @@ public class DiagramRequestFactoryTests
         Assert.Equal(original.Decision.NoDoubleEquity, rebuilt.Decision.NoDoubleEquity);
         Assert.Equal(original.Decision.UserDoubleError, rebuilt.Decision.UserDoubleError);
         Assert.Equal(original.Decision.UserTakeError, rebuilt.Decision.UserTakeError);
+        Assert.Equal(original.Decision.UserDoublerAction, rebuilt.Decision.UserDoublerAction);
+        Assert.Equal(original.Decision.UserTakerAction, rebuilt.Decision.UserTakerAction);
         Assert.Equal(original.Decision.CubeDepth, rebuilt.Decision.CubeDepth);
         Assert.Equal(original.Decision.CubeDepthAbbreviation, rebuilt.Decision.CubeDepthAbbreviation);
         Assert.Equal(original.Decision.CubeDepthRank, rebuilt.Decision.CubeDepthRank);
@@ -200,12 +204,13 @@ public class DiagramRequestFactoryTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void ToProblemSolutionPair_PreservesUserErrorsAcrossExpansion()
+    public void ToProblemSolutionPair_PreservesUserCubeFieldsAcrossExpansion()
     {
         // This is the specific drift that bit us in the Best/Actual banner
         // commit: UserDoubleError was dropped by the old open-coded
         // ToProblemSolutionPair. The refactor through Builder.From means
-        // the pair expansion now can't skip a field silently.
+        // the pair expansion now can't skip a field silently. The played
+        // actions matter most here — they are what the Actual line reads.
         var data = FullyPopulatedData();
         var source = DiagramRequest.FromDecisionData(data);
 
@@ -213,8 +218,12 @@ public class DiagramRequestFactoryTests
 
         Assert.Equal(data.Decision.UserDoubleError, problem.Decision.UserDoubleError);
         Assert.Equal(data.Decision.UserTakeError, problem.Decision.UserTakeError);
+        Assert.Equal(data.Decision.UserDoublerAction, problem.Decision.UserDoublerAction);
+        Assert.Equal(data.Decision.UserTakerAction, problem.Decision.UserTakerAction);
         Assert.Equal(data.Decision.UserDoubleError, solution.Decision.UserDoubleError);
         Assert.Equal(data.Decision.UserTakeError, solution.Decision.UserTakeError);
+        Assert.Equal(data.Decision.UserDoublerAction, solution.Decision.UserDoublerAction);
+        Assert.Equal(data.Decision.UserTakerAction, solution.Decision.UserTakerAction);
 
         Assert.Equal(DiagramMode.Problem, problem.Mode);
         Assert.Equal(DiagramMode.Solution, solution.Mode);
@@ -306,6 +315,8 @@ public class DiagramRequestFactoryTests
             ProbOfOpponentErrorJustifyingDouble = 0.05,
             UserDoubleError = 0.006,
             UserTakeError = 0.0,
+            UserDoublerAction = CubeAction.Double,
+            UserTakerAction = CubeAction.Take,
         },
         Descriptive = new DescriptiveData
         {

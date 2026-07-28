@@ -87,31 +87,49 @@ public class RendererPanelContentTests
     }
 
     [Fact]
-    public void CubePanel_ActualLine_DerivedFromUserErrors()
+    public void CubePanel_ActualLine_ReadsStampedPlayedActions()
     {
-        // nd=0.40, dt=0.60 → Best doubler = Double; Best opp = Take.
-        //   UserDoubleError == 0 → user doubled correctly → actualDoubler = Double.
-        //   UserTakeError  > 0   → opp got take/pass wrong → actualOpp = Pass.
-        // The doubler-side is "Double" (not "No Double"), so the opp half is
-        // retained — this test exercises both sides of the derivation.
+        // nd=0.40, dt=0.60 → Best = (Double, Take). The doubled game was
+        // passed, so both halves are stamped and both render: the doubler
+        // side is a real Double, which keeps the taker half on the line.
         var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
-        b.UserDoubleError = 0;
-        b.UserTakeError = 0.1;
+        b.UserDoublerAction = CubeAction.Double;
+        b.UserTakerAction = CubeAction.Pass;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
         Assert.Contains("Actual: Double / Pass", svg);
     }
 
     [Fact]
-    public void CubePanel_ActualLine_NoDoubleSuppressesOppHalf()
+    public void CubePanel_ActualLine_EquityTieDoubleStillRendersDouble()
     {
-        // nd=0.40, dt=0.60 → Best = Double/Take.
-        //   UserDoubleError > 0 → user played the opposite (No Double).
-        //   UserTakeError set but stale — opp never faced a take/pass, so
-        //   the Actual line must show only the doubler half.
+        // Regression — the bug the stamped fields exist to fix. nd == dt ==
+        // 0.50: doubling gains nothing, so the tie-break picks NoDouble as
+        // BestDoublerAction and UserDoubleError is 0 because the double cost
+        // nothing. The old derivation read that zero as "played the best
+        // action" and printed "No Double" for a game that was doubled and
+        // taken. Both errors are set here to exactly the values that used to
+        // mislead the line; only the stamped actions decide it now.
+        var b = MinimalCubeBuilder(noDoubleEquity: 0.50, doubleTakeEquity: 0.50);
+        b.UserDoubleError = 0;
+        b.UserTakeError = 0;
+        b.UserDoublerAction = CubeAction.Double;
+        b.UserTakerAction = CubeAction.Take;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains("Actual: Double / Take", svg);
+        Assert.DoesNotContain("Actual: No Double", svg);
+    }
+
+    [Fact]
+    public void CubePanel_ActualLine_UndoubledGameShowsDoublerHalfAlone()
+    {
+        // An undoubled game: the producer stamps the doubler half and leaves
+        // the taker half null, because the opponent never faced the cube. The
+        // suppression rule then carries the doubler label alone.
         var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
-        b.UserDoubleError = 0.1;
-        b.UserTakeError = 0;
+        b.UserDoublerAction = CubeAction.NoDouble;
+        b.UserTakerAction = null;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
         Assert.Contains("Actual: No Double", svg);
@@ -119,16 +137,16 @@ public class RendererPanelContentTests
     }
 
     [Fact]
-    public void CubePanel_ActualLine_HighNoDoubleEquityShowsNoDouble()
+    public void CubePanel_ActualLine_StaleTakerOnNoDoubleIsSuppressed()
     {
-        // nd=1.20, dt=0.50 → BestDoublerAction = NoDouble.
-        //   UserDoubleError == 0  → user did the correct thing, so the Actual
-        //     line shows the flat "No Double".
-        //   UserTakeError == null → opp never faced a decision; the opp half
-        //     is suppressed for any non-Double doubler action.
-        var b = MinimalCubeBuilder(noDoubleEquity: 1.20, doubleTakeEquity: 0.50);
-        b.UserDoubleError = 0;
-        b.UserTakeError = null;
+        // The suppression rule is a property of the line, not of the
+        // producer's discipline: a NoDouble doubler half drops the taker
+        // half even when one is present, because no take/pass decision
+        // arose. Guards the rule against a producer that stamps a stale
+        // response.
+        var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
+        b.UserDoublerAction = CubeAction.NoDouble;
+        b.UserTakerAction = CubeAction.Take;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
         Assert.Contains("Actual: No Double", svg);
@@ -136,15 +154,15 @@ public class RendererPanelContentTests
     }
 
     [Fact]
-    public void CubePanel_ActualLine_TooGoodRendersTooGood()
+    public void CubePanel_ActualLine_StampedTooGoodPairRendersTooGood()
     {
-        // nd=1.50, dt=1.20 → Best = (NoDouble, Pass) = Too Good.
-        //   Both errors 0 → the user answered both halves correctly, so the
-        //   Actual pair is the same Too Good pair. The rule is pair-level and
-        //   applies to Actual exactly as it does to Best.
+        // The too-good classification is pair-level and applies to Actual
+        // exactly as it does to Best: a stamped (NoDouble, Pass) is the
+        // too-good pair and names itself, rather than falling to the
+        // doubler-half-alone suppression.
         var b = MinimalCubeBuilder(noDoubleEquity: 1.50, doubleTakeEquity: 1.20);
-        b.UserDoubleError = 0;
-        b.UserTakeError = 0;
+        b.UserDoublerAction = CubeAction.NoDouble;
+        b.UserTakerAction = CubeAction.Pass;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
         Assert.Contains("Actual: Too Good", svg);
@@ -152,51 +170,50 @@ public class RendererPanelContentTests
     }
 
     [Fact]
-    public void CubePanel_ActualLine_BothErrorsOnDoubleTakeBestRenderTooGood()
+    public void CubePanel_ActualLine_StampedActionsIgnoreTheBestPair()
     {
-        // nd=0.40, dt=0.60 → Best = (Double, Take).
-        //   UserDoubleError > 0 → against a Double best, the user chose No Double.
-        //   UserTakeError  > 0 → against a Take best, the user chose Pass.
-        // The two error fields jointly encode the pair the user submitted, so
-        // the answer was (NoDouble, Pass) — the user picked "too good" — and
-        // the Actual line names it. The taker half here is decided, not stale:
-        // a producer with no taker decision to report omits UserTakeError,
-        // which is the one-sided case covered below.
-        var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
-        b.UserDoubleError = 0.1;
-        b.UserTakeError = 0.1;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
-
-        Assert.Contains("Actual: Too Good", svg);
-        Assert.DoesNotContain("Actual: No Double", svg);
-    }
-
-    [Fact]
-    public void CubePanel_ActualLine_OneSidedOnTooGoodBestStaysNoDouble()
-    {
-        // nd=1.50, dt=1.20 → Best = (NoDouble, Pass) = Too Good.
-        //   UserDoubleError == 0  → the user did not double, correctly.
-        //   UserTakeError == null → no taker half was reported at all.
-        // A pair needs both halves to be classified, so the one-sided Actual
-        // line keeps the plain doubler label even though the *best* pair is
-        // Too Good. Guards that the new rule reads the Actual halves rather
-        // than leaking the Best classification onto a half-known answer.
+        // nd=1.50, dt=1.20 → Best = (NoDouble, Pass) = Too Good. The player
+        // doubled anyway and was passed, so Actual is (Double, Pass). Guards
+        // that the line reads its own halves rather than leaking the Best
+        // pair's classification onto them.
         var b = MinimalCubeBuilder(noDoubleEquity: 1.50, doubleTakeEquity: 1.20);
-        b.UserDoubleError = 0;
-        b.UserTakeError = null;
+        b.UserDoublerAction = CubeAction.Double;
+        b.UserTakerAction = CubeAction.Pass;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        Assert.Contains("Actual: No Double", svg);
-        Assert.DoesNotContain("Actual: No Double /", svg);
+        Assert.Contains("Best:   Too Good", svg);
+        Assert.Contains("Actual: Double / Pass", svg);
         Assert.DoesNotContain("Actual: Too Good", svg);
     }
 
     [Fact]
-    public void CubePanel_ActualLine_SuppressedWhenBothErrorsNull()
+    public void CubePanel_ActualLine_TakerHalfAloneRendersUnknownDoubler()
     {
+        // A taker half with no doubler half violates the producer contract (a
+        // recorded response implies a double), but the line still has to
+        // render something: the unknown doubler half prints "?" rather than
+        // being silently dropped.
         var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
-        b.UserDoubleError = null;
-        b.UserTakeError = null;
+        b.UserDoublerAction = null;
+        b.UserTakerAction = CubeAction.Take;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains("Actual: ? / Take", svg);
+    }
+
+    [Fact]
+    public void CubePanel_ActualLine_SuppressedWhenNoActionStamped()
+    {
+        // Null means "not recorded" — a resignation-terminal cube record, or
+        // JSON written before the played-action fields existed. The error
+        // fields are set and deliberately ignored: there is no inference
+        // fallback, so an unrecorded decision drops the line entirely rather
+        // than guessing an action from a zero error.
+        var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
+        b.UserDoubleError = 0;
+        b.UserTakeError = 0.1;
+        b.UserDoublerAction = null;
+        b.UserTakerAction = null;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
         Assert.DoesNotContain("Actual:", svg);
