@@ -285,6 +285,13 @@ Rendered in Solution mode only. Two shapes:
     the analysis on the Best line, or by the cube record on the Actual
     line), while the stale-taker case the suppression guards against is
     the one-sided line, where the producer stamps the doubler half alone.
+  - `"Actual: Too Good"` is unreachable from real data **by design** — the
+    Actual line reports the game's actions, and on a too-good decline the
+    action played was No Double with no taker decision in existence, so
+    the Too Good pair never gets stamped. Too Good is a Best-line verdict.
+    Don't "fix" this by stamping a fabricated Pass: it would violate the
+    producer's cross-half contract (a recorded taker response implies a
+    double) to make the renderer print a decision nobody made.
   - The Analysis Level footer renders `Decision.CubeDepth` (the full
     string, e.g. `"Rollout: 1296 trials. 3-ply"`), not
     `Decision.CubeDepthAbbreviation`. The cube panel has one analysis
