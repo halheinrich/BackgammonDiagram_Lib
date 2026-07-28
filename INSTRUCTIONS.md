@@ -572,9 +572,9 @@ to supply their own palette.
   computes each checker's centre Y inline (`base ± i·2·CheckerRadius`), and
   `HitRegionsTests` hand-copies that same formula to pin render/hit
   agreement. The stack *bound* is now single-sourced
-  (`BoardLayout.MaxStackCheckers` / `MaxStackHeight`, finding-#4 fix
-  `61cd0dc`), but the per-index position formula remains duplicated — so the
-  test cross-checks against a copy rather than the real method, and the two
+  (`BoardLayout.MaxStackCheckers` / `MaxStackHeight`, the finding-#4 fix),
+  but the per-index position formula remains duplicated — so the test
+  cross-checks against a copy rather than the real method, and the two
   could drift. Expose a `BoardLayout`-level checker-centre helper (e.g.
   `CheckerCentreY(stackIndex, bottomHalf, baseY)`) that both
   `AppendCheckerStack` and the test call. Small encapsulation cleanup; do at
