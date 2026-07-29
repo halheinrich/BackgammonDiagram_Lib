@@ -278,13 +278,26 @@ Rendered in Solution mode only. Two shapes:
     (NoDouble, Pass) renders as `"Too Good"` instead of its two halves.
     That rule lives in `CubeDecisionPair.IsTooGood`, not here — the
     renderer must not re-encode "NoDouble + Pass means too good".
-    Otherwise the taker half is suppressed whenever the doubler action
-    isn't a real double — a (NoDouble, Take) best leaves the opponent no
-    take/pass choice, so the line carries only the doubler half. The two
-    rules don't collide: both halves present means both were decided (by
-    the analysis on the Best line, or by the cube record on the Actual
-    line), while the stale-taker case the suppression guards against is
-    the one-sided line, where the producer stamps the doubler half alone.
+    Otherwise `CubeDecisionLine` renders every half that is present and
+    suppresses none: presence is the only thing that decides whether a
+    half appears, and no half is dropped on account of the other's value.
+    A (NoDouble, Take) best therefore renders `"No Double / Take"` in
+    full — the halves are analysis, the taker half states what a double
+    would meet, and "no double, take" is a verdict distinct from
+    "Too Good". The quiz scores both halves, so suppressing one hid the
+    half the user was asked about.
+  - The **stale-taker rule belongs to the Actual line's stamped-data
+    boundary**, not to `CubeDecisionLine`: `DiagramRenderer
+    .StampedTakerAction` drops the taker half of a stamped
+    `CubeDecisionPair.NoDoubleTake` before the line is built. This is
+    defence-in-depth against a producer contract violation — `DecisionData`
+    validates each played half only against its own action domain and
+    leaves cross-half consistency (a recorded taker response implies the
+    doubler doubled) to the producer — so an opponent cannot appear to
+    have taken a cube that was never offered. Only that one pair is
+    filtered; (NoDouble, Pass) passes through to the Too Good
+    classification. The Best line gets no such pass, because halves
+    derived from the cube equities can never be out of contract.
   - `"Actual: Too Good"` is unreachable from real data **by design** — the
     Actual line reports the game's actions, and on a too-good decline the
     action played was No Double with no taker decision in existence, so

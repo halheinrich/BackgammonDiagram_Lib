@@ -1173,10 +1173,15 @@ public static class DiagramRenderer
         // ── Best / Actual banner ───────────────────────────────────────
         // Both lines are atomic: each is a pair of per-half cube actions,
         // and both run through CubeDecisionLine, so the too-good
-        // classification and the doubler-side suppression rule each have a
-        // single definition.
+        // classification has a single definition.
         //
         // "Best" is the correct play — BestDoublerAction plus the taker half.
+        // Both halves are analysis, derived from the cube equities, so both
+        // always exist and both always render: "No Double / Take" is a
+        // verdict in its own right, distinct from the too-good "No Double /
+        // Pass", and hiding the taker half would hide half of what the
+        // analysis says.
+        //
         // "Actual" is what was played, read straight off the stamped
         // UserDoublerAction / UserTakerAction. It is not inferred from
         // UserDoubleError / UserTakeError: a zero error does not identify the
@@ -1185,6 +1190,8 @@ public static class DiagramRenderer
         // NoDouble) used to be misreported as "No Double". Null means the
         // producer recorded no action for that half — that half is omitted,
         // and a wholly unrecorded decision drops the Actual line entirely.
+        // Being external input, the stamped halves also go through
+        // StampedTakerAction first; see its comment.
         CubeAction bestDoublerAction = d.BestDoublerAction;
         CubeAction bestTakerAction = d.BestTakerAction;
 
@@ -1196,7 +1203,8 @@ public static class DiagramRenderer
         CubeAction? actualTakerAction = d.UserTakerAction;
         if (actualDoublerAction != null || actualTakerAction != null)
         {
-            string actualLine = CubeDecisionLine("Actual: ", actualDoublerAction, actualTakerAction);
+            string actualLine = CubeDecisionLine("Actual: ", actualDoublerAction,
+                StampedTakerAction(actualDoublerAction, actualTakerAction));
             sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(actualLine)}</text>""");
             y += CubePanelLineHeight;
         }
@@ -1341,19 +1349,15 @@ public static class DiagramRenderer
     // BestTakerAction or its equally guarded UserDoublerAction /
     // UserTakerAction.
     //
-    // Otherwise: a null doubler renders "?" (the Actual line when the producer
-    // stamped a taker action but no doubler action); a null taker renders the
-    // doubler half alone. The taker half is also suppressed whenever the
-    // doubler action isn't a real double — a "No Double" with no taker half
-    // decided gives the opponent no take/pass choice, so a (possibly stale)
-    // taker action is not shown.
-    //
-    // The two rules do not conflict, because both halves present means both
-    // halves were actually decided — by the analysis on the Best line, or by
-    // the cube record on the Actual line. The stale taker the suppression rule
-    // guards against is the one-sided case: an undoubled position where the
-    // opponent never faced the cube, for which the producer stamps the doubler
-    // half alone and leaves the taker half null.
+    // Otherwise each present half renders: a null doubler renders "?" (the
+    // Actual line when the producer stamped a taker action but no doubler
+    // action), and a null taker renders the doubler half alone. Presence is
+    // the only thing that decides whether a half is shown — the builder never
+    // suppresses one half on account of the other's value. A doubler-side
+    // "No Double" therefore keeps its taker half: "No Double / Take" is a
+    // real verdict, not a stale leftover. Deciding which stamped halves are
+    // trustworthy belongs to the Actual line's own boundary, not here; see
+    // StampedTakerAction.
     private static string CubeDecisionLine(string prefix, CubeAction? doubler, CubeAction? taker)
     {
         if (doubler is CubeAction dh && taker is CubeAction th
@@ -1361,10 +1365,31 @@ public static class DiagramRenderer
             return prefix + TooGoodLabel;
 
         string line = prefix + (doubler is CubeAction d ? ActionLabel(d) : "?");
-        if (taker is CubeAction r && doubler != CubeAction.NoDouble)
+        if (taker is CubeAction r)
             line += " / " + ActionLabel(r);
         return line;
     }
+
+    // Defence-in-depth at the Actual line's stamped-data boundary. The played
+    // halves are external input, and DecisionData leaves cross-half
+    // consistency (a recorded taker response implies the doubler doubled) to
+    // the producer rather than guarding it — each init-only half is validated
+    // only against its own action domain. A stamped (NoDouble, Take) breaks
+    // that contract: the opponent cannot have taken a cube that was never
+    // offered, so the taker half is a stale leftover and is dropped, leaving
+    // the doubler half to render alone.
+    //
+    // Only that one pair is out of contract. (NoDouble, Pass) is the too-good
+    // pair, which CubeDecisionLine names, so it passes through untouched — the
+    // pair to reject is named by BgDataTypes_Lib as CubeDecisionPair
+    // .NoDoubleTake rather than spelled out here. The Best line needs no such
+    // pass: its halves are derived from the cube equities and cannot be out of
+    // contract.
+    private static CubeAction? StampedTakerAction(CubeAction? doubler, CubeAction? taker) =>
+        doubler is CubeAction d && taker is CubeAction t
+            && new CubeDecisionPair(d, t) == CubeDecisionPair.NoDoubleTake
+                ? null
+                : taker;
 
     // Pair-level banner label, the one case where a complete cube decision
     // reads as something other than its two halves joined by " / ". Title-caps

@@ -29,21 +29,21 @@ public class RendererPanelContentTests
     }
 
     [Fact]
-    public void CubePanel_BestLine_HighNoDoubleEquityRendersPlainNoDouble()
+    public void CubePanel_BestLine_NoDoubleTakeRendersBothHalves()
     {
         // nd=1.20, dt=0.50 → BestDoublerAction = NoDouble (min(dt,1)=0.50 is
         // not greater than nd=1.20), BestTakerAction = Take (dt < 1). That is
         // the (NoDouble, Take) pair, NOT the too-good (NoDouble, Pass) one:
         // No Double is right because doubling gains nothing, not because the
-        // position is too good. So the plain "No Double" stands, and since
-        // the best action is not to double, no opp take/pass decision arises
-        // — the Best line carries only the doubler half. Guards the boundary
-        // of the Too Good rule from the low side.
+        // position is too good. Both halves are analysis rather than game
+        // record — the taker half says what the response to a double would
+        // be — so both render, and "No Double / Take" reads as the distinct
+        // verdict it is. Guards the boundary of the Too Good rule from the
+        // low side.
         var request = MinimalCubeBuilder(noDoubleEquity: 1.20, doubleTakeEquity: 0.50).Build();
         var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
 
-        Assert.Contains("Best:   No Double", svg);
-        Assert.DoesNotContain("Best:   No Double /", svg);
+        Assert.Contains("Best:   No Double / Take", svg);
         Assert.DoesNotContain("Too Good", svg);
     }
 
@@ -65,15 +65,19 @@ public class RendererPanelContentTests
     }
 
     [Fact]
-    public void CubePanel_BestLine_NoDoubleHasNoOppHalf()
+    public void CubePanel_BestLine_NoDoubleTakeHoldsWhenDoublingIsActivelyBad()
     {
         // nd=0.25, dt=-0.10 → doubleEquity=min(dt,1)=-0.10 < nd, so best is
-        // "No Double". Same rule as "Too Good": no double → no opp decision.
+        // "No Double", and dt < 1 makes the best response Take. The same
+        // (NoDouble, Take) pair as above but reached from a negative
+        // double/take equity, where doubling loses ground rather than merely
+        // gaining none. The taker half still renders: how far short the
+        // double falls does not change that a take is what a double would
+        // meet.
         var request = MinimalCubeBuilder(noDoubleEquity: 0.25, doubleTakeEquity: -0.10).Build();
         var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
 
-        Assert.Contains("Best:   No Double", svg);
-        Assert.DoesNotContain("Best:   No Double /", svg);
+        Assert.Contains("Best:   No Double / Take", svg);
     }
 
     [Fact]
@@ -90,8 +94,7 @@ public class RendererPanelContentTests
     public void CubePanel_ActualLine_ReadsStampedPlayedActions()
     {
         // nd=0.40, dt=0.60 → Best = (Double, Take). The doubled game was
-        // passed, so both halves are stamped and both render: the doubler
-        // side is a real Double, which keeps the taker half on the line.
+        // passed, so both halves are stamped, in contract, and both render.
         var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
         b.UserDoublerAction = CubeAction.Double;
         b.UserTakerAction = CubeAction.Pass;
@@ -125,8 +128,9 @@ public class RendererPanelContentTests
     public void CubePanel_ActualLine_UndoubledGameShowsDoublerHalfAlone()
     {
         // An undoubled game: the producer stamps the doubler half and leaves
-        // the taker half null, because the opponent never faced the cube. The
-        // suppression rule then carries the doubler label alone.
+        // the taker half null, because the opponent never faced the cube.
+        // This is the in-contract one-sided record, and the null half alone
+        // — no suppression involved — carries the doubler label by itself.
         var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
         b.UserDoublerAction = CubeAction.NoDouble;
         b.UserTakerAction = null;
@@ -139,11 +143,15 @@ public class RendererPanelContentTests
     [Fact]
     public void CubePanel_ActualLine_StaleTakerOnNoDoubleIsSuppressed()
     {
-        // The suppression rule is a property of the line, not of the
-        // producer's discipline: a NoDouble doubler half drops the taker
-        // half even when one is present, because no take/pass decision
-        // arose. Guards the rule against a producer that stamps a stale
-        // response.
+        // Defence against an out-of-contract stamp, not a property of the
+        // line. DecisionData validates each played half only against its own
+        // action domain and leaves cross-half consistency (a recorded taker
+        // response implies the doubler doubled) to the producer, so a stamped
+        // (NoDouble, Take) can reach the renderer even though the opponent
+        // cannot have taken a cube that was never offered. The Actual line
+        // drops that stale taker at its stamped-data boundary. The Best line
+        // has no such rule — its (NoDouble, Take) is analysis and renders in
+        // full.
         var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
         b.UserDoublerAction = CubeAction.NoDouble;
         b.UserTakerAction = CubeAction.Take;
@@ -158,8 +166,9 @@ public class RendererPanelContentTests
     {
         // The too-good classification is pair-level and applies to Actual
         // exactly as it does to Best: a stamped (NoDouble, Pass) is the
-        // too-good pair and names itself, rather than falling to the
-        // doubler-half-alone suppression.
+        // too-good pair and names itself. Guards the reach of the
+        // stale-taker filter, which drops only (NoDouble, Take) and must
+        // leave this NoDouble-doubler pair intact to be classified.
         var b = MinimalCubeBuilder(noDoubleEquity: 1.50, doubleTakeEquity: 1.20);
         b.UserDoublerAction = CubeAction.NoDouble;
         b.UserTakerAction = CubeAction.Pass;
