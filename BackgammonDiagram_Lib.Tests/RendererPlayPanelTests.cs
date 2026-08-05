@@ -15,6 +15,8 @@ namespace BackgammonDiagram_Lib.Tests;
 ///     non-best entry; omitted when the field is &lt;= 0 (which in practice
 ///     means the candidate is itself a best play — <c>EquityLoss == 0.0</c>
 ///     marks membership in the best-equity equivalence class).
+///   * The Equity and Eq Loss <em>values</em> render bold; their column
+///     headers, and every other column, keep the normal weight.
 ///
 /// This pins the contract so a future behavior regression shows up here and
 /// upstream data-layer investigations can proceed without having to re-verify
@@ -146,6 +148,7 @@ public class RendererPlayPanelTests
         Assert.DoesNotContain("font-style=\"italic\"", depth[1].Value);   // row 0: no predecessor
         Assert.Equal("3p1296", depth[2].Groups[1].Value);
         Assert.Contains("font-style=\"italic\"", depth[2].Value);         // row 1: 10 > 5 → italic
+        Assert.DoesNotContain("font-weight=\"bold\"", depth[2].Value);    // ...but Depth is not a numeric column
         Assert.Equal("R+", depth[3].Groups[1].Value);
         Assert.DoesNotContain("font-style=\"italic\"", depth[3].Value);   // row 2: 5 <= 10
 
@@ -157,6 +160,9 @@ public class RendererPlayPanelTests
         Assert.DoesNotContain("font-style=\"italic\"", equity[1].Value);  // row 0
         Assert.Contains("font-style=\"italic\"", equity[2].Value);        // row 1 inverted
         Assert.DoesNotContain("font-style=\"italic\"", equity[3].Value);  // row 2
+        // Weight and style are independent attributes: an inverted row reads
+        // bold-italic, the cue does not displace the numeric bold.
+        Assert.Contains("font-weight=\"bold\"", equity[2].Value);
 
         // Eq Loss cells: header ("Eq Loss") + rows 1 and 2 at x=326.4 (row 0
         // is a best play with EquityLoss = 0.0 and renders no cell). Header
@@ -168,5 +174,53 @@ public class RendererPlayPanelTests
         Assert.DoesNotContain("font-style=\"italic\"", loss[0].Value);    // header
         Assert.Contains("font-style=\"italic\"", loss[1].Value);          // row 1 inverted
         Assert.DoesNotContain("font-style=\"italic\"", loss[2].Value);    // row 2
+        Assert.Contains("font-weight=\"bold\"", loss[1].Value);           // bold survives the italic cue
+    }
+
+    [Fact]
+    public void Plays_EquityAndEqLossValues_RenderBold_HeadersAndOtherColumnsDoNot()
+    {
+        // Bold is the numeric-column treatment: the Equity and Eq Loss
+        // *values* only. Ranks are monotone non-increasing so no row is
+        // italicised — this isolates weight from the rank-inversion style.
+        var plays = new List<PlayCandidate>
+        {
+            new() { MoveNotation = "8/5 6/5",   Equity = 0.50,                     DepthAbbreviation = "3-ply", DepthRank = 3 },
+            new() { MoveNotation = "13/10 8/5", Equity = 0.48, EquityLoss = 0.02,  DepthAbbreviation = "2-ply", DepthRank = 2 },
+            new() { MoveNotation = "24/21 8/5", Equity = 0.42, EquityLoss = 0.08,  DepthAbbreviation = "R+",    DepthRank = 0 },
+        };
+
+        var b = TestFixtures.MinimalBuilder();
+        b.Mode = DiagramMode.Solution;
+        b.Plays = plays;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        // Equity column at x=263.4, right-anchored: header + one cell per play.
+        var equityCell = new Regex("""<text x="263\.4" y="[0-9.]+" text-anchor="end" [^>]*>([^<]+)</text>""");
+        var equity = equityCell.Matches(svg).ToList();
+        Assert.Equal(4, equity.Count);
+        Assert.Equal("Equity", equity[0].Groups[1].Value);
+        Assert.DoesNotContain("font-weight=\"bold\"", equity[0].Value);   // header keeps normal weight
+        Assert.All(equity.Skip(1), m => Assert.Contains("font-weight=\"bold\"", m.Value));
+
+        // Eq Loss column at x=326.4: header + rows 1 and 2. Row 0 is a best
+        // play (EquityLoss == 0.0) and still renders no cell at all — this
+        // change moves weight, not the blank-cell contract.
+        var lossCell = new Regex("""<text x="326\.4" y="[0-9.]+" text-anchor="end" [^>]*>([^<]+)</text>""");
+        var loss = lossCell.Matches(svg).ToList();
+        Assert.Equal(3, loss.Count);
+        Assert.Equal("Eq Loss", loss[0].Groups[1].Value);
+        Assert.DoesNotContain("font-weight=\"bold\"", loss[0].Value);
+        Assert.All(loss.Skip(1), m => Assert.Contains("font-weight=\"bold\"", m.Value));
+
+        // Rank (22.6), move notation (53.4), and Depth (347.4) columns are
+        // left-anchored and unaffected. The marker column is bold by a
+        // separate, pre-existing rule and is deliberately not swept here.
+        foreach (string x in new[] { @"22\.6", @"53\.4", @"347\.4" })
+        {
+            var cells = new Regex($$"""<text x="{{x}}" y="[0-9.]+" font-family="sans-serif"[^>]*>[^<]+</text>""").Matches(svg);
+            Assert.NotEmpty(cells);
+            Assert.All(cells, m => Assert.DoesNotContain("font-weight=\"bold\"", m.Value));
+        }
     }
 }

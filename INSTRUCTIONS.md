@@ -246,6 +246,14 @@ Rendered in Solution mode only. Two shapes:
   - The Depth column renders `PlayCandidate.DepthAbbreviation`, not
     `PlayCandidate.Depth`. Rows with empty `DepthAbbreviation` omit the
     Depth cell entirely (the column header still renders).
+  - Bold `font-weight` on the Equity and Eq Loss **values** — the figures a
+    reader scans the panel for. Their column headers, the rank and move-
+    notation cells, and the Depth column all keep the normal weight; the
+    marker cell's bold is a separate, older rule. The weight lives
+    in `RenderSvg`, so the ExportRaster sibling (PNG / PDF / PPTX) inherits it
+    through the normal pipeline rather than re-encoding the style. Bold and
+    the rank-inversion italic are independent attributes: an inverted row
+    reads bold-italic.
   - Italic `font-style` flags a rank inversion: for row `i > 0`, italic
     is applied to the row's Equity, Eq Loss, and Depth cells when
     `plays[i].DepthRank > plays[i-1].DepthRank` — a deeper analysis sits

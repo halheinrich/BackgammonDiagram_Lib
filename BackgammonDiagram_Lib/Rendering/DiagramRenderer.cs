@@ -1101,7 +1101,9 @@ public static class DiagramRenderer
             // original position in the list rather than its displayed slot.
             // Applied to the Equity, Eq Loss, and Depth cells -- three cells
             // instead of one makes the rank-inversion cue stand out enough
-            // to notice at a glance.
+            // to notice at a glance. Italic composes with the bold weight the
+            // two numeric columns carry (see below): they are independent
+            // attributes, so an inverted row reads bold-italic.
             bool italic = playIdx > 0 && plays[playIdx].DepthRank > plays[playIdx - 1].DepthRank;
             string italicAttr = italic ? """ font-style="italic" """ : " ";
 
@@ -1112,12 +1114,18 @@ public static class DiagramRenderer
 
             sb.AppendLine($"""  <text x="{F(rankX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{textColor}">{Escape(rank)}</text>""");
             sb.AppendLine($"""  <text x="{F(moveX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{textColor}">{Escape(moveText)}</text>""");
-            sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}"{italicAttr}fill="{textColor}">{FormatEquity(play.Equity)}</text>""");
+            // Bold on the two numeric columns: the equity figures are what a
+            // reader scans the panel for, and at the play-panel size they get
+            // lost against the move notation. Values only -- the "Equity" and
+            // "Eq Loss" column headers stay at normal weight, as do the rank,
+            // move-notation, and Depth cells. (The marker cell above is bold
+            // under its own, older rule.)
+            sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" font-weight="bold"{italicAttr}fill="{textColor}">{FormatEquity(play.Equity)}</text>""");
             // Blank Eq Loss cell for best plays: EquityLoss == 0.0 marks
             // membership in the best-equity equivalence class (per
             // PlayCandidate xmldoc); ties at zero all render blank uniformly.
             if (play.EquityLoss > 0)
-                sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}"{italicAttr}fill="{dimColor}">{FormatEquityLoss(play.EquityLoss)}</text>""");
+                sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" font-weight="bold"{italicAttr}fill="{dimColor}">{FormatEquityLoss(play.EquityLoss)}</text>""");
             if (!string.IsNullOrEmpty(play.DepthAbbreviation))
                 sb.AppendLine($"""  <text x="{F(depthX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}"{italicAttr}fill="{dimColor}">{Escape(play.DepthAbbreviation)}</text>""");
 
