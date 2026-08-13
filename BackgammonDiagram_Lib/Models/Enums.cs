@@ -1,13 +1,19 @@
 namespace BackgammonDiagram_Lib;
 
-/// <summary>What a diagram renders: the board alone, or the board with its
-/// analysis panel.</summary>
+/// <summary>What a diagram's panel shows: blank (the problem to solve) or the
+/// filled analysis (the solution under review).</summary>
 public enum DiagramMode
 {
-    /// <summary>Board only — no analysis panel.</summary>
+    /// <summary>Problem view — the analysis panel carries no content. Under
+    /// the panel-bearing canvas presets the panel region is still allocated
+    /// (blank), so dimensions match <see cref="Solution"/>; under
+    /// <see cref="AspectPreset.BoardOnly"/> the allocation is dropped and the
+    /// canvas is the board proper plus its title strip.</summary>
     Problem,
-    /// <summary>Board plus the analysis panel. The panel region is allocated in
-    /// both modes, so dimensions match <see cref="Problem"/>.</summary>
+    /// <summary>Solution view — board plus the filled analysis panel. Never
+    /// board-only: this mode exists to show the panel, so
+    /// <see cref="AspectPreset.BoardOnly"/> is rejected for Solution
+    /// requests.</summary>
     Solution
 }
 

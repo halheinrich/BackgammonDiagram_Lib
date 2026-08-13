@@ -28,10 +28,15 @@ public class DiagramRequest
     // Renderer-specific
 
     /// <summary>
-    /// Whether to render board-only (<see cref="DiagramMode.Problem"/>) or the
-    /// board plus analysis panel (<see cref="DiagramMode.Solution"/>). Both
-    /// modes share identical overall dimensions — the panel region is always
-    /// allocated — so swapping modes never reflows surrounding content.
+    /// Whether the analysis panel renders blank
+    /// (<see cref="DiagramMode.Problem"/>) or filled
+    /// (<see cref="DiagramMode.Solution"/>). Under the panel-bearing canvas
+    /// presets both modes share identical overall dimensions — the panel
+    /// region is allocated either way — so swapping modes never reflows
+    /// surrounding content. <see cref="AspectPreset.BoardOnly"/> is the ruled
+    /// exception: it drops the panel allocation for Problem renders (and is
+    /// rejected for Solution renders), so a consumer opting into it accepts
+    /// that its canvas differs from the Solution canvas.
     /// </summary>
     public DiagramMode Mode { get; init; }
 

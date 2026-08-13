@@ -78,11 +78,27 @@ internal readonly struct BoardLayout
     /// <summary>
     /// Optional override. When set, used verbatim as PanelWidth — enables
     /// aspect-targeted rendering without touching board geometry (so checkers
-    /// stay round). When null, falls back to DefaultPanelWidth.
+    /// stay round). When null, falls back to DefaultPanelWidth. Ignored when
+    /// <see cref="BoardOnly"/> is set (there is no panel to size).
     /// </summary>
     public double? PanelWidthOverride { get; init; }
 
-    public double PanelWidth => PanelWidthOverride ?? DefaultPanelWidth;
+    /// <summary>
+    /// When <c>true</c>, the layout allocates no analysis panel: the canvas is
+    /// the board proper (plus whatever title strip the renderer adds above the
+    /// layout). Defaults to <c>false</c> — the panel-bearing layout every
+    /// preset except <c>AspectPreset.BoardOnly</c> uses — so a
+    /// <c>default</c>-constructed layout keeps today's geometry.
+    /// </summary>
+    public bool BoardOnly { get; init; }
+
+    /// <summary>
+    /// Width allocated to the analysis panel. Zero when <see cref="BoardOnly"/>
+    /// is set — the single definition site that collapses every panel-derived
+    /// origin (<see cref="BoardOffsetX"/>, <see cref="PanelX"/>,
+    /// <see cref="TotalWidth"/>) to the board-only canvas.
+    /// </summary>
+    public double PanelWidth => BoardOnly ? 0 : PanelWidthOverride ?? DefaultPanelWidth;
 
     // -----------------------------------------------------------------------
     //  Derived totals
@@ -95,8 +111,14 @@ internal readonly struct BoardLayout
         PointHeight + MiddleGap + PointHeight +
         PointNumberHeight + BottomRailHeight;
 
-    public double TotalWidth(bool withPanel) =>
-        withPanel ? BoardWidth + PanelWidth : BoardWidth;
+    /// <summary>
+    /// Full canvas width: board plus panel allocation (the panel contributes
+    /// zero under <see cref="BoardOnly"/>). Intentionally not parameterized —
+    /// a per-call-site with/without-panel choice is exactly the drift that once
+    /// desynced RenderSvg from GetHitRegions (see HitRegionsTests'
+    /// coordinate-system regression test).
+    /// </summary>
+    public double TotalWidth => BoardWidth + PanelWidth;
 
     // -----------------------------------------------------------------------
     //  X origins (board starts at x=0; panel added to left if needed)

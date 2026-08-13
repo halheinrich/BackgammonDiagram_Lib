@@ -29,12 +29,14 @@ public record DiagramOptions
     public ITheme Theme { get; init; } = ThemeRegistry.Default;
 
     /// <summary>
-    /// Target overall aspect ratio (total width / total height) of the
-    /// rendered diagram. Board geometry is fixed by CheckerRadius to keep
-    /// checkers perfectly round; the analysis panel's width adjusts to hit
-    /// the target. Defaults to <see cref="AspectPreset.Widescreen16x9"/> —
-    /// the primary use case is slide-show display, where 16:9 fills a
-    /// modern projector / PPTX slide edge-to-edge.
+    /// Canvas preset for the rendered diagram. Board geometry is fixed by
+    /// CheckerRadius to keep checkers perfectly round; the aspect-ratio
+    /// presets adjust the analysis panel's width to hit their target, while
+    /// <see cref="AspectPreset.BoardOnly"/> drops the panel allocation
+    /// entirely (Problem-mode renders only). Defaults to
+    /// <see cref="AspectPreset.Widescreen16x9"/> — the primary use case is
+    /// slide-show display, where 16:9 fills a modern projector / PPTX slide
+    /// edge-to-edge.
     /// </summary>
     public AspectPreset Aspect { get; init; } = AspectPreset.Widescreen16x9;
 
@@ -51,8 +53,10 @@ public record DiagramOptions
 }
 
 /// <summary>
-/// Target aspect ratio for the rendered diagram. Board geometry is fixed;
-/// the analysis panel widens to hit the target.
+/// Canvas preset for the rendered diagram — what the canvas contains and how
+/// it is sized. Board geometry is fixed in every preset; the aspect-ratio
+/// presets widen the analysis panel to hit their target, and
+/// <see cref="BoardOnly"/> drops the panel allocation instead.
 /// </summary>
 public enum AspectPreset
 {
@@ -62,4 +66,15 @@ public enum AspectPreset
     Widescreen16x9,
     /// <summary>4:3 — matches standard (legacy) PowerPoint slides.</summary>
     Standard4x3,
+    /// <summary>
+    /// Board-only canvas: the analysis-panel allocation is dropped and the
+    /// canvas is the board proper plus its title strip, at whatever aspect
+    /// that intrinsic geometry yields. There is no panel width to force, so
+    /// no aspect targeting applies. Valid only for
+    /// <see cref="DiagramMode.Problem"/> requests — Solution mode exists to
+    /// show the filled panel, so rendering a Solution request board-only
+    /// throws (<c>DiagramRenderer.RenderSvg</c> and
+    /// <c>DiagramRenderer.GetHitRegions</c> alike).
+    /// </summary>
+    BoardOnly,
 }

@@ -57,47 +57,42 @@ public static class DiagramRenderer
     /// <summary>
     /// Renders <paramref name="request"/> to a complete, self-contained SVG
     /// document string, honouring <paramref name="options"/> for size, theme,
-    /// watermark, target aspect ratio, and the optional XGID label. The result
+    /// watermark, canvas preset, and the optional XGID label. The result
     /// shares its viewBox with <see cref="GetHitRegions"/> for the same inputs,
     /// so overlay coordinates align with the drawing. All numbers are formatted
     /// culture-invariantly (see <see cref="SvgFormat.Number"/>), so the output
     /// is valid regardless of the current thread culture.
     /// </summary>
     /// <param name="request">The board/match state and display flags to render.</param>
-    /// <param name="options">Size, theme, watermark, aspect, and XGID options.</param>
+    /// <param name="options">Size, theme, watermark, canvas preset, and XGID options.</param>
     /// <returns>The rendered SVG document as a string.</returns>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="options"/> selects
+    /// <see cref="AspectPreset.BoardOnly"/> for a
+    /// <see cref="DiagramMode.Solution"/> request (see
+    /// <see cref="PlanCanvas"/>).
+    /// </exception>
     public static string RenderSvg(DiagramRequest request, DiagramOptions options)
     {
         var theme = options.Theme;
         bool panelOnLeft = request.PanelOnLeft;
-        var (titleAction, titlePosition, titleSource) = ComposeTitleCells(request);
-        // Strip visibility keys only off cols 1 and 3 — col 2 (SourceFile)
-        // never forces the strip on its own, matching the pre-SourceFile
-        // contract.
-        bool hasTitle = titleAction.Length > 0 || titlePosition.Length > 0;
-        double titleOffset = hasTitle ? TitleStripHeight : 0;
-        var layout = BuildLayout(options.Aspect, titleOffset);
-
-        double totalWidth = layout.TotalWidth(withPanel: true);
-        double totalHeight = layout.BoardHeight + titleOffset;
-
-        // Single-sourced with GetHitRegions' ViewBox: both describe the same
-        // canvas, and SvgViewBox.ToAttributeString is the one place the
-        // attribute value is assembled.
-        var viewBox = new SvgViewBox(0, 0, totalWidth, totalHeight);
+        var plan = PlanCanvas(request, options);
+        var layout = plan.Layout;
+        double titleOffset = plan.TitleOffset;
+        double totalWidth = plan.ViewBox.Width;
 
         var sb = new StringBuilder();
-        sb.AppendLine($"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="{viewBox.ToAttributeString()}" width="100%">""");
+        sb.AppendLine($"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="{plan.ViewBox.ToAttributeString()}" width="100%">""");
 
-        if (hasTitle)
+        if (plan.HasTitle)
         {
-            AppendTitleStrip(sb, totalWidth, titleOffset, theme, titleAction, titlePosition, titleSource);
+            AppendTitleStrip(sb, totalWidth, titleOffset, theme, plan.TitleAction, plan.TitlePosition, plan.TitleSource);
             sb.AppendLine($"""  <g transform="translate(0,{F(titleOffset)})">""");
         }
 
         AppendBoard(sb, layout, theme, request, panelOnLeft, options.WatermarkImage);
 
-        if (hasTitle)
+        if (plan.HasTitle)
             sb.AppendLine("  </g>");
 
         // Opt-in baked XGID label. Emitted last so it draws over the board,
@@ -116,27 +111,27 @@ public static class DiagramRenderer
     /// Returns hit-test rectangles for all clickable board regions.
     /// Coordinates are in SVG viewBox space matching <see cref="RenderSvg"/>
     /// output for the same request — including the analysis-panel allocation
-    /// (Problem and Solution share dimensions per the "identical overall
-    /// dimensions" invariant) and the panel side.
+    /// (present under every panel-bearing preset, where Problem and Solution
+    /// share dimensions; absent under <see cref="AspectPreset.BoardOnly"/>)
+    /// and the panel side. The shared <see cref="PlanCanvas"/> prologue makes
+    /// that agreement structural rather than mirrored.
     /// </summary>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="options"/> selects
+    /// <see cref="AspectPreset.BoardOnly"/> for a
+    /// <see cref="DiagramMode.Solution"/> request (see
+    /// <see cref="PlanCanvas"/>).
+    /// </exception>
     public static BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions options)
     {
         bool homeBoardOnRight = request.HomeBoardOnRight;
         bool panelOnLeft = request.PanelOnLeft;
 
+        var plan = PlanCanvas(request, options);
+        var layout = plan.Layout;
         // Title strip, if present, offsets all board-relative Y coords in the
         // rendered SVG — hit regions must match.
-        var (titleAction, titlePosition, _) = ComposeTitleCells(request);
-        bool hasTitle = titleAction.Length > 0 || titlePosition.Length > 0;
-        double titleOffset = hasTitle ? TitleStripHeight : 0;
-
-        // Mirror RenderSvg's layout build exactly — same aspect-driven
-        // PanelWidthOverride, same titleOffset — so hit regions and the
-        // rendered SVG live in one coordinate system.
-        var layout = BuildLayout(options.Aspect, titleOffset);
-
-        double totalWidth = layout.TotalWidth(withPanel: true);
-        double totalHeight = layout.BoardHeight + titleOffset;
+        double titleOffset = plan.TitleOffset;
 
         // --- Points 1–24 ---
         var points = new Dictionary<int, HitRect>(24);
@@ -216,7 +211,7 @@ public static class DiagramRenderer
 
         return new BoardHitRegions
         {
-            ViewBox = new SvgViewBox(0, 0, totalWidth, totalHeight),
+            ViewBox = plan.ViewBox,
             Points = points,
             Bar = bar,
             Cube = cube,
@@ -248,11 +243,68 @@ public static class DiagramRenderer
     }
 
     /// <summary>
-    /// Builds the board layout, widening the analysis panel (if necessary) to
-    /// hit the aspect preset. Board geometry stays derived from CheckerRadius
-    /// so checkers remain round; only PanelWidth is adjusted. Title strip
-    /// height is included so the total SVG (title + board) matches the target
-    /// aspect, not just the board portion.
+    /// The resolved canvas for one (request, options) pair: the layout, the
+    /// title-strip cells and vertical offset, and the viewBox they produce.
+    /// Built exclusively by <see cref="PlanCanvas"/> and consumed by both
+    /// <see cref="RenderSvg"/> and <see cref="GetHitRegions"/>, so the two
+    /// public entry points describe the same canvas by construction — the
+    /// single-sourcing that keeps overlay hit-testing aligned with the drawing.
+    /// </summary>
+    private readonly record struct CanvasPlan(
+        BoardLayout Layout,
+        double TitleOffset,
+        SvgViewBox ViewBox,
+        string TitleAction,
+        string TitlePosition,
+        string TitleSource)
+    {
+        /// <summary>Whether the title strip renders. Keys only off cols 1 and
+        /// 3 — col 2 (SourceFile) never forces the strip on its own, matching
+        /// the pre-SourceFile contract.</summary>
+        public bool HasTitle => TitleAction.Length > 0 || TitlePosition.Length > 0;
+    }
+
+    /// <summary>
+    /// Shared prologue of <see cref="RenderSvg"/> and
+    /// <see cref="GetHitRegions"/>: validates the mode/preset combination,
+    /// composes the title cells, builds the layout, and derives the viewBox.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="options"/> selects
+    /// <see cref="AspectPreset.BoardOnly"/> for a
+    /// <see cref="DiagramMode.Solution"/> request. Solution mode exists to
+    /// show the filled analysis panel, so a board-only Solution canvas is a
+    /// contradiction — the ratified quiz-view model renders review at full
+    /// canvas, always.
+    /// </exception>
+    private static CanvasPlan PlanCanvas(DiagramRequest request, DiagramOptions options)
+    {
+        if (options.Aspect == AspectPreset.BoardOnly && request.Mode == DiagramMode.Solution)
+            throw new ArgumentException(
+                $"{nameof(AspectPreset)}.{nameof(AspectPreset.BoardOnly)} requires " +
+                $"{nameof(DiagramMode)}.{nameof(DiagramMode.Problem)}: Solution mode " +
+                "exists to show the filled analysis panel.",
+                nameof(options));
+
+        var (titleAction, titlePosition, titleSource) = ComposeTitleCells(request);
+        bool hasTitle = titleAction.Length > 0 || titlePosition.Length > 0;
+        double titleOffset = hasTitle ? TitleStripHeight : 0;
+        var layout = BuildLayout(options.Aspect, titleOffset);
+
+        // SvgViewBox.ToAttributeString is the one place the rendered attribute
+        // value is assembled; GetHitRegions returns this same instance.
+        var viewBox = new SvgViewBox(0, 0, layout.TotalWidth, layout.BoardHeight + titleOffset);
+        return new CanvasPlan(layout, titleOffset, viewBox, titleAction, titlePosition, titleSource);
+    }
+
+    /// <summary>
+    /// Builds the board layout for the preset. Board geometry stays derived
+    /// from CheckerRadius so checkers remain round; the aspect presets adjust
+    /// only PanelWidth to hit their target, and
+    /// <see cref="AspectPreset.BoardOnly"/> drops the panel allocation instead
+    /// (no panel, so no aspect targeting — the canvas takes the board's
+    /// intrinsic aspect). Title strip height is included so the total SVG
+    /// (title + board) matches the target aspect, not just the board portion.
     ///
     /// If the target aspect is narrower than the board alone (i.e. requires a
     /// negative panel width), the override is dropped and the intrinsic panel
@@ -262,6 +314,9 @@ public static class DiagramRenderer
     private static BoardLayout BuildLayout(AspectPreset preset, double titleOffset)
     {
         var baseLayout = BoardLayout.Default;
+        if (preset == AspectPreset.BoardOnly)
+            return baseLayout with { BoardOnly = true };
+
         double? targetAspect = preset switch
         {
             AspectPreset.Widescreen16x9 => 16.0 / 9.0,
@@ -392,9 +447,10 @@ public static class DiagramRenderer
         double bx = layout.BoardOffsetX(effectivePanelOnLeft);
 
         // Full canvas background — prevents transparent edges showing in PNG.
-        // Must match viewBox width (always withPanel: true); in Problem mode the
-        // panel region is allocated but blank, and needs a background fill too.
-        sb.AppendLine($"""  <rect x="0" y="0" width="{F(layout.TotalWidth(withPanel: true))}" height="{F(layout.BoardHeight)}" fill="{Darken(theme.BoardColor, 0.15)}"/>""");
+        // TotalWidth already accounts for the panel allocation (zero under a
+        // board-only layout); under panel-bearing presets a Problem-mode render
+        // allocates the panel region blank, and it needs this fill too.
+        sb.AppendLine($"""  <rect x="0" y="0" width="{F(layout.TotalWidth)}" height="{F(layout.BoardHeight)}" fill="{Darken(theme.BoardColor, 0.15)}"/>""");
 
         sb.AppendLine($"""  <rect x="{F(bx)}" y="0" width="{F(layout.BoardWidth)}" height="{F(layout.BoardHeight)}" fill="{theme.BoardColor}"/>""");
 
@@ -968,6 +1024,11 @@ public static class DiagramRenderer
     private static void AppendAnalysisPanel(StringBuilder sb, BoardLayout layout, ITheme theme,
         DiagramRequest request, bool panelOnLeft)
     {
+        // Board-only canvas: no panel allocation at all — return before the
+        // background rect so no zero-width panel element is emitted.
+        if (layout.BoardOnly)
+            return;
+
         double px = layout.PanelX(panelOnLeft);
         double pw = layout.PanelWidth;
         double ph = layout.BoardHeight;
