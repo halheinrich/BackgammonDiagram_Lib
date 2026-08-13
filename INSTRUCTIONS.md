@@ -218,7 +218,8 @@ The strip has three cells, composed from context (not from
 - **Col 1** (left edge, left-anchored): action text —
   `"{d1}-{d2} to play"` for checker decisions, `"Cube Action?"` for cube
   decisions. Empty for malformed inputs.
-- **Col 2** (middle of strip, centre-anchored): `Descriptive.SourceFile`
+- **Col 2** (left-anchored at a fixed offset just right of col 1's
+  reserved action column): `Descriptive.SourceFile`
   stem — the filename minus its final dot-extension
   (`mochy-falafel.xg` → `mochy-falafel`,
   `abc.weird.xg` → `abc.weird`). Null / empty SourceFile emits no text.
