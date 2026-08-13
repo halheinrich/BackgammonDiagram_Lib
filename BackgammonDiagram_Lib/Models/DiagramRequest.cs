@@ -34,9 +34,10 @@ public class DiagramRequest
     /// presets both modes share identical overall dimensions — the panel
     /// region is allocated either way — so swapping modes never reflows
     /// surrounding content. <see cref="AspectPreset.BoardOnly"/> is the ruled
-    /// exception: it drops the panel allocation for Problem renders (and is
-    /// rejected for Solution renders), so a consumer opting into it accepts
-    /// that its canvas differs from the Solution canvas.
+    /// exception: it drops the panel allocation and the title strip for
+    /// Problem renders (and is rejected for Solution renders), so a consumer
+    /// opting into it accepts that its canvas differs from the Solution
+    /// canvas.
     /// </summary>
     public DiagramMode Mode { get; init; }
 

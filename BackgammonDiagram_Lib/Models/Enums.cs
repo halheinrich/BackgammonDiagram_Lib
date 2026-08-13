@@ -7,8 +7,8 @@ public enum DiagramMode
     /// <summary>Problem view — the analysis panel carries no content. Under
     /// the panel-bearing canvas presets the panel region is still allocated
     /// (blank), so dimensions match <see cref="Solution"/>; under
-    /// <see cref="AspectPreset.BoardOnly"/> the allocation is dropped and the
-    /// canvas is the board proper plus its title strip.</summary>
+    /// <see cref="AspectPreset.BoardOnly"/> the allocation is dropped, the
+    /// title strip with it, and the canvas is the board proper alone.</summary>
     Problem,
     /// <summary>Solution view — board plus the filled analysis panel. Never
     /// board-only: this mode exists to show the panel, so

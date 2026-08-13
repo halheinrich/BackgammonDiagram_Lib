@@ -7,12 +7,12 @@ namespace BackgammonDiagram_Lib.Tests;
 
 /// <summary>
 /// Renderer-geometry tests for <see cref="AspectPreset.BoardOnly"/> — the
-/// Problem-mode board-only canvas (halheinrich/backgammon#41 producer leg).
-/// Pins the three contracts the preset introduces: the canvas is the board
-/// proper plus its title strip; RenderSvg and GetHitRegions agree on that
-/// canvas (every hit region lands on the board); and the crop is crop-only —
-/// board geometry is identical to the panel-bearing presets, so checkers stay
-/// round.
+/// Problem-mode board-only canvas (halheinrich/backgammon#41 producer leg,
+/// amended by #98). Pins the three contracts the preset introduces: the canvas
+/// is the board proper alone — no panel allocation and no title strip;
+/// RenderSvg and GetHitRegions agree on that canvas (every hit region lands on
+/// the board); and the crop is crop-only — board geometry is identical to the
+/// panel-bearing presets, so checkers stay round.
 /// </summary>
 public class BoardOnlyCanvasTests
 {
@@ -24,20 +24,19 @@ public class BoardOnlyCanvasTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void BoardOnly_ViewBoxIsBoardProperPlusTitleStrip()
+    public void BoardOnly_ViewBoxIsBoardProperExactly()
     {
-        // MinimalRequest is a checker decision, so the title strip is always
-        // composed ("3-1 to play") — the canvas is board width exactly, and
-        // board height plus the strip.
+        // MinimalRequest is a checker decision, so a panel-bearing preset
+        // would compose a title strip ("3-1 to play"). Under BoardOnly the
+        // canvas is the board proper on both axes: no panel allocation in x,
+        // no strip in y (halheinrich/backgammon#98).
         var layout = BoardLayout.Default;
         var regions = DiagramRenderer.GetHitRegions(TestFixtures.MinimalRequest(), BoardOnlyOptions);
 
         Assert.Equal(0, regions.ViewBox.X);
         Assert.Equal(0, regions.ViewBox.Y);
         Assert.Equal(layout.BoardWidth, regions.ViewBox.Width, 2);
-        Assert.True(regions.ViewBox.Height > layout.BoardHeight,
-            $"ViewBox height {regions.ViewBox.Height} should exceed board height " +
-            $"{layout.BoardHeight} (title strip present).");
+        Assert.Equal(layout.BoardHeight, regions.ViewBox.Height, 2);
     }
 
     [Fact]
@@ -57,25 +56,33 @@ public class BoardOnlyCanvasTests
     }
 
     [Fact]
-    public void BoardOnly_TitleStripRetainedAndSpansBoardWidth()
+    public void BoardOnly_NoTitleStripRendered()
     {
-        // The strip's cells survive the crop: the action prompt and the
-        // right-anchored Position cell (which re-anchors to the narrower
-        // canvas), plus the source stem. The strip's background rect spans
-        // exactly the board-only canvas width.
+        // The strip is dropped with the panel (halheinrich/backgammon#98): its
+        // texts are deliberately absent while answering maximized, and its
+        // height becomes board budget.
         var b = TestFixtures.MinimalBuilder();
         b.PositionNumber = 7;
         b.SourceFile = "match.xg";
-        string svg = DiagramRenderer.RenderSvg(b.Build(), BoardOnlyOptions);
+        var request = b.Build();
 
-        Assert.Contains(">3-1 to play<", svg);
-        Assert.Contains(">match<", svg);
-        Assert.Contains(">Position 7<", svg);
+        // A panel-bearing render of the same request composes all three cells,
+        // so their absence below is the preset dropping the strip — not a
+        // request that had nothing to put in it.
+        string natural = DiagramRenderer.RenderSvg(request, NaturalOptions);
+        Assert.Contains(">3-1 to play<", natural);
+        Assert.Contains(">match<", natural);
+        Assert.Contains(">Position 7<", natural);
 
-        double boardWidth = BoardLayout.Default.BoardWidth;
-        Assert.Contains(
-            $"""<rect x="0" y="0" width="{SvgFormat.Number(boardWidth)}" """,
-            svg);
+        string svg = DiagramRenderer.RenderSvg(request, BoardOnlyOptions);
+        Assert.DoesNotContain(">3-1 to play<", svg);
+        Assert.DoesNotContain(">match<", svg);
+        Assert.DoesNotContain(">Position 7<", svg);
+
+        // No strip content at all: AppendTitleStrip emits the background band
+        // and the three texts together, and the board's offset group is the
+        // renderer's only translate — both gated on the same composed cells.
+        Assert.DoesNotContain("transform=\"translate(", svg);
     }
 
     // -----------------------------------------------------------------------
@@ -177,8 +184,9 @@ public class BoardOnlyCanvasTests
         // Board-only crops blank allocation and changes nothing else: every
         // region equals its Natural-preset counterpart shifted left by the
         // panel allocation that sat to the board's left (Natural's panel width
-        // for a left panel, zero for a right panel). Identical widths and
-        // heights everywhere — checkers stay round.
+        // for a left panel, zero for a right panel) and up by the title strip
+        // Natural carries and board-only drops. Identical widths and heights
+        // everywhere — checkers stay round.
         var b = TestFixtures.MinimalBuilder();
         b.AnalysisPanelPosition = panelPosition;
         var mop = TestFixtures.StartingMop();
@@ -189,32 +197,38 @@ public class BoardOnlyCanvasTests
         var natural = DiagramRenderer.GetHitRegions(request, NaturalOptions);
         var boardOnly = DiagramRenderer.GetHitRegions(request, BoardOnlyOptions);
 
+        // Both deltas are read off the two canvases rather than hardcoded, so
+        // the pin survives a change to either the panel or the strip height.
         double panelWidth = natural.ViewBox.Width - boardOnly.ViewBox.Width;
         Assert.True(panelWidth > 0, "Natural canvas should be wider than board-only.");
-        double offset = panelPosition == PanelPosition.Left ? panelWidth : 0;
+        double stripHeight = natural.ViewBox.Height - boardOnly.ViewBox.Height;
+        Assert.True(stripHeight > 0, "Natural canvas should be taller than board-only.");
 
-        Assert.Equal(natural.ViewBox.Height, boardOnly.ViewBox.Height, 2);
+        double dx = panelPosition == PanelPosition.Left ? panelWidth : 0;
+        double dy = stripHeight;
 
         for (int pt = 1; pt <= 24; pt++)
-            AssertShiftedEqual($"Point {pt}", natural.Points[pt], boardOnly.Points[pt], offset);
+            AssertShiftedEqual($"Point {pt}", natural.Points[pt], boardOnly.Points[pt], dx, dy);
 
-        AssertShiftedEqual("Bar", natural.Bar, boardOnly.Bar, offset);
-        AssertShiftedEqual("Cube", natural.Cube!, boardOnly.Cube!, offset);
-        AssertShiftedEqual("OnRollTray", natural.OnRollTray!, boardOnly.OnRollTray!, offset);
-        AssertShiftedEqual("OpponentTray", natural.OpponentTray!, boardOnly.OpponentTray!, offset);
-        AssertShiftedEqual("Dice", natural.Dice!, boardOnly.Dice!, offset);
+        AssertShiftedEqual("Bar", natural.Bar, boardOnly.Bar, dx, dy);
+        AssertShiftedEqual("Cube", natural.Cube!, boardOnly.Cube!, dx, dy);
+        AssertShiftedEqual("OnRollTray", natural.OnRollTray!, boardOnly.OnRollTray!, dx, dy);
+        AssertShiftedEqual("OpponentTray", natural.OpponentTray!, boardOnly.OpponentTray!, dx, dy);
+        AssertShiftedEqual("Dice", natural.Dice!, boardOnly.Dice!, dx, dy);
     }
 
-    private static void AssertShiftedEqual(string name, HitRect panelBearing, HitRect boardOnly, double offset)
+    private static void AssertShiftedEqual(string name, HitRect panelBearing, HitRect boardOnly,
+        double dx, double dy)
     {
         Assert.True(
-            Math.Abs(panelBearing.X - offset - boardOnly.X) < 0.01 &&
-            Math.Abs(panelBearing.Y - boardOnly.Y) < 0.01 &&
+            Math.Abs(panelBearing.X - dx - boardOnly.X) < 0.01 &&
+            Math.Abs(panelBearing.Y - dy - boardOnly.Y) < 0.01 &&
             Math.Abs(panelBearing.Width - boardOnly.Width) < 0.01 &&
             Math.Abs(panelBearing.Height - boardOnly.Height) < 0.01,
             $"{name}: board-only rect [{boardOnly.X}, {boardOnly.Y}, {boardOnly.Width}, " +
             $"{boardOnly.Height}] is not the panel-bearing rect [{panelBearing.X}, " +
-            $"{panelBearing.Y}, {panelBearing.Width}, {panelBearing.Height}] shifted by {offset}.");
+            $"{panelBearing.Y}, {panelBearing.Width}, {panelBearing.Height}] shifted by " +
+            $"({dx}, {dy}).");
     }
 
     // -----------------------------------------------------------------------

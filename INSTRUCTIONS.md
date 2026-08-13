@@ -229,6 +229,14 @@ Strip visibility is keyed off cols 1 and 3: col 2 alone never forces the
 strip on, preserving the pre-SourceFile contract for synthetic-test
 requests that set only SourceFile.
 
+`AspectPreset.BoardOnly` renders **no strip at all** — no cells are
+composed for it, so the canvas is the board proper alone and its viewBox
+height is the board's (ruled 2026-08-13, halheinrich/backgammon#98: the
+strip's height is board budget for the quiz page's maximized answering
+view, where the drawn dice carry the roll and the match name returns at
+review). Consumers that need the strip's texts render a panel-bearing
+preset.
+
 `PanelBackgroundColor` is part of `ITheme`; `DefaultTheme` uses white.
 
 ### Rail text

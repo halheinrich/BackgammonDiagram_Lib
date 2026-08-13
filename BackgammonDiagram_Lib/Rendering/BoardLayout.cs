@@ -85,8 +85,9 @@ internal readonly struct BoardLayout
 
     /// <summary>
     /// When <c>true</c>, the layout allocates no analysis panel: the canvas is
-    /// the board proper (plus whatever title strip the renderer adds above the
-    /// layout). Defaults to <c>false</c> — the panel-bearing layout every
+    /// the board proper (and the renderer adds no title strip above it either,
+    /// so the layout's height is the canvas height). Defaults to
+    /// <c>false</c> — the panel-bearing layout every
     /// preset except <c>AspectPreset.BoardOnly</c> uses — so a
     /// <c>default</c>-constructed layout keeps today's geometry.
     /// </summary>

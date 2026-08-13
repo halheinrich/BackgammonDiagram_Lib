@@ -41,10 +41,11 @@ public class VisualOutputTests
     [Fact]
     public void Svg_ProblemBoardOnly()
     {
-        // The halheinrich/backgammon#41 board-only canvas: board proper plus
-        // title strip, no blank panel field. Same request as Svg_ProblemMode
-        // (plus a position number so the right title cell shows its
-        // re-anchoring) for a side-by-side eyeball.
+        // The halheinrich/backgammon#41 board-only canvas, as amended by #98:
+        // the board proper alone — no blank panel field and no title strip.
+        // Same request as Svg_ProblemMode (plus a position number and source
+        // file, which a panel-bearing preset would put in the strip) for a
+        // side-by-side eyeball.
         var b = TestFixtures.MinimalBuilder();
         b.Mop = TestFixtures.StartingMop();
         b.PositionNumber = 1;

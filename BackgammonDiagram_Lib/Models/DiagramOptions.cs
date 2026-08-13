@@ -32,8 +32,8 @@ public record DiagramOptions
     /// Canvas preset for the rendered diagram. Board geometry is fixed by
     /// CheckerRadius to keep checkers perfectly round; the aspect-ratio
     /// presets adjust the analysis panel's width to hit their target, while
-    /// <see cref="AspectPreset.BoardOnly"/> drops the panel allocation
-    /// entirely (Problem-mode renders only). Defaults to
+    /// <see cref="AspectPreset.BoardOnly"/> drops the panel allocation and the
+    /// title strip entirely (Problem-mode renders only). Defaults to
     /// <see cref="AspectPreset.Widescreen16x9"/> — the primary use case is
     /// slide-show display, where 16:9 fills a modern projector / PPTX slide
     /// edge-to-edge.
@@ -56,7 +56,8 @@ public record DiagramOptions
 /// Canvas preset for the rendered diagram — what the canvas contains and how
 /// it is sized. Board geometry is fixed in every preset; the aspect-ratio
 /// presets widen the analysis panel to hit their target, and
-/// <see cref="BoardOnly"/> drops the panel allocation instead.
+/// <see cref="BoardOnly"/> drops the panel allocation and the title strip
+/// instead.
 /// </summary>
 public enum AspectPreset
 {
@@ -67,10 +68,14 @@ public enum AspectPreset
     /// <summary>4:3 — matches standard (legacy) PowerPoint slides.</summary>
     Standard4x3,
     /// <summary>
-    /// Board-only canvas: the analysis-panel allocation is dropped and the
-    /// canvas is the board proper plus its title strip, at whatever aspect
-    /// that intrinsic geometry yields. There is no panel width to force, so
-    /// no aspect targeting applies. Valid only for
+    /// Board-only canvas: the analysis-panel allocation and the title strip
+    /// are both dropped, so the canvas is the board proper alone, at whatever
+    /// aspect that intrinsic geometry yields. There is no panel width to
+    /// force, so no aspect targeting applies. The strip's texts (the action
+    /// prompt, the source-match label, "Position {N}") are deliberately absent
+    /// under this preset — ruled 2026-08-13 (halheinrich/backgammon#98) so its
+    /// height becomes board budget; a consumer that needs them renders a
+    /// panel-bearing preset. Valid only for
     /// <see cref="DiagramMode.Problem"/> requests — Solution mode exists to
     /// show the filled panel, so rendering a Solution request board-only
     /// throws (<c>DiagramRenderer.RenderSvg</c> and

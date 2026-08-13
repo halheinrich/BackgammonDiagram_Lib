@@ -112,9 +112,10 @@ public static class DiagramRenderer
     /// Coordinates are in SVG viewBox space matching <see cref="RenderSvg"/>
     /// output for the same request — including the analysis-panel allocation
     /// (present under every panel-bearing preset, where Problem and Solution
-    /// share dimensions; absent under <see cref="AspectPreset.BoardOnly"/>)
-    /// and the panel side. The shared <see cref="PlanCanvas"/> prologue makes
-    /// that agreement structural rather than mirrored.
+    /// share dimensions; absent under <see cref="AspectPreset.BoardOnly"/>,
+    /// which drops the title strip's vertical offset with it) and the panel
+    /// side. The shared <see cref="PlanCanvas"/> prologue makes that agreement
+    /// structural rather than mirrored.
     /// </summary>
     /// <exception cref="ArgumentException">
     /// Thrown when <paramref name="options"/> selects
@@ -268,6 +269,8 @@ public static class DiagramRenderer
     /// Shared prologue of <see cref="RenderSvg"/> and
     /// <see cref="GetHitRegions"/>: validates the mode/preset combination,
     /// composes the title cells, builds the layout, and derives the viewBox.
+    /// Under <see cref="AspectPreset.BoardOnly"/> no title cells are composed,
+    /// which is what drops the strip: the canvas is the board proper alone.
     /// </summary>
     /// <exception cref="ArgumentException">
     /// Thrown when <paramref name="options"/> selects
@@ -279,14 +282,22 @@ public static class DiagramRenderer
     /// </exception>
     private static CanvasPlan PlanCanvas(DiagramRequest request, DiagramOptions options)
     {
-        if (options.Aspect == AspectPreset.BoardOnly && request.Mode == DiagramMode.Solution)
+        bool boardOnly = options.Aspect == AspectPreset.BoardOnly;
+        if (boardOnly && request.Mode == DiagramMode.Solution)
             throw new ArgumentException(
                 $"{nameof(AspectPreset)}.{nameof(AspectPreset.BoardOnly)} requires " +
                 $"{nameof(DiagramMode)}.{nameof(DiagramMode.Problem)}: Solution mode " +
                 "exists to show the filled analysis panel.",
                 nameof(options));
 
-        var (titleAction, titlePosition, titleSource) = ComposeTitleCells(request);
+        // Board-only leaves the title cells uncomposed — the single gate for
+        // the strip's absence. Everything downstream falls out of it with no
+        // second branch: hasTitle is false, so the offset is zero, RenderSvg
+        // skips the strip and its translate group, and the viewBox height is
+        // the board proper's.
+        (string titleAction, string titlePosition, string titleSource) = boardOnly
+            ? (string.Empty, string.Empty, string.Empty)
+            : ComposeTitleCells(request);
         bool hasTitle = titleAction.Length > 0 || titlePosition.Length > 0;
         double titleOffset = hasTitle ? TitleStripHeight : 0;
         var layout = BuildLayout(options.Aspect, titleOffset);
@@ -303,7 +314,8 @@ public static class DiagramRenderer
     /// only PanelWidth to hit their target, and
     /// <see cref="AspectPreset.BoardOnly"/> drops the panel allocation instead
     /// (no panel, so no aspect targeting — the canvas takes the board's
-    /// intrinsic aspect). Title strip height is included so the total SVG
+    /// intrinsic aspect; its title offset is always zero, the strip being
+    /// dropped with the panel). Title strip height is included so the total SVG
     /// (title + board) matches the target aspect, not just the board portion.
     ///
     /// If the target aspect is narrower than the board alone (i.e. requires a
