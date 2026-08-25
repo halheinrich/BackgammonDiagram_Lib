@@ -93,6 +93,7 @@ BackgammonDiagram_Lib.Tests/              (refs core + ExportRaster)
   BackgammonDiagram_Lib.Tests.csproj
   BearOffTests.cs
   BoardLayoutTests.cs
+  BuilderFieldCarriageTests.cs  — guard: Builder carries every record field
   ColourSchemeTests.cs
   CoreNativeFreeTests.cs        — guard: core references no native package
   DecisionDataDiagramTests.cs
@@ -242,8 +243,32 @@ preset.
 
 ### Rail text
 
-The bottom/top rail shows away scores, the Crawford indicator when
-applicable, and "Money game" labels.
+`DiagramRenderer.FormatPlayerLabel` composes each side's rail label — away
+scores, the Crawford indicator, or the money-game label. Both players' labels
+are composed the same way: the Jacoby rule is a per-session fact, so both
+rails say the same thing even though the label itself is per-player.
+
+- **Match play** (`Descriptive.MatchLength != 0`) — `{name} needs {n}`, plus
+  ` Crawford` when `Position.IsCrawford`. A match record carrying a non-null
+  `Position.IsJacoby` is tolerated, not rejected: Jacoby is a money-game fact
+  and never reaches a match label.
+- **Money play** (`MatchLength == 0`, the money-game sentinel) — three
+  states, tracking `Position.IsJacoby`'s three states:
+
+  | `Position.IsJacoby` | Label                            |
+  | ------------------- | -------------------------------- |
+  | `true`              | `{name} (money game, Jacoby)`    |
+  | `false`             | `{name} (money game, no Jacoby)` |
+  | `null`              | `{name} (money game)`            |
+
+  `null` means **the source did not stamp the fact**, never "off" — this
+  renderer serves surfaces whose producers may legitimately not carry it, so
+  an unstamped money position keeps the bare pre-#143 label. It degrades; it
+  never guesses (halheinrich/backgammon#143), mirroring the
+  tolerate-don't-reject register of `PositionData.IsJacoby` itself.
+
+The fact only reaches the renderer because the Builder carries it — see the
+full-copy invariant under `DiagramRequest.Builder`.
 
 ### Analysis panel
 
@@ -534,6 +559,29 @@ Throws on validation failure. `CubeOwner` defaults to `CubeOwner.Centered`.
 round-trip without per-field plumbing). The cube equivalents need
 explicit Builder fields because the Builder models `DecisionData`
 field-for-field, not as a held record.
+
+**Full-copy invariant.** The Builder carries **every** carriable member of
+`PositionData`, `DecisionData`, and `DescriptiveData`; a new field added to
+any of those records joins the copy — `Builder.From` *and* `Builder.Build` —
+in the same change. Because the Builder re-spells each record field-by-field
+instead of holding the instance, it is a second enumeration of the data
+layer's facts, and a stale one fails silently: the field simply arrives
+default-valued at the renderer. That is what
+`halheinrich/backgammon#122` existed to demand.
+
+The rule is **enforced, not merely stated**: `BuilderFieldCarriageTests`
+reflects over the three record types and asserts that every carriable member
+survives both `Builder.From` overloads, so a new field fails the build's
+tests until it is carried. Do not restate the rule as prose elsewhere —
+point at that test. "Carriable" is drawn at `PropertyInfo.CanWrite == true`:
+init-only accessors report `true` (reflection ignores the `init` modreq) and
+are included as producer-supplied state; computed get-only properties report
+`false` and are excluded, since carrying their inputs carries them.
+
+The test needs two fixtures — a checker decision and a cube decision —
+because `IsCube` and `Dice` cannot both be held away from their defaults at
+once: `Build()` requires a cube decision to carry `[0, 0]` dice, which is
+`Dice`'s own default.
 
 ### `DiagramOptions`
 

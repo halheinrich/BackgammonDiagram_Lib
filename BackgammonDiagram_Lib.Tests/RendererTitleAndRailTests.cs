@@ -200,17 +200,73 @@ public class RendererTitleAndRailTests
         Assert.Contains(">Bob needs 5</text>", svg);
     }
 
+    // The three money-label states track PositionData.IsJacoby's three states.
+    // The rule is per-session but the label is per-player, so both rails carry
+    // the same wording.
+
     [Fact]
-    public void RailLabel_MoneyGame_UsesParenthesisedSuffix()
+    public void RailLabel_MoneyGame_JacobyCarriedTrue_NamesTheRule()
     {
         var b = TestFixtures.MinimalBuilder();
         b.OnRollName = "Alice";
         b.OpponentName = "Bob";
         b.MatchLength = 0; // money-game sentinel
+        b.IsJacoby = true;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains(">Alice (money game, Jacoby)</text>", svg);
+        Assert.Contains(">Bob (money game, Jacoby)</text>", svg);
+    }
+
+    [Fact]
+    public void RailLabel_MoneyGame_JacobyCarriedFalse_NamesTheRuleOff()
+    {
+        var b = TestFixtures.MinimalBuilder();
+        b.OnRollName = "Alice";
+        b.OpponentName = "Bob";
+        b.MatchLength = 0; // money-game sentinel
+        b.IsJacoby = false;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains(">Alice (money game, no Jacoby)</text>", svg);
+        Assert.Contains(">Bob (money game, no Jacoby)</text>", svg);
+    }
+
+    [Fact]
+    public void RailLabel_MoneyGame_JacobyNotCarried_KeepsBareSuffix()
+    {
+        // null is "the source did not stamp it", never "off" — the renderer
+        // serves surfaces whose producers may legitimately not carry the fact,
+        // so it degrades to the pre-#143 label rather than guessing a rule.
+        var b = TestFixtures.MinimalBuilder();
+        b.OnRollName = "Alice";
+        b.OpponentName = "Bob";
+        b.MatchLength = 0; // money-game sentinel
+        b.IsJacoby = null;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
         Assert.Contains(">Alice (money game)</text>", svg);
         Assert.Contains(">Bob (money game)</text>", svg);
+        Assert.DoesNotContain("Jacoby", svg);
+    }
+
+    [Fact]
+    public void RailLabel_MatchPlay_IgnoresAJacobyStamp()
+    {
+        // Jacoby is a money-game fact; a match record carrying one is
+        // tolerated, not rejected, and never reaches the label.
+        var b = TestFixtures.MinimalBuilder();
+        b.OnRollName = "Alice";
+        b.OpponentName = "Bob";
+        b.MatchLength = 7;
+        b.OnRollNeeds = 3;
+        b.OpponentNeeds = 5;
+        b.IsJacoby = true;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+
+        Assert.Contains(">Alice needs 3</text>", svg);
+        Assert.Contains(">Bob needs 5</text>", svg);
+        Assert.DoesNotContain("Jacoby", svg);
     }
 
     [Fact]

@@ -1564,7 +1564,23 @@ public static class DiagramRenderer
 
         // MatchLength == 0 is the money-game sentinel from DescriptiveData.
         if (matchLength == 0)
-            return $"{name} (money game)";
+        {
+            // The Jacoby rule is a money-game fact the source stamps; it can
+            // change the correct answer, so the board says it. Three states,
+            // per PositionData.IsJacoby: null means "not carried" — because
+            // the producer did not stamp it — never "off". This renderer
+            // serves surfaces whose sources may legitimately not stamp, so an
+            // unstamped money position keeps the bare label rather than
+            // guessing a rule: it degrades, it never guesses
+            // (halheinrich/backgammon#143).
+            string jacoby = request.Position.IsJacoby switch
+            {
+                true => ", Jacoby",
+                false => ", no Jacoby",
+                null => string.Empty,
+            };
+            return $"{name} (money game{jacoby})";
+        }
 
         int needs = isOnRoll ? request.Position.OnRollNeeds : request.Position.OpponentNeeds;
         string crawford = request.Position.IsCrawford ? " Crawford" : "";

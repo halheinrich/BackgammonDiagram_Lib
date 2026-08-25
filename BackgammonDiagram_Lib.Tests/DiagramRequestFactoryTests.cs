@@ -30,6 +30,7 @@ public class DiagramRequestFactoryTests
         Assert.Equal(data.Position.CubeSize, req.Position.CubeSize);
         Assert.Equal(data.Position.CubeOwner, req.Position.CubeOwner);
         Assert.Equal(data.Position.IsCrawford, req.Position.IsCrawford);
+        Assert.Equal(data.Position.IsJacoby, req.Position.IsJacoby);
     }
 
     [Fact]
@@ -64,6 +65,11 @@ public class DiagramRequestFactoryTests
         Assert.Equal(data.Decision.UserTakeError, req.Decision.UserTakeError);
         Assert.Equal(data.Decision.UserDoublerAction, req.Decision.UserDoublerAction);
         Assert.Equal(data.Decision.UserTakerAction, req.Decision.UserTakerAction);
+        Assert.Equal(data.Decision.UserPlayError, req.Decision.UserPlayError);
+        Assert.Equal(data.Decision.CubeAnalysisMode, req.Decision.CubeAnalysisMode);
+        Assert.Equal(data.Decision.CubeAnalysisLevel, req.Decision.CubeAnalysisLevel);
+        Assert.Equal(data.Decision.CubelessNoDoubleEquity, req.Decision.CubelessNoDoubleEquity);
+        Assert.Equal(data.Decision.CubelessDoubleTakeEquity, req.Decision.CubelessDoubleTakeEquity);
     }
 
     [Fact]
@@ -79,6 +85,11 @@ public class DiagramRequestFactoryTests
         Assert.Equal(data.Descriptive.Date, req.Descriptive.Date);
         Assert.Equal(data.Descriptive.Event, req.Descriptive.Event);
         Assert.Equal(data.Descriptive.SourceFile, req.Descriptive.SourceFile);
+        Assert.Equal(data.Descriptive.Game, req.Descriptive.Game);
+        Assert.Equal(data.Descriptive.MoveNumber, req.Descriptive.MoveNumber);
+        Assert.Equal(data.Descriptive.IsStandardStart, req.Descriptive.IsStandardStart);
+        Assert.Equal(data.Descriptive.Comment, req.Descriptive.Comment);
+        Assert.Equal(data.Descriptive.Flagged, req.Descriptive.Flagged);
     }
 
     [Fact]
@@ -287,6 +298,7 @@ public class DiagramRequestFactoryTests
             CubeSize = 4,
             CubeOwner = CubeOwner.OnRoll,
             IsCrawford = true,
+            IsJacoby = true,
         },
         Decision = new DecisionData
         {
@@ -296,10 +308,15 @@ public class DiagramRequestFactoryTests
             CubeDepth = "XG Roller+",
             CubeDepthAbbreviation = "R+",
             CubeDepthRank = 21,
+            CubeAnalysisMode = AnalysisMode.Rollout,
+            CubeAnalysisLevel = AnalysisLevel.XgRollerPlus,
             BestPlayIndex = 2,
             UserPlayIndex = 1,
+            UserPlayError = 0.0123,
             NoDoubleEquity = 0.4321,
             DoubleTakeEquity = 0.6543,
+            CubelessNoDoubleEquity = 0.4111,
+            CubelessDoubleTakeEquity = 0.6222,
             WinPctAfterNoDouble = 0.71,
             GammonPctAfterNoDouble = 0.12,
             BgPctAfterNoDouble = 0.013,
@@ -327,6 +344,11 @@ public class DiagramRequestFactoryTests
             Date = new DateOnly(2026, 4, 16),
             Event = "Club championship",
             SourceFile = "mochy-falafel.xg",
+            Game = 3,
+            MoveNumber = 17,
+            IsStandardStart = true,
+            Comment = "Blitz or prime?",
+            Flagged = true,
         },
     };
 

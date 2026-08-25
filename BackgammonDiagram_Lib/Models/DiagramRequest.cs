@@ -158,6 +158,17 @@ public class DiagramRequest
     /// <see cref="Dice"/>, and <see cref="Plays"/>, then validates. The
     /// data-mirroring fields inherit their documentation from the corresponding
     /// record members, keeping their meaning single-sourced in the data layer.
+    /// <para>
+    /// <b>Full-copy invariant.</b> The Builder carries <em>every</em> carriable
+    /// member of <see cref="PositionData"/>, <see cref="DecisionData"/>, and
+    /// <see cref="DescriptiveData"/>; a new field added to any of those records
+    /// joins the copy in the same change. Because the Builder re-spells each
+    /// record field-by-field rather than holding the instance, this is a second
+    /// enumeration of the data layer's facts — so it is enforced by test, not
+    /// by convention: <c>BuilderFieldCarriageTests</c> reflects over the three
+    /// record types and fails until the new field is carried
+    /// (halheinrich/backgammon#122).
+    /// </para>
     /// </summary>
     public class Builder
     {
@@ -178,6 +189,8 @@ public class DiagramRequest
         public CubeOwner CubeOwner { get; set; } = CubeOwner.Centered;
         /// <inheritdoc cref="PositionData.IsCrawford"/>
         public bool IsCrawford { get; set; }
+        /// <inheritdoc cref="PositionData.IsJacoby"/>
+        public bool? IsJacoby { get; set; }
 
         // Decision
         /// <inheritdoc cref="DecisionData.IsCube"/>
@@ -192,14 +205,24 @@ public class DiagramRequest
         public string CubeDepthAbbreviation { get; set; } = string.Empty;
         /// <inheritdoc cref="DecisionData.CubeDepthRank"/>
         public int CubeDepthRank { get; set; }
+        /// <inheritdoc cref="DecisionData.CubeAnalysisMode"/>
+        public AnalysisMode CubeAnalysisMode { get; set; }
+        /// <inheritdoc cref="DecisionData.CubeAnalysisLevel"/>
+        public AnalysisLevel CubeAnalysisLevel { get; set; }
         /// <inheritdoc cref="DecisionData.BestPlayIndex"/>
         public int BestPlayIndex { get; set; }
         /// <inheritdoc cref="DecisionData.UserPlayIndex"/>
         public int UserPlayIndex { get; set; } = -1;
+        /// <inheritdoc cref="DecisionData.UserPlayError"/>
+        public double? UserPlayError { get; set; }
         /// <inheritdoc cref="DecisionData.NoDoubleEquity"/>
         public double NoDoubleEquity { get; set; }
         /// <inheritdoc cref="DecisionData.DoubleTakeEquity"/>
         public double DoubleTakeEquity { get; set; }
+        /// <inheritdoc cref="DecisionData.CubelessNoDoubleEquity"/>
+        public double CubelessNoDoubleEquity { get; set; }
+        /// <inheritdoc cref="DecisionData.CubelessDoubleTakeEquity"/>
+        public double CubelessDoubleTakeEquity { get; set; }
         /// <inheritdoc cref="DecisionData.WinPctAfterNoDouble"/>
         public double WinPctAfterNoDouble { get; set; }
         /// <inheritdoc cref="DecisionData.GammonPctAfterNoDouble"/>
@@ -268,6 +291,16 @@ public class DiagramRequest
         public string? Event { get; set; }
         /// <inheritdoc cref="DescriptiveData.SourceFile"/>
         public string? SourceFile { get; set; }
+        /// <inheritdoc cref="DescriptiveData.Game"/>
+        public int Game { get; set; }
+        /// <inheritdoc cref="DescriptiveData.MoveNumber"/>
+        public int MoveNumber { get; set; }
+        /// <inheritdoc cref="DescriptiveData.IsStandardStart"/>
+        public bool IsStandardStart { get; set; }
+        /// <inheritdoc cref="DescriptiveData.Comment"/>
+        public string Comment { get; set; } = string.Empty;
+        /// <inheritdoc cref="DescriptiveData.Flagged"/>
+        public bool Flagged { get; set; }
 
         // Renderer-specific
         /// <inheritdoc cref="DiagramRequest.Mode"/>
@@ -302,8 +335,9 @@ public class DiagramRequest
         /// site for the data-layer → rendering-layer copy, shared by
         /// <see cref="FromDecisionData"/> and
         /// <see cref="DiagramRequestExtensions.ToProblemSolutionPair"/> —
-        /// adding a new DecisionData/PositionData field only requires one
-        /// edit here.
+        /// so a new <see cref="PositionData"/> / <see cref="DecisionData"/> /
+        /// <see cref="DescriptiveData"/> field is carried by adding it here and
+        /// in <see cref="Build"/>, per the Builder's full-copy invariant.
         /// </summary>
         public static Builder From(
             PositionData position,
@@ -325,6 +359,7 @@ public class DiagramRequest
                 CubeSize = position.CubeSize,
                 CubeOwner = position.CubeOwner,
                 IsCrawford = position.IsCrawford,
+                IsJacoby = position.IsJacoby,
 
                 // Decision
                 IsCube = decision.IsCube,
@@ -333,10 +368,15 @@ public class DiagramRequest
                 CubeDepth = decision.CubeDepth,
                 CubeDepthAbbreviation = decision.CubeDepthAbbreviation,
                 CubeDepthRank = decision.CubeDepthRank,
+                CubeAnalysisMode = decision.CubeAnalysisMode,
+                CubeAnalysisLevel = decision.CubeAnalysisLevel,
                 BestPlayIndex = decision.BestPlayIndex,
                 UserPlayIndex = decision.UserPlayIndex,
+                UserPlayError = decision.UserPlayError,
                 NoDoubleEquity = decision.NoDoubleEquity,
                 DoubleTakeEquity = decision.DoubleTakeEquity,
+                CubelessNoDoubleEquity = decision.CubelessNoDoubleEquity,
+                CubelessDoubleTakeEquity = decision.CubelessDoubleTakeEquity,
                 WinPctAfterNoDouble = decision.WinPctAfterNoDouble,
                 GammonPctAfterNoDouble = decision.GammonPctAfterNoDouble,
                 BgPctAfterNoDouble = decision.BgPctAfterNoDouble,
@@ -363,6 +403,11 @@ public class DiagramRequest
                 Date = descriptive.Date,
                 Event = descriptive.Event,
                 SourceFile = descriptive.SourceFile,
+                Game = descriptive.Game,
+                MoveNumber = descriptive.MoveNumber,
+                IsStandardStart = descriptive.IsStandardStart,
+                Comment = descriptive.Comment,
+                Flagged = descriptive.Flagged,
 
                 // Renderer-specific
                 Mode = mode,
@@ -417,6 +462,7 @@ public class DiagramRequest
                     CubeSize = CubeSize,
                     CubeOwner = CubeOwner,
                     IsCrawford = IsCrawford,
+                    IsJacoby = IsJacoby,
                 },
                 Decision = new DecisionData
                 {
@@ -426,10 +472,15 @@ public class DiagramRequest
                     CubeDepth = CubeDepth,
                     CubeDepthAbbreviation = CubeDepthAbbreviation,
                     CubeDepthRank = CubeDepthRank,
+                    CubeAnalysisMode = CubeAnalysisMode,
+                    CubeAnalysisLevel = CubeAnalysisLevel,
                     BestPlayIndex = BestPlayIndex,
                     UserPlayIndex = UserPlayIndex,
+                    UserPlayError = UserPlayError,
                     NoDoubleEquity = NoDoubleEquity,
                     DoubleTakeEquity = DoubleTakeEquity,
+                    CubelessNoDoubleEquity = CubelessNoDoubleEquity,
+                    CubelessDoubleTakeEquity = CubelessDoubleTakeEquity,
                     WinPctAfterNoDouble = WinPctAfterNoDouble,
                     GammonPctAfterNoDouble = GammonPctAfterNoDouble,
                     BgPctAfterNoDouble = BgPctAfterNoDouble,
@@ -457,6 +508,11 @@ public class DiagramRequest
                     Date = Date,
                     Event = Event,
                     SourceFile = SourceFile,
+                    Game = Game,
+                    MoveNumber = MoveNumber,
+                    IsStandardStart = IsStandardStart,
+                    Comment = Comment,
+                    Flagged = Flagged,
                 },
                 Mode = Mode,
                 HomeBoardOnRight = HomeBoardOnRight,
