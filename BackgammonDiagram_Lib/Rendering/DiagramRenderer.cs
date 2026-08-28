@@ -1576,10 +1576,10 @@ public static class DiagramRenderer
             string jacoby = request.Position.IsJacoby switch
             {
                 true => ", Jacoby",
-                false => ", no Jacoby",
+                false => ", No Jacoby",
                 null => string.Empty,
             };
-            return $"{name} (money game{jacoby})";
+            return $"{name} (Money Game{jacoby})";
         }
 
         int needs = isOnRoll ? request.Position.OnRollNeeds : request.Position.OpponentNeeds;

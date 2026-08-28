@@ -257,9 +257,9 @@ rails say the same thing even though the label itself is per-player.
 
   | `Position.IsJacoby` | Label                            |
   | ------------------- | -------------------------------- |
-  | `true`              | `{name} (money game, Jacoby)`    |
-  | `false`             | `{name} (money game, no Jacoby)` |
-  | `null`              | `{name} (money game)`            |
+  | `true`              | `{name} (Money Game, Jacoby)`    |
+  | `false`             | `{name} (Money Game, No Jacoby)` |
+  | `null`              | `{name} (Money Game)`            |
 
   `null` means **the source did not stamp the fact**, never "off" — this
   renderer serves surfaces whose producers may legitimately not carry it, so

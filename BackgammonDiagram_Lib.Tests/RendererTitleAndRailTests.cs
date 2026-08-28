@@ -214,8 +214,8 @@ public class RendererTitleAndRailTests
         b.IsJacoby = true;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        Assert.Contains(">Alice (money game, Jacoby)</text>", svg);
-        Assert.Contains(">Bob (money game, Jacoby)</text>", svg);
+        Assert.Contains(">Alice (Money Game, Jacoby)</text>", svg);
+        Assert.Contains(">Bob (Money Game, Jacoby)</text>", svg);
     }
 
     [Fact]
@@ -228,8 +228,8 @@ public class RendererTitleAndRailTests
         b.IsJacoby = false;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        Assert.Contains(">Alice (money game, no Jacoby)</text>", svg);
-        Assert.Contains(">Bob (money game, no Jacoby)</text>", svg);
+        Assert.Contains(">Alice (Money Game, No Jacoby)</text>", svg);
+        Assert.Contains(">Bob (Money Game, No Jacoby)</text>", svg);
     }
 
     [Fact]
@@ -245,8 +245,8 @@ public class RendererTitleAndRailTests
         b.IsJacoby = null;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        Assert.Contains(">Alice (money game)</text>", svg);
-        Assert.Contains(">Bob (money game)</text>", svg);
+        Assert.Contains(">Alice (Money Game)</text>", svg);
+        Assert.Contains(">Bob (Money Game)</text>", svg);
         Assert.DoesNotContain("Jacoby", svg);
     }
 
