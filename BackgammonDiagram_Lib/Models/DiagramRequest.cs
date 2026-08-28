@@ -119,6 +119,68 @@ public class DiagramRequest
     /// </summary>
     public int SecondaryPlayIndex { get; init; } = -1;
 
+    /// <summary>
+    /// Row order of the Solution-mode play panel's candidate list. The
+    /// default, <see cref="BackgammonDiagram_Lib.CandidateOrdering.Equity"/>,
+    /// renders the caller's (assumed equity-sorted) order unchanged — exactly
+    /// the pre-existing behaviour.
+    /// <see cref="BackgammonDiagram_Lib.CandidateOrdering.DepthFirst"/> orders
+    /// by analysis depth, deepest first, keeping equity order within a depth
+    /// tier; see the enum for the ordering rule and its rationale
+    /// (halheinrich/backgammon#150).
+    /// <para>
+    /// A <b>display option the consumer sets directly</b>, like
+    /// <see cref="SecondaryPlayIndex"/>: the data-sourcing factories
+    /// (<see cref="FromDecisionData"/> and the three-record
+    /// <c>Builder.From</c>) leave it at the default, so every export path is
+    /// visually unchanged; only <c>Builder.From(DiagramRequest)</c> carries it
+    /// across. Reordering moves whole rows: each candidate keeps its own rank
+    /// number, play marker, and rank-inversion italics from its position in
+    /// the source list — marks follow candidates, not row positions.
+    /// </para>
+    /// </summary>
+    public CandidateOrdering CandidateOrdering { get; init; }
+
+    /// <summary>
+    /// Optional display floor for the Solution-mode play panel: hides
+    /// candidates analysed below this level (halheinrich/backgammon#66).
+    /// Null (the default) shows every candidate. The floor is inclusive — a
+    /// candidate evaluated <em>at</em> the floor level still renders — so
+    /// "4-ply and lower should not be displayed" is
+    /// <see cref="AnalysisLevel.Ply5"/>.
+    /// <para>
+    /// The floor reads the two-axis depth taxonomy the producer stamped
+    /// (<see cref="BgDataTypes_Lib.PlayCandidate.AnalysisMode"/> ×
+    /// <see cref="BgDataTypes_Lib.PlayCandidate.AnalysisLevel"/>): a candidate
+    /// is hidden iff its numbers came from a direct evaluation
+    /// (<see cref="AnalysisMode.Evaluation"/>) whose stamped level sits below
+    /// the floor on the level axis's declared ascending-rigor order (plies
+    /// below the XG Roller family). Rollout-family candidates are never
+    /// hidden: for those modes <c>AnalysisLevel</c> records the rollout's
+    /// <em>inner</em> evaluation level, not the analysis's own depth, and a
+    /// rollout is deeper than any evaluation floor. Unstamped candidates
+    /// (<see cref="AnalysisMode.Unknown"/> or
+    /// <see cref="AnalysisLevel.Unknown"/>) are never hidden either — Unknown
+    /// means "not recorded", never "shallow", so the panel degrades to
+    /// showing the row rather than guessing a depth.
+    /// </para>
+    /// <para>
+    /// <b>Contract: the best-play row
+    /// (<see cref="BgDataTypes_Lib.DecisionData.BestPlayIndex"/>), the user's
+    /// actual-play row
+    /// (<see cref="BgDataTypes_Lib.DecisionData.UserPlayIndex"/>), and an
+    /// active secondary-play row (<see cref="SecondaryPlayIndex"/>) are never
+    /// hidden by the floor, whatever their depth</b> — review must always
+    /// show what was best and what was played. Like
+    /// <see cref="CandidateOrdering"/>, this is a consumer-set display option
+    /// the data-sourcing factories leave unset;
+    /// <see cref="AnalysisLevel.Unknown"/> is rejected at
+    /// <see cref="Builder.Build"/> (it means "level not recorded", not a
+    /// depth — use null to show all).
+    /// </para>
+    /// </summary>
+    public AnalysisLevel? MinimumCandidateAnalysisLevel { get; init; }
+
     // -----------------------------------------------------------------------
     //  Factory: BgDecisionData → DiagramRequest
     // -----------------------------------------------------------------------
@@ -325,6 +387,27 @@ public class DiagramRequest
         /// </summary>
         public int SecondaryPlayIndex { get; set; } = -1;
 
+        /// <summary>
+        /// Row order of the play panel's candidate list. See
+        /// <see cref="DiagramRequest.CandidateOrdering"/>. Sits with the
+        /// renderer-specific fields because it is set by the consumer, not
+        /// copied from the data records. Defaults to
+        /// <see cref="BackgammonDiagram_Lib.CandidateOrdering.Equity"/>
+        /// (caller order, unchanged).
+        /// </summary>
+        public CandidateOrdering CandidateOrdering { get; set; }
+
+        /// <summary>
+        /// Optional display floor for the play panel's candidate list. See
+        /// <see cref="DiagramRequest.MinimumCandidateAnalysisLevel"/> for the
+        /// hiding rule and the never-hidden contract. Sits with the
+        /// renderer-specific fields because it is set by the consumer, not
+        /// copied from the data records. Defaults to null (show all);
+        /// <see cref="AnalysisLevel.Unknown"/> is rejected by
+        /// <see cref="Build"/>.
+        /// </summary>
+        public AnalysisLevel? MinimumCandidateAnalysisLevel { get; set; }
+
         // -------------------------------------------------------------------
         //  Factories — single field-mapping site for data → builder
         // -------------------------------------------------------------------
@@ -430,9 +513,12 @@ public class DiagramRequest
                 existing.AnalysisPanelPosition);
             b.PositionNumber = existing.PositionNumber;
             b.Xgid = existing.Xgid;
-            // Render-only overlay — not carried by the three-record From, so
-            // copy it here to keep this "reproduce a request" factory faithful.
+            // Render-only overlay and display options — not carried by the
+            // three-record From, so copy them here to keep this "reproduce a
+            // request" factory faithful.
             b.SecondaryPlayIndex = existing.SecondaryPlayIndex;
+            b.CandidateOrdering = existing.CandidateOrdering;
+            b.MinimumCandidateAnalysisLevel = existing.MinimumCandidateAnalysisLevel;
             return b;
         }
 
@@ -445,7 +531,12 @@ public class DiagramRequest
         /// Thrown when validation fails: <see cref="Mop"/> is not length 26,
         /// <see cref="Dice"/> is not length 2, a cube decision does not carry
         /// <c>[0, 0]</c> dice (or a checker decision carries an out-of-range
-        /// die), or <see cref="CubeSize"/> is not a power of two in 1..4096.
+        /// die), <see cref="CubeSize"/> is not a power of two in 1..4096,
+        /// <see cref="CandidateOrdering"/> or a non-null
+        /// <see cref="MinimumCandidateAnalysisLevel"/> is an undefined enum
+        /// value, or <see cref="MinimumCandidateAnalysisLevel"/> is
+        /// <see cref="AnalysisLevel.Unknown"/> (which means "level not
+        /// recorded", not a depth — use null to show all candidates).
         /// </exception>
         public DiagramRequest Build()
         {
@@ -521,6 +612,8 @@ public class DiagramRequest
                 PositionNumber = PositionNumber,
                 Xgid = Xgid,
                 SecondaryPlayIndex = SecondaryPlayIndex,
+                CandidateOrdering = CandidateOrdering,
+                MinimumCandidateAnalysisLevel = MinimumCandidateAnalysisLevel,
             };
         }
 
@@ -542,6 +635,22 @@ public class DiagramRequest
             }
             if (!MathUtils.IsPowerOfTwo(CubeSize) || CubeSize < 1 || CubeSize > 4096)
                 throw new InvalidOperationException("CubeSize must be a power of 2 from 1 to 4096.");
+            // The display options are caller configuration, not producer data,
+            // so they get the validate-don't-tolerate register: reject
+            // undefined enum values, and reject an Unknown floor — Unknown
+            // means "level not recorded", never a depth, so it cannot bound
+            // one (null is the show-all state).
+            if (!Enum.IsDefined(CandidateOrdering))
+                throw new InvalidOperationException("CandidateOrdering must be a defined CandidateOrdering value.");
+            if (MinimumCandidateAnalysisLevel is AnalysisLevel floor)
+            {
+                if (!Enum.IsDefined(floor))
+                    throw new InvalidOperationException("MinimumCandidateAnalysisLevel must be a defined AnalysisLevel value.");
+                if (floor == AnalysisLevel.Unknown)
+                    throw new InvalidOperationException(
+                        "MinimumCandidateAnalysisLevel must not be AnalysisLevel.Unknown — Unknown means "
+                        + "\"level not recorded\", not a depth; use null to show all candidates.");
+            }
         }
     }
 }

@@ -20,7 +20,11 @@ namespace BackgammonDiagram_Lib.Tests;
 /// Rather than restate the rule in prose, these tests reflect over the three
 /// record types and assert that every carriable member survives both
 /// <c>Builder.From</c> overloads. A field added to any of those records fails
-/// here until it joins the copy in <c>From</c> and <c>Build</c>.
+/// here until it joins the copy in <c>From</c> and <c>Build</c>. The
+/// renderer-specific members of <see cref="DiagramRequest"/> itself get the
+/// same treatment in <see cref="Builder_CarriesEveryRendererSpecificField"/> —
+/// they are hand-carried by <c>Builder.From(DiagramRequest)</c> only, which
+/// the record-level reflection cannot see.
 /// </para>
 ///
 /// <para>
@@ -46,6 +50,66 @@ public class BuilderFieldCarriageTests
     [Fact]
     public void Builder_CarriesEveryDescriptiveDataField()
         => AssertEveryFieldCarried(typeof(DescriptiveData), new DescriptiveData(), r => r.Descriptive);
+
+    /// <summary>
+    /// The same completeness net over <see cref="DiagramRequest"/>'s own
+    /// renderer-specific members — everything outside the three data records.
+    /// Those are hand-carried by <c>Builder.From(DiagramRequest)</c> (the
+    /// three-record overload deliberately leaves them at their defaults, per
+    /// the <c>SecondaryPlayIndex</c> precedent), so the record-reflection
+    /// facts above cannot see a drop. Two guards per member: the fixture must
+    /// set it away from its default (a new field fails here until it joins
+    /// the fixture — and joining the fixture requires the Builder property),
+    /// and it must survive the <c>From(DiagramRequest).Build()</c> round-trip
+    /// (fails until it joins the copy).
+    /// </summary>
+    [Fact]
+    public void Builder_CarriesEveryRendererSpecificField()
+    {
+        // Property defaults, via the internal parameterless constructor the
+        // Builder itself instantiates through.
+        var pristine = new DiagramRequest();
+
+        var b = TestFixtures.MinimalBuilder();
+        b.Mode = DiagramMode.Solution;                          // default Problem
+        b.HomeBoardOnRight = false;                             // default true
+        b.OnRollAtBottom = false;                               // default true
+        b.AnalysisPanelPosition = PanelPosition.Right;          // default Left
+        b.PositionNumber = 7;                                   // default null
+        b.Xgid = "XGID=-b----E-C---eE---c-e----B-:0:0:1:31:0:0:0:0:10";  // default ""
+        b.SecondaryPlayIndex = 3;                               // default −1
+        b.CandidateOrdering = CandidateOrdering.DepthFirst;     // default Equity
+        b.MinimumCandidateAnalysisLevel = AnalysisLevel.Ply5;   // default null
+        var built = b.Build();
+
+        var cloned = DiagramRequest.Builder.From(built).Build();
+
+        var recordMembers = new[]
+        {
+            nameof(DiagramRequest.Position),
+            nameof(DiagramRequest.Decision),
+            nameof(DiagramRequest.Descriptive),
+        };
+        var members = CarriableMembers(typeof(DiagramRequest))
+            .Where(m => !recordMembers.Contains(m.Name))
+            .ToList();
+        Assert.NotEmpty(members);
+
+        foreach (var m in members)
+        {
+            Assert.True(
+                !SameValue(m.GetValue(built), m.GetValue(pristine)),
+                $"DiagramRequest.{m.Name} is left at its default by this test's fixture, so "
+                + "the round-trip assertion below cannot fail when it is dropped. Set it "
+                + "away from its default in the fixture above.");
+
+            Assert.True(
+                SameValue(m.GetValue(built), m.GetValue(cloned)),
+                $"Builder.From(DiagramRequest).Build() drops DiagramRequest.{m.Name}. "
+                + "Renderer-specific members are hand-carried — copy it in "
+                + "Builder.From(DiagramRequest) and emit it in Build().");
+        }
+    }
 
     // -----------------------------------------------------------------------
     //  The assertion

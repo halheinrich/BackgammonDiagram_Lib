@@ -17,6 +17,31 @@ public enum DiagramMode
     Solution
 }
 
+/// <summary>
+/// Row order of the Solution-mode play panel's candidate list — selected per
+/// request via <see cref="DiagramRequest.CandidateOrdering"/>
+/// (halheinrich/backgammon#150).
+/// </summary>
+public enum CandidateOrdering
+{
+    /// <summary>Equity order — the caller's list order, rendered unchanged
+    /// (the default). The data contract assumes the caller supplies
+    /// <c>Decision.Plays</c> equity-sorted (XG's native order), so this is
+    /// the equity ordering without the renderer re-sorting anything.</summary>
+    Equity,
+
+    /// <summary>Depth first — candidates ordered by analysis depth, deepest
+    /// first, using the producer-stamped
+    /// <see cref="BgDataTypes_Lib.PlayCandidate.DepthRank"/> (descending),
+    /// which the data layer names as the ordering surface for depth
+    /// comparisons. The sort is stable: within a depth tier (equal rank),
+    /// candidates keep their caller (equity) order. Exists for the reviewer
+    /// who rolls out the best candidate of each thematic category — the
+    /// deepest results scatter down the equity order, so the analysis they
+    /// most want to see first sinks under <see cref="Equity"/>.</summary>
+    DepthFirst
+}
+
 /// <summary>Which side of the board the analysis panel occupies.</summary>
 public enum PanelPosition
 {

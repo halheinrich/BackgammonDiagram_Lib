@@ -119,6 +119,22 @@ public class DiagramRequestFactoryTests
     }
 
     [Fact]
+    public void FromDecisionData_LeavesDepthTreatmentOptionsUnset()
+    {
+        // Like SecondaryPlayIndex, the depth-treatment options
+        // (CandidateOrdering / MinimumCandidateAnalysisLevel,
+        // halheinrich/backgammon#150 / #66) are consumer-set display options,
+        // not data-layer facts: the data-record factory must leave them at
+        // their defaults so every export path renders exactly as before —
+        // full candidate list, caller (equity) order.
+        var data = FullyPopulatedData();
+        var req = DiagramRequest.FromDecisionData(data);
+
+        Assert.Equal(CandidateOrdering.Equity, req.CandidateOrdering);
+        Assert.Null(req.MinimumCandidateAnalysisLevel);
+    }
+
+    [Fact]
     public void BuilderFrom_ExistingRequest_PreservesSecondaryPlayIndex()
     {
         // Builder.From(DiagramRequest) reproduces a request faithfully, so the

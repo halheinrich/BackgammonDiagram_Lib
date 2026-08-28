@@ -1070,13 +1070,21 @@ public static class DiagramRenderer
     private const double PlayPanelFontSize   = 14;
 
     /// <summary>
-    /// Render the checker-play candidate list. One line per play, in the
-    /// order supplied (assumed equity-loss ascending — XG's native order).
+    /// Render the checker-play candidate list. One line per visible play, in
+    /// the display order the request's depth-treatment options select — by
+    /// default the order supplied (assumed equity-loss ascending — XG's
+    /// native order), unchanged and unfiltered. See
+    /// <see cref="BuildDisplaySequence"/> for the
+    /// <see cref="DiagramRequest.CandidateOrdering"/> /
+    /// <see cref="DiagramRequest.MinimumCandidateAnalysisLevel"/> rules.
     /// Columns from left to right:
     ///   * user-play marker, rank, move notation, equity, equity loss, depth.
-    /// When the panel doesn't have room for every candidate, trim the tail
-    /// but always include the user's play on the last line (with its real
-    /// rank number) if it would otherwise be cut.
+    /// Every per-row treatment (rank number, play markers, rank-inversion
+    /// italics) is keyed to the play's source index, so marks follow
+    /// candidates, not row positions, under reordering. When the panel
+    /// doesn't have room for every candidate, trim the tail but always
+    /// include the marked plays on the last lines (with their real rank
+    /// numbers) if they would otherwise be cut.
     /// </summary>
     private static void AppendPlayPanel(StringBuilder sb, double px, double pw, double ph,
         string textColor, string dimColor, DiagramRequest request)
@@ -1109,12 +1117,6 @@ public static class DiagramRenderer
         int fitCount = (int)Math.Max(0, (rowBudget - y) / PlayPanelLineHeight);
         int total = plays.Count;
 
-        // Decide the visible index set. Normally [0 .. min(fitCount, total)).
-        // Up to two plays are marked and must both stay visible: the primary
-        // (*) at UserPlayIndex and the secondary (†) at SecondaryPlayIndex. Any
-        // marked play ranking beyond the cut (index >= fitCount) is "rescued"
-        // by displacing a tail entry, so it still shows with its real rank —
-        // so up to two tail rows may be displaced (neither, one, or both).
         int userIndex = request.Decision.UserPlayIndex;
         int secondaryIndex = request.SecondaryPlayIndex;
 
@@ -1126,30 +1128,57 @@ public static class DiagramRenderer
                                && secondaryIndex < total
                                && secondaryIndex != userIndex;
 
-        int visibleCount = Math.Min(fitCount, total);
+        // The display sequence — source indices in display order, after the
+        // request's optional depth-first reorder and analysis-level floor
+        // (halheinrich/backgammon#150 / halheinrich/backgammon#66). With both
+        // options at their defaults this is the identity sequence and
+        // everything below reduces to the pre-existing behaviour exactly.
+        List<int> sequence = BuildDisplaySequence(
+            request, plays, userIndex, secondaryActive ? secondaryIndex : -1);
+        bool depthTreatmentActive =
+            request.CandidateOrdering != CandidateOrdering.Equity
+            || request.MinimumCandidateAnalysisLevel is not null;
 
-        // Marked plays that fall outside the natural [0 .. fitCount) window and
-        // must be rescued into view. Sorted ascending so rescued rows read in
-        // rank order at the foot of the panel. (fitCount == 0 leaves no room to
-        // rescue into, matching the pre-existing guard.)
-        var rescued = new List<int>(2);
+        // Decide the visible index set. Normally the first
+        // min(fitCount, sequence.Count) entries of the display sequence. Up to
+        // two plays are marked and must both stay visible: the primary (*) at
+        // UserPlayIndex and the secondary (†) at SecondaryPlayIndex. Any
+        // marked play whose display position falls beyond the cut
+        // (position >= fitCount) is "rescued" by displacing a tail entry, so
+        // it still shows with its real rank — so up to two tail rows may be
+        // displaced (neither, one, or both). When a depth-treatment option is
+        // active, the best play is rescue-eligible too: the options must
+        // never push what was best out of view (the review contract on
+        // MinimumCandidateAnalysisLevel). Under default options it is not —
+        // the legacy window is preserved byte-for-byte, and the caller's
+        // assumed-equity-sorted order heads the list with the best play
+        // anyway.
+        int visibleCount = Math.Min(fitCount, sequence.Count);
+
+        // Sorted ascending so rescued rows read in rank order at the foot of
+        // the panel. (fitCount == 0 leaves no room to rescue into, matching
+        // the pre-existing guard.)
+        var rescued = new List<int>(3);
         if (fitCount > 0)
         {
-            if (userIndex >= 0 && userIndex < total && userIndex >= fitCount)
-                rescued.Add(userIndex);
-            if (secondaryActive && secondaryIndex >= fitCount)
-                rescued.Add(secondaryIndex);
+            for (int pos = fitCount; pos < sequence.Count; pos++)
+            {
+                int idx = sequence[pos];
+                bool marked = idx == userIndex || (secondaryActive && idx == secondaryIndex);
+                if (marked || (depthTreatmentActive && idx == request.Decision.BestPlayIndex))
+                    rescued.Add(idx);
+            }
             rescued.Sort();
         }
 
-        // Keep the top rows, then give the remaining slots to the rescued
-        // plays. keepCount never goes negative; if more plays need rescue than
-        // there are slots (a panel with room for only a single row), show as
-        // many as fit rather than overflow the budget.
+        // Keep the top rows of the display sequence, then give the remaining
+        // slots to the rescued plays. keepCount never goes negative; if more
+        // plays need rescue than there are slots (a panel with room for only a
+        // single row), show as many as fit rather than overflow the budget.
         int keepCount = Math.Max(0, visibleCount - rescued.Count);
         var visible = new List<int>(visibleCount);
-        for (int i = 0; i < keepCount; i++)
-            visible.Add(i);
+        for (int pos = 0; pos < keepCount; pos++)
+            visible.Add(sequence[pos]);
         foreach (int idx in rescued)
         {
             if (visible.Count >= visibleCount) break;
@@ -1204,6 +1233,60 @@ public static class DiagramRenderer
 
             y += PlayPanelLineHeight;
         }
+    }
+
+    /// <summary>
+    /// The play panel's display sequence: source indices of
+    /// <paramref name="plays"/> in display order, after the request's optional
+    /// depth-first reorder (halheinrich/backgammon#150) and analysis-level
+    /// floor (halheinrich/backgammon#66). With both options at their defaults
+    /// this is the identity sequence — the caller's order, complete.
+    /// <para>
+    /// Ordering — <see cref="CandidateOrdering.DepthFirst"/> orders by the
+    /// producer-stamped <see cref="PlayCandidate.DepthRank"/>, descending.
+    /// That ordinal is the data layer's designated ordering surface for depth
+    /// comparisons (see <see cref="AnalysisLevel"/>'s remarks) and the same
+    /// field the rank-inversion italic already compares — this renderer ranks
+    /// nothing itself. The sort is stable, so candidates within a depth tier
+    /// (equal rank) keep their caller (equity) order.
+    /// </para>
+    /// <para>
+    /// Floor — a candidate is hidden iff its numbers came from a direct
+    /// evaluation (<see cref="AnalysisMode.Evaluation"/>) whose stamped
+    /// <see cref="PlayCandidate.AnalysisLevel"/> sits strictly below the floor
+    /// on the level axis's declared ascending-rigor order. Rollout-family
+    /// modes are never hidden (their level is the rollout's <em>inner</em>
+    /// level, not the analysis's own depth), unstamped rows are never hidden
+    /// (Unknown means "not recorded", never "shallow"), and the best-play row
+    /// plus both marked rows are exempt whatever their depth — see the
+    /// contract on <see cref="DiagramRequest.MinimumCandidateAnalysisLevel"/>.
+    /// </para>
+    /// </summary>
+    /// <param name="request">The request whose depth-treatment options apply.</param>
+    /// <param name="plays">The candidate list the sequence indexes into.</param>
+    /// <param name="userIndex"><see cref="DecisionData.UserPlayIndex"/>, exempt
+    /// from the floor.</param>
+    /// <param name="activeSecondaryIndex">The secondary play index when the
+    /// secondary mark is active, else −1; an active secondary is exempt from
+    /// the floor.</param>
+    private static List<int> BuildDisplaySequence(
+        DiagramRequest request, IReadOnlyList<PlayCandidate> plays, int userIndex, int activeSecondaryIndex)
+    {
+        var sequence = Enumerable.Range(0, plays.Count).ToList();
+
+        if (request.CandidateOrdering == CandidateOrdering.DepthFirst)
+            sequence = sequence.OrderByDescending(i => plays[i].DepthRank).ToList();
+
+        if (request.MinimumCandidateAnalysisLevel is AnalysisLevel floor)
+            sequence.RemoveAll(i =>
+                plays[i].AnalysisMode == AnalysisMode.Evaluation
+                && plays[i].AnalysisLevel != AnalysisLevel.Unknown
+                && plays[i].AnalysisLevel < floor
+                && i != request.Decision.BestPlayIndex
+                && i != userIndex
+                && i != activeSecondaryIndex);
+
+        return sequence;
     }
 
     // -----------------------------------------------------------------------

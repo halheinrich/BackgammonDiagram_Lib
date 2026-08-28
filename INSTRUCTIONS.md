@@ -149,6 +149,11 @@ Builder; `Build()` constructs the nested `PositionData` / `DecisionData` /
 - `IsCube == true` → `Dice` must be `[0, 0]`.
 - `IsCube == false` → each die in `1..6`.
 - `CubeSize` must be a power of 2 in `1..4096`.
+- `CandidateOrdering` and a non-null `MinimumCandidateAnalysisLevel` must be
+  defined enum values, and the floor must not be `AnalysisLevel.Unknown` —
+  Unknown means "level not recorded", not a depth; null is the show-all
+  state. The display options are caller configuration, so they get the
+  validate-don't-tolerate register (unlike producer-stamped data facts).
 
 Exposed properties:
 
@@ -167,6 +172,18 @@ Exposed properties:
   right-justified in the title strip as `"Position {N}"`. Callers
   emitting a deck typically set this to a 1-based running counter so
   readers can cross-reference back to the source list.
+- `CandidateOrdering` (CandidateOrdering, default `Equity`) — row order of
+  the Solution-mode play panel's candidate list. `Equity` renders the
+  caller's (assumed equity-sorted) order unchanged; `DepthFirst` orders by
+  analysis depth, deepest first (halheinrich/backgammon#150). See the
+  Analysis panel section for the ordering rule.
+- `MinimumCandidateAnalysisLevel` (AnalysisLevel?, default `null`) —
+  optional display floor for the play panel: hides candidates analysed
+  below this level (halheinrich/backgammon#66); null shows all. See the
+  Analysis panel section for the hiding rule and the never-hidden contract.
+  Both depth-treatment options are consumer-set display options on the
+  `SecondaryPlayIndex` model: the data-sourcing factories leave them at
+  their defaults, so every export path renders unchanged.
 
 `Mop`, `Dice`, and `Plays` live on the nested `BgDataTypes_Lib` records
 (`Position.Mop`, `Decision.Dice`, `Decision.Plays`) — they are not
@@ -274,9 +291,13 @@ full-copy invariant under `DiagramRequest.Builder`.
 
 Rendered in Solution mode only. Two shapes:
 
-- **Play panel** (`Decision.IsCube == false`). One row per `PlayCandidate`
-  in caller order, assumed equity-sorted. Columns: user's play marker, rank,
-  move notation, equity, equity loss, depth. Invariants:
+- **Play panel** (`Decision.IsCube == false`). One row per visible
+  `PlayCandidate`; display order and visibility are the request's
+  depth-treatment options (`CandidateOrdering` /
+  `MinimumCandidateAnalysisLevel`), whose defaults render every candidate in
+  caller order, assumed equity-sorted — byte-identical to the pre-#150
+  rendering. Columns: user's play marker, rank, move notation, equity,
+  equity loss, depth. Invariants:
   - The Depth column renders `PlayCandidate.DepthAbbreviation`, not
     `PlayCandidate.Depth`. Rows with empty `DepthAbbreviation` omit the
     Depth cell entirely (the column header still renders).
@@ -296,9 +317,33 @@ Rendered in Solution mode only. Two shapes:
     predecessor). Check is keyed off source-list position, not display
     slot — a user's play rescued into the last displayed row carries the
     italic state from its original index.
-  - When the panel runs out of vertical space, the user's play is
-    "rescued" into the last visible slot with its real rank number,
-    displacing whichever row would otherwise have been last.
+  - `CandidateOrdering.DepthFirst` (halheinrich/backgammon#150) orders rows
+    by the producer-stamped `PlayCandidate.DepthRank`, descending — the data
+    layer's designated ordering surface for depth comparisons, and the same
+    field the rank-inversion italic compares; the renderer ranks nothing
+    itself. The sort is stable, so candidates within a depth tier (equal
+    rank) keep their caller (equity) order.
+  - `MinimumCandidateAnalysisLevel` (halheinrich/backgammon#66) hides a
+    candidate iff its numbers came from a direct evaluation
+    (`AnalysisMode.Evaluation`) whose stamped `AnalysisLevel` sits strictly
+    below the floor on the level axis's declared ascending-rigor order (the
+    floor is inclusive: "4-ply and lower hidden" is `Ply5`). Rollout-family
+    rows are never hidden — their `AnalysisLevel` is the rollout's *inner*
+    level, not the analysis's own depth — and unstamped rows (`Unknown`
+    mode or level) are never hidden: Unknown means "not recorded", never
+    "shallow". **The best-play row and both marked rows are never hidden,
+    whatever their depth** — review must always show what was best and what
+    was played.
+  - Every per-row treatment — rank number, the * / † marks, the
+    rank-inversion italics — is keyed to the play's **source index**, so
+    marks follow candidates, not row positions, under reordering, and each
+    row shows its true equity rank wherever it lands.
+  - When the panel runs out of vertical space, marked plays are "rescued"
+    into the last visible slots with their real rank numbers, displacing
+    the rows that would otherwise have been last. When a depth-treatment
+    option is active, the best play is rescue-eligible too — the options
+    must never push what was best out of view; under default options the
+    legacy marked-rows-only window is preserved byte-for-byte.
 
 - **Cube panel** (`Decision.IsCube == true`). Best/Actual banner,
   Equity/Loss table (No Double / Double / Take / Pass), two percentage
@@ -550,7 +595,8 @@ canonical consumer of the latter.
 
 Flat property setters for position, dice, cube, scores, plays, `CubeDepth`
 / `CubeDepthAbbreviation` / `CubeDepthRank`, plus `HomeBoardOnRight`,
-`OnRollAtBottom`, `Mode`, `AnalysisPanelPosition`, `PositionNumber`.
+`OnRollAtBottom`, `Mode`, `AnalysisPanelPosition`, `PositionNumber`,
+`CandidateOrdering`, and `MinimumCandidateAnalysisLevel`.
 `Build()` constructs the nested `BgDataTypes_Lib` records and validates.
 Throws on validation failure. `CubeOwner` defaults to `CubeOwner.Centered`.
 
@@ -582,6 +628,15 @@ The test needs two fixtures — a checker decision and a cube decision —
 because `IsCube` and `Dice` cannot both be held away from their defaults at
 once: `Build()` requires a cube decision to carry `[0, 0]` dice, which is
 `Dice`'s own default.
+
+The renderer-specific members of `DiagramRequest` itself (`Mode`,
+orientation flags, `PositionNumber`, `Xgid`, `SecondaryPlayIndex`, the
+depth-treatment options — everything outside the three records) are
+hand-carried by `Builder.From(DiagramRequest)` only; the three-record
+overload deliberately leaves them at their defaults. They get the same
+reflection net in `Builder_CarriesEveryRendererSpecificField`: a new
+top-level field fails that test until it is set away from default in the
+fixture and survives the `From(DiagramRequest).Build()` round-trip.
 
 ### `DiagramOptions`
 

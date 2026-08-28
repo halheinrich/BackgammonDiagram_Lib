@@ -9,8 +9,10 @@ namespace BackgammonDiagram_Lib.Tests;
 /// Invariants of the checker-play analysis panel — the contract the renderer
 /// owes its caller for <see cref="DiagramRequest.Decision"/>.<see cref="DecisionData.Plays"/>:
 ///
-///   * Caller order is preserved verbatim (no implicit re-sort inside the
-///     renderer).
+///   * Under the default <see cref="DiagramRequest.CandidateOrdering"/>,
+///     caller order is preserved verbatim (no implicit re-sort inside the
+///     renderer). The opt-in depth treatment is pinned separately in
+///     <see cref="CandidateDepthTreatmentTests"/>.
 ///   * <see cref="PlayCandidate.EquityLoss"/> is rendered as text for every
 ///     non-best entry; omitted when the field is &lt;= 0 (which in practice
 ///     means the candidate is itself a best play — <c>EquityLoss == 0.0</c>
