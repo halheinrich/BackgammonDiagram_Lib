@@ -1076,7 +1076,7 @@ public static class DiagramRenderer
     /// native order), unchanged and unfiltered. See
     /// <see cref="BuildDisplaySequence"/> for the
     /// <see cref="DiagramRequest.CandidateOrdering"/> /
-    /// <see cref="DiagramRequest.MinimumCandidateAnalysisLevel"/> rules.
+    /// <see cref="DiagramRequest.MaximumHiddenCandidateAnalysisLevel"/> rules.
     /// Columns from left to right:
     ///   * user-play marker, rank, move notation, equity, equity loss, depth.
     /// Every per-row treatment (rank number, play markers, rank-inversion
@@ -1129,7 +1129,7 @@ public static class DiagramRenderer
                                && secondaryIndex != userIndex;
 
         // The display sequence — source indices in display order, after the
-        // request's optional depth-first reorder and analysis-level floor
+        // request's optional depth-first reorder and analysis-level ceiling
         // (halheinrich/backgammon#150 / halheinrich/backgammon#66). With both
         // options at their defaults this is the identity sequence and
         // everything below reduces to the pre-existing behaviour exactly.
@@ -1137,7 +1137,7 @@ public static class DiagramRenderer
             request, plays, userIndex, secondaryActive ? secondaryIndex : -1);
         bool depthTreatmentActive =
             request.CandidateOrdering != CandidateOrdering.Equity
-            || request.MinimumCandidateAnalysisLevel is not null;
+            || request.MaximumHiddenCandidateAnalysisLevel is not null;
 
         // Decide the visible index set. Normally the first
         // min(fitCount, sequence.Count) entries of the display sequence. Up to
@@ -1149,10 +1149,10 @@ public static class DiagramRenderer
         // displaced (neither, one, or both). When a depth-treatment option is
         // active, the best play is rescue-eligible too: the options must
         // never push what was best out of view (the review contract on
-        // MinimumCandidateAnalysisLevel). Under default options it is not —
-        // the legacy window is preserved byte-for-byte, and the caller's
-        // assumed-equity-sorted order heads the list with the best play
-        // anyway.
+        // MaximumHiddenCandidateAnalysisLevel). Under default options it is
+        // not — the legacy window is preserved byte-for-byte, and the
+        // caller's assumed-equity-sorted order heads the list with the best
+        // play anyway.
         int visibleCount = Math.Min(fitCount, sequence.Count);
 
         // Sorted ascending so rescued rows read in rank order at the foot of
@@ -1239,8 +1239,8 @@ public static class DiagramRenderer
     /// The play panel's display sequence: source indices of
     /// <paramref name="plays"/> in display order, after the request's optional
     /// depth-first reorder (halheinrich/backgammon#150) and analysis-level
-    /// floor (halheinrich/backgammon#66). With both options at their defaults
-    /// this is the identity sequence — the caller's order, complete.
+    /// ceiling (halheinrich/backgammon#66). With both options at their
+    /// defaults this is the identity sequence — the caller's order, complete.
     /// <para>
     /// Ordering — <see cref="CandidateOrdering.DepthFirst"/> orders by the
     /// producer-stamped <see cref="PlayCandidate.DepthRank"/>, descending.
@@ -1251,28 +1251,31 @@ public static class DiagramRenderer
     /// (equal rank) keep their caller (equity) order.
     /// </para>
     /// <para>
-    /// Floor — a candidate is hidden iff its numbers came from a direct
+    /// Ceiling — a candidate is hidden iff its numbers came from a direct
     /// evaluation (<see cref="AnalysisMode.Evaluation"/>) whose stamped
-    /// <see cref="PlayCandidate.AnalysisLevel"/> sits strictly below the floor
+    /// <see cref="PlayCandidate.AnalysisLevel"/> sits at or below the ceiling
     /// on the level axis's declared ascending-rigor order — the interleaved
-    /// order (…3-ply, XG Roller, 4-ply, XG Roller+, 5-ply…), so a ply floor
-    /// catches the Roller levels beneath it. Rollout-family modes are never
-    /// hidden (their level is the rollout's <em>inner</em> level, not the
-    /// analysis's own depth), unstamped rows are never hidden (clause (a):
-    /// Unknown is outside the rigor scale — "not recorded", never "shallow"
-    /// — so the guard is explicit, since Unknown's zero numbering would
-    /// otherwise compare below every floor), and the best-play row plus both
-    /// marked rows are exempt whatever their depth — see the contract on
-    /// <see cref="DiagramRequest.MinimumCandidateAnalysisLevel"/>.
+    /// order (…3-ply, XG Roller, 4-ply, XG Roller+, 5-ply…), so a ply ceiling
+    /// catches the Roller levels beneath it. Inclusive on the hide side, so
+    /// the top level is a usable ceiling and "show only rollouts" is
+    /// expressible; the exemptions below are what still renders there.
+    /// Rollout-family modes are never hidden (their level is the rollout's
+    /// <em>inner</em> level, not the analysis's own depth), unstamped rows are
+    /// never hidden (clause (a): Unknown is outside the rigor scale — "not
+    /// recorded", never "shallow" — so the guard is explicit, since Unknown's
+    /// zero numbering would otherwise compare at or below every ceiling), and
+    /// the best-play row plus both marked rows are exempt whatever their depth
+    /// — see the contract on
+    /// <see cref="DiagramRequest.MaximumHiddenCandidateAnalysisLevel"/>.
     /// </para>
     /// </summary>
     /// <param name="request">The request whose depth-treatment options apply.</param>
     /// <param name="plays">The candidate list the sequence indexes into.</param>
     /// <param name="userIndex"><see cref="DecisionData.UserPlayIndex"/>, exempt
-    /// from the floor.</param>
+    /// from the ceiling.</param>
     /// <param name="activeSecondaryIndex">The secondary play index when the
     /// secondary mark is active, else −1; an active secondary is exempt from
-    /// the floor.</param>
+    /// the ceiling.</param>
     private static List<int> BuildDisplaySequence(
         DiagramRequest request, IReadOnlyList<PlayCandidate> plays, int userIndex, int activeSecondaryIndex)
     {
@@ -1281,11 +1284,11 @@ public static class DiagramRenderer
         if (request.CandidateOrdering == CandidateOrdering.DepthFirst)
             sequence = sequence.OrderByDescending(i => plays[i].DepthRank).ToList();
 
-        if (request.MinimumCandidateAnalysisLevel is AnalysisLevel floor)
+        if (request.MaximumHiddenCandidateAnalysisLevel is AnalysisLevel ceiling)
             sequence.RemoveAll(i =>
                 plays[i].AnalysisMode == AnalysisMode.Evaluation
                 && plays[i].AnalysisLevel != AnalysisLevel.Unknown
-                && plays[i].AnalysisLevel < floor
+                && plays[i].AnalysisLevel <= ceiling
                 && i != request.Decision.BestPlayIndex
                 && i != userIndex
                 && i != activeSecondaryIndex);

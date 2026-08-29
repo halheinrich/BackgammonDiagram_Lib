@@ -79,7 +79,7 @@ public class BuilderFieldCarriageTests
         b.Xgid = "XGID=-b----E-C---eE---c-e----B-:0:0:1:31:0:0:0:0:10";  // default ""
         b.SecondaryPlayIndex = 3;                               // default −1
         b.CandidateOrdering = CandidateOrdering.DepthFirst;     // default Equity
-        b.MinimumCandidateAnalysisLevel = AnalysisLevel.Ply5;   // default null
+        b.MaximumHiddenCandidateAnalysisLevel = AnalysisLevel.Ply4;   // default null
         var built = b.Build();
 
         var cloned = DiagramRequest.Builder.From(built).Build();

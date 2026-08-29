@@ -149,9 +149,10 @@ Builder; `Build()` constructs the nested `PositionData` / `DecisionData` /
 - `IsCube == true` → `Dice` must be `[0, 0]`.
 - `IsCube == false` → each die in `1..6`.
 - `CubeSize` must be a power of 2 in `1..4096`.
-- `CandidateOrdering` and a non-null `MinimumCandidateAnalysisLevel` must be
-  defined enum values, and the floor must not be `AnalysisLevel.Unknown` —
-  Unknown means "level not recorded", not a depth; null is the show-all
+- `CandidateOrdering` and a non-null `MaximumHiddenCandidateAnalysisLevel`
+  must be defined enum values, and the ceiling must not be
+  `AnalysisLevel.Unknown` — Unknown means "level not recorded", not a depth,
+  so hiding "through not-recorded" is nonsense; null is the hide-nothing
   state. The display options are caller configuration, so they get the
   validate-don't-tolerate register (unlike producer-stamped data facts).
 
@@ -177,10 +178,13 @@ Exposed properties:
   caller's (assumed equity-sorted) order unchanged; `DepthFirst` orders by
   analysis depth, deepest first (halheinrich/backgammon#150). See the
   Analysis panel section for the ordering rule.
-- `MinimumCandidateAnalysisLevel` (AnalysisLevel?, default `null`) —
-  optional display floor for the play panel: hides candidates analysed
-  below this level (halheinrich/backgammon#66); null shows all. See the
-  Analysis panel section for the hiding rule and the never-hidden contract.
+- `MaximumHiddenCandidateAnalysisLevel` (AnalysisLevel?, default `null`) —
+  optional display ceiling for the play panel: hides candidates analysed at
+  or below this level (halheinrich/backgammon#66); null hides nothing. The
+  ceiling is inclusive on the hide side, which is what lets the top level
+  stand as a selection — naming `XgRollerPlusPlus` means "show only
+  rollouts", the user's ruling of 2026-08-29. See the Analysis panel section
+  for the hiding rule and the never-hidden contract.
   Both depth-treatment options are consumer-set display options on the
   `SecondaryPlayIndex` model: the data-sourcing factories leave them at
   their defaults, so every export path renders unchanged.
@@ -294,9 +298,9 @@ Rendered in Solution mode only. Two shapes:
 - **Play panel** (`Decision.IsCube == false`). One row per visible
   `PlayCandidate`; display order and visibility are the request's
   depth-treatment options (`CandidateOrdering` /
-  `MinimumCandidateAnalysisLevel`), whose defaults render every candidate in
-  caller order, assumed equity-sorted — byte-identical to the pre-#150
-  rendering. Columns: user's play marker, rank, move notation, equity,
+  `MaximumHiddenCandidateAnalysisLevel`), whose defaults render every
+  candidate in caller order, assumed equity-sorted — byte-identical to the
+  rendering that preceded halheinrich/backgammon#150. Columns: user's play marker, rank, move notation, equity,
   equity loss, depth. Invariants:
   - The Depth column renders `PlayCandidate.DepthAbbreviation`, not
     `PlayCandidate.Depth`. Rows with empty `DepthAbbreviation` omit the
@@ -323,27 +327,34 @@ Rendered in Solution mode only. Two shapes:
     field the rank-inversion italic compares; the renderer ranks nothing
     itself. The sort is stable, so candidates within a depth tier (equal
     rank) keep their caller (equity) order.
-  - `MinimumCandidateAnalysisLevel` (halheinrich/backgammon#66) hides a
-    candidate iff its numbers came from a direct evaluation
-    (`AnalysisMode.Evaluation`) whose stamped `AnalysisLevel` sits strictly
-    below the floor on the level axis's declared ascending-rigor order (the
-    floor is inclusive: "4-ply and lower hidden" is `Ply5`). That order
-    *interleaves* the ply family and the XG Roller family rather than
-    stacking them as two blocks — 1-ply, 2-ply, 3-ply Red, 3-ply, XG Roller,
-    4-ply, XG Roller+, 5-ply, 6-ply, 7-ply, XG Roller++
-    (halheinrich/backgammon#159) — so a ply floor also sweeps out the Roller
-    levels beneath it: the `Ply5` floor above hides `XgRoller` and
-    `XgRollerPlus` along with the shallow plies, and `XgRollerPlusPlus` is
-    the one Roller level no ply floor can reach. Rollout-family
+  - `MaximumHiddenCandidateAnalysisLevel` (halheinrich/backgammon#66) hides
+    a candidate iff its numbers came from a direct evaluation
+    (`AnalysisMode.Evaluation`) whose stamped `AnalysisLevel` sits at or
+    below the ceiling on the level axis's declared ascending-rigor order (the
+    ceiling is inclusive on the hide side: "4-ply and lower hidden" is
+    `Ply4`). Inclusive-hide rather than an inclusive-show floor because the
+    ruled consumer selection — "show only rollouts", the user's ruling of
+    2026-08-29 on halheinrich/backgammon#66 — needs the top level to be a
+    legal threshold, and a show-floor would have needed a member *above*
+    `XgRollerPlusPlus` that the level axis does not have. The consumer's
+    dropdown value is passed here verbatim. That order *interleaves* the ply
+    family and the XG Roller family rather than stacking them as two blocks —
+    1-ply, 2-ply, 3-ply Red, 3-ply, XG Roller, 4-ply, XG Roller+, 5-ply,
+    6-ply, 7-ply, XG Roller++ (halheinrich/backgammon#159) — so a ply ceiling
+    also sweeps out the Roller levels beneath it: a `Ply5` ceiling hides
+    `XgRoller` and `XgRollerPlus` along with 5-ply and the shallow plies, and
+    `XgRollerPlusPlus` is the one Roller level no ply ceiling reaches — only
+    naming it does. Rollout-family
     rows are never hidden — their `AnalysisLevel` is the rollout's *inner*
     level, not the analysis's own depth — and unstamped rows (`Unknown`
     mode or level) are never hidden: Unknown means "not recorded", never
     "shallow". That last is clause (a) of the `AnalysisLevel` contract
     (Unknown sits outside the rigor scale), and it is enforced by an explicit
     guard rather than falling out of the comparison — `Unknown = 0` would
-    otherwise rank below every floor. **The best-play row and both marked
-    rows are never hidden, whatever their depth** — review must always show
-    what was best and what was played.
+    otherwise rank at or below every ceiling. **The best-play row and both
+    marked rows are never hidden, whatever their depth** — review must always
+    show what was best and what was played, and at the `XgRollerPlusPlus`
+    ceiling those rows plus the rollout family are all that remains.
   - Every per-row treatment — rank number, the * / † marks, the
     rank-inversion italics — is keyed to the play's **source index**, so
     marks follow candidates, not row positions, under reordering, and each
@@ -606,7 +617,7 @@ canonical consumer of the latter.
 Flat property setters for position, dice, cube, scores, plays, `CubeDepth`
 / `CubeDepthAbbreviation` / `CubeDepthRank`, plus `HomeBoardOnRight`,
 `OnRollAtBottom`, `Mode`, `AnalysisPanelPosition`, `PositionNumber`,
-`CandidateOrdering`, and `MinimumCandidateAnalysisLevel`.
+`CandidateOrdering`, and `MaximumHiddenCandidateAnalysisLevel`.
 `Build()` constructs the nested `BgDataTypes_Lib` records and validates.
 Throws on validation failure. `CubeOwner` defaults to `CubeOwner.Centered`.
 

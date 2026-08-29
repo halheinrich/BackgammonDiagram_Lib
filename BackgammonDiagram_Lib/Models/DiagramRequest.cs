@@ -142,37 +142,54 @@ public class DiagramRequest
     public CandidateOrdering CandidateOrdering { get; init; }
 
     /// <summary>
-    /// Optional display floor for the Solution-mode play panel: hides
-    /// candidates analysed below this level (halheinrich/backgammon#66).
-    /// Null (the default) shows every candidate. The floor is inclusive — a
-    /// candidate evaluated <em>at</em> the floor level still renders — so
-    /// "4-ply and lower should not be displayed" is
-    /// <see cref="AnalysisLevel.Ply5"/>.
+    /// Optional display ceiling for the Solution-mode play panel: hides
+    /// candidates analysed <em>at or below</em> this level
+    /// (halheinrich/backgammon#66). Null (the default) hides nothing, so
+    /// every candidate renders. The ceiling is inclusive on the hide side —
+    /// a candidate evaluated <em>at</em> the ceiling level is hidden — so
+    /// "hide 4-ply and lower" is <see cref="AnalysisLevel.Ply4"/>, and "show
+    /// only rollouts" is <see cref="AnalysisLevel.XgRollerPlusPlus"/>, the
+    /// top of the level axis.
     /// <para>
-    /// The floor reads the two-axis depth taxonomy the producer stamped
+    /// <b>Why an inclusive-hide ceiling and not an inclusive-show floor.</b>
+    /// The option backs one consumer gesture — a dropdown naming the deepest
+    /// analysis the reader wants suppressed — and the selection the user
+    /// ruled on 2026-08-29 (halheinrich/backgammon#66) is <i>"show only
+    /// rollouts"</i>: picking XG Roller++ must hide it and every lesser
+    /// evaluation. A show-floor cannot say that. It would need a member
+    /// <em>above</em> <see cref="AnalysisLevel.XgRollerPlusPlus"/> to stand as
+    /// the floor, and the level axis has none. Stated as a hide-ceiling,
+    /// every one of the eleven real levels is a legal and meaningful
+    /// selection, and the consumer passes its dropdown value straight
+    /// through: the ruled UI semantics <em>are</em> the producer semantics,
+    /// declared once, here.
+    /// </para>
+    /// <para>
+    /// The ceiling reads the two-axis depth taxonomy the producer stamped
     /// (<see cref="BgDataTypes_Lib.PlayCandidate.AnalysisMode"/> ×
     /// <see cref="BgDataTypes_Lib.PlayCandidate.AnalysisLevel"/>): a candidate
     /// is hidden iff its numbers came from a direct evaluation
-    /// (<see cref="AnalysisMode.Evaluation"/>) whose stamped level sits below
-    /// the floor on the level axis's declared ascending-rigor order — in which
-    /// the ply family and the XG Roller family <em>interleave</em> (…3-ply,
-    /// XG Roller, 4-ply, XG Roller+, 5-ply…) rather than forming two blocks,
-    /// so a ply floor catches the Roller levels beneath it: a
-    /// <see cref="AnalysisLevel.Ply5"/> floor hides
+    /// (<see cref="AnalysisMode.Evaluation"/>) whose stamped level sits at or
+    /// below the ceiling on the level axis's declared ascending-rigor order —
+    /// in which the ply family and the XG Roller family <em>interleave</em>
+    /// (…3-ply, XG Roller, 4-ply, XG Roller+, 5-ply…) rather than forming
+    /// two blocks, so a ply ceiling catches the Roller levels beneath it: a
+    /// <see cref="AnalysisLevel.Ply5"/> ceiling hides
     /// <see cref="AnalysisLevel.XgRoller"/> and
-    /// <see cref="AnalysisLevel.XgRollerPlus"/> along with the shallow plies,
-    /// and only <see cref="AnalysisLevel.XgRollerPlusPlus"/> outranks every
-    /// ply. Rollout-family candidates are never hidden:
+    /// <see cref="AnalysisLevel.XgRollerPlus"/> along with 5-ply itself and
+    /// the shallow plies, while <see cref="AnalysisLevel.XgRollerPlusPlus"/>
+    /// outranks every ply and so is reached by no ply ceiling at all — only
+    /// by naming it. Rollout-family candidates are never hidden:
     /// for those modes <c>AnalysisLevel</c> records the rollout's
     /// <em>inner</em> evaluation level, not the analysis's own depth, and a
-    /// rollout is deeper than any evaluation floor. Unstamped candidates
+    /// rollout is deeper than any evaluation ceiling. Unstamped candidates
     /// (<see cref="AnalysisMode.Unknown"/> or
     /// <see cref="AnalysisLevel.Unknown"/>) are never hidden either — Unknown
     /// means "not recorded", never "shallow", so the panel degrades to
     /// showing the row rather than guessing a depth. That is clause (a) of
     /// the <see cref="AnalysisLevel"/> contract: Unknown sits outside the
-    /// rigor scale, so it is never excluded by a rigor floor. Its zero
-    /// numbering would compare below every real level, so the exclusion is
+    /// rigor scale, so no rigor threshold excludes it. Its zero numbering
+    /// would compare at or below every real level, so the exclusion is
     /// explicit here rather than a consequence of the ordinal.
     /// </para>
     /// <para>
@@ -181,16 +198,20 @@ public class DiagramRequest
     /// actual-play row
     /// (<see cref="BgDataTypes_Lib.DecisionData.UserPlayIndex"/>), and an
     /// active secondary-play row (<see cref="SecondaryPlayIndex"/>) are never
-    /// hidden by the floor, whatever their depth</b> — review must always
-    /// show what was best and what was played. Like
-    /// <see cref="CandidateOrdering"/>, this is a consumer-set display option
-    /// the data-sourcing factories leave unset;
+    /// hidden by the ceiling, whatever their depth</b> — review must always
+    /// show what was best and what was played. That holds at every ceiling,
+    /// the top one included: at
+    /// <see cref="AnalysisLevel.XgRollerPlusPlus"/> the panel drops every
+    /// evaluation row and still renders the rollout family and these three.
+    /// Like <see cref="CandidateOrdering"/>, this is a consumer-set display
+    /// option the data-sourcing factories leave unset;
     /// <see cref="AnalysisLevel.Unknown"/> is rejected at
     /// <see cref="Builder.Build"/> (it means "level not recorded", not a
-    /// depth — use null to show all).
+    /// depth — hiding "through not-recorded" is nonsense; use null to hide
+    /// nothing).
     /// </para>
     /// </summary>
-    public AnalysisLevel? MinimumCandidateAnalysisLevel { get; init; }
+    public AnalysisLevel? MaximumHiddenCandidateAnalysisLevel { get; init; }
 
     // -----------------------------------------------------------------------
     //  Factory: BgDecisionData → DiagramRequest
@@ -409,15 +430,15 @@ public class DiagramRequest
         public CandidateOrdering CandidateOrdering { get; set; }
 
         /// <summary>
-        /// Optional display floor for the play panel's candidate list. See
-        /// <see cref="DiagramRequest.MinimumCandidateAnalysisLevel"/> for the
-        /// hiding rule and the never-hidden contract. Sits with the
+        /// Optional display ceiling for the play panel's candidate list. See
+        /// <see cref="DiagramRequest.MaximumHiddenCandidateAnalysisLevel"/>
+        /// for the hiding rule and the never-hidden contract. Sits with the
         /// renderer-specific fields because it is set by the consumer, not
-        /// copied from the data records. Defaults to null (show all);
+        /// copied from the data records. Defaults to null (hide nothing);
         /// <see cref="AnalysisLevel.Unknown"/> is rejected by
         /// <see cref="Build"/>.
         /// </summary>
-        public AnalysisLevel? MinimumCandidateAnalysisLevel { get; set; }
+        public AnalysisLevel? MaximumHiddenCandidateAnalysisLevel { get; set; }
 
         // -------------------------------------------------------------------
         //  Factories — single field-mapping site for data → builder
@@ -529,7 +550,7 @@ public class DiagramRequest
             // request" factory faithful.
             b.SecondaryPlayIndex = existing.SecondaryPlayIndex;
             b.CandidateOrdering = existing.CandidateOrdering;
-            b.MinimumCandidateAnalysisLevel = existing.MinimumCandidateAnalysisLevel;
+            b.MaximumHiddenCandidateAnalysisLevel = existing.MaximumHiddenCandidateAnalysisLevel;
             return b;
         }
 
@@ -544,10 +565,10 @@ public class DiagramRequest
         /// <c>[0, 0]</c> dice (or a checker decision carries an out-of-range
         /// die), <see cref="CubeSize"/> is not a power of two in 1..4096,
         /// <see cref="CandidateOrdering"/> or a non-null
-        /// <see cref="MinimumCandidateAnalysisLevel"/> is an undefined enum
-        /// value, or <see cref="MinimumCandidateAnalysisLevel"/> is
+        /// <see cref="MaximumHiddenCandidateAnalysisLevel"/> is an undefined
+        /// enum value, or <see cref="MaximumHiddenCandidateAnalysisLevel"/> is
         /// <see cref="AnalysisLevel.Unknown"/> (which means "level not
-        /// recorded", not a depth — use null to show all candidates).
+        /// recorded", not a depth — use null to hide nothing).
         /// </exception>
         public DiagramRequest Build()
         {
@@ -624,7 +645,7 @@ public class DiagramRequest
                 Xgid = Xgid,
                 SecondaryPlayIndex = SecondaryPlayIndex,
                 CandidateOrdering = CandidateOrdering,
-                MinimumCandidateAnalysisLevel = MinimumCandidateAnalysisLevel,
+                MaximumHiddenCandidateAnalysisLevel = MaximumHiddenCandidateAnalysisLevel,
             };
         }
 
@@ -648,19 +669,20 @@ public class DiagramRequest
                 throw new InvalidOperationException("CubeSize must be a power of 2 from 1 to 4096.");
             // The display options are caller configuration, not producer data,
             // so they get the validate-don't-tolerate register: reject
-            // undefined enum values, and reject an Unknown floor — Unknown
+            // undefined enum values, and reject an Unknown ceiling — Unknown
             // means "level not recorded", never a depth, so it cannot bound
-            // one (null is the show-all state).
+            // one: hiding "through not-recorded" is nonsense (null is the
+            // hide-nothing state).
             if (!Enum.IsDefined(CandidateOrdering))
                 throw new InvalidOperationException("CandidateOrdering must be a defined CandidateOrdering value.");
-            if (MinimumCandidateAnalysisLevel is AnalysisLevel floor)
+            if (MaximumHiddenCandidateAnalysisLevel is AnalysisLevel ceiling)
             {
-                if (!Enum.IsDefined(floor))
-                    throw new InvalidOperationException("MinimumCandidateAnalysisLevel must be a defined AnalysisLevel value.");
-                if (floor == AnalysisLevel.Unknown)
+                if (!Enum.IsDefined(ceiling))
+                    throw new InvalidOperationException("MaximumHiddenCandidateAnalysisLevel must be a defined AnalysisLevel value.");
+                if (ceiling == AnalysisLevel.Unknown)
                     throw new InvalidOperationException(
-                        "MinimumCandidateAnalysisLevel must not be AnalysisLevel.Unknown — Unknown means "
-                        + "\"level not recorded\", not a depth; use null to show all candidates.");
+                        "MaximumHiddenCandidateAnalysisLevel must not be AnalysisLevel.Unknown — Unknown means "
+                        + "\"level not recorded\", not a depth; use null to hide nothing.");
             }
         }
     }
