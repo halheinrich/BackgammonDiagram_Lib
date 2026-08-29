@@ -323,7 +323,7 @@ public class DiagramRequestFactoryTests
             Plays = [],
             CubeDepth = "XG Roller+",
             CubeDepthAbbreviation = "R+",
-            CubeDepthRank = 21,
+            CubeDepthRank = 45,
             CubeAnalysisMode = AnalysisMode.Rollout,
             CubeAnalysisLevel = AnalysisLevel.XgRollerPlus,
             BestPlayIndex = 2,

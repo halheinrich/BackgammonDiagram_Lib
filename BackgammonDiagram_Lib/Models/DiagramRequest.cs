@@ -154,15 +154,26 @@ public class DiagramRequest
     /// <see cref="BgDataTypes_Lib.PlayCandidate.AnalysisLevel"/>): a candidate
     /// is hidden iff its numbers came from a direct evaluation
     /// (<see cref="AnalysisMode.Evaluation"/>) whose stamped level sits below
-    /// the floor on the level axis's declared ascending-rigor order (plies
-    /// below the XG Roller family). Rollout-family candidates are never
-    /// hidden: for those modes <c>AnalysisLevel</c> records the rollout's
+    /// the floor on the level axis's declared ascending-rigor order — in which
+    /// the ply family and the XG Roller family <em>interleave</em> (…3-ply,
+    /// XG Roller, 4-ply, XG Roller+, 5-ply…) rather than forming two blocks,
+    /// so a ply floor catches the Roller levels beneath it: a
+    /// <see cref="AnalysisLevel.Ply5"/> floor hides
+    /// <see cref="AnalysisLevel.XgRoller"/> and
+    /// <see cref="AnalysisLevel.XgRollerPlus"/> along with the shallow plies,
+    /// and only <see cref="AnalysisLevel.XgRollerPlusPlus"/> outranks every
+    /// ply. Rollout-family candidates are never hidden:
+    /// for those modes <c>AnalysisLevel</c> records the rollout's
     /// <em>inner</em> evaluation level, not the analysis's own depth, and a
     /// rollout is deeper than any evaluation floor. Unstamped candidates
     /// (<see cref="AnalysisMode.Unknown"/> or
     /// <see cref="AnalysisLevel.Unknown"/>) are never hidden either — Unknown
     /// means "not recorded", never "shallow", so the panel degrades to
-    /// showing the row rather than guessing a depth.
+    /// showing the row rather than guessing a depth. That is clause (a) of
+    /// the <see cref="AnalysisLevel"/> contract: Unknown sits outside the
+    /// rigor scale, so it is never excluded by a rigor floor. Its zero
+    /// numbering would compare below every real level, so the exclusion is
+    /// explicit here rather than a consequence of the ordinal.
     /// </para>
     /// <para>
     /// <b>Contract: the best-play row

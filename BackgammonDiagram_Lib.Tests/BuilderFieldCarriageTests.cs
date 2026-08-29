@@ -259,7 +259,7 @@ public class BuilderFieldCarriageTests
         Plays = [new PlayCandidate { MoveNotation = "24/18 13/11", DepthRank = 3 }],
         CubeDepth = "XG Roller+",
         CubeDepthAbbreviation = "R+",
-        CubeDepthRank = 21,
+        CubeDepthRank = 45,
         CubeAnalysisMode = AnalysisMode.Rollout,        // default is Unknown (0)
         CubeAnalysisLevel = AnalysisLevel.XgRollerPlus, // default is Unknown (0)
         BestPlayIndex = 2,

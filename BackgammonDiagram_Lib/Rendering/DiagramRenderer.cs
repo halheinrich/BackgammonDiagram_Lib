@@ -1254,12 +1254,16 @@ public static class DiagramRenderer
     /// Floor — a candidate is hidden iff its numbers came from a direct
     /// evaluation (<see cref="AnalysisMode.Evaluation"/>) whose stamped
     /// <see cref="PlayCandidate.AnalysisLevel"/> sits strictly below the floor
-    /// on the level axis's declared ascending-rigor order. Rollout-family
-    /// modes are never hidden (their level is the rollout's <em>inner</em>
-    /// level, not the analysis's own depth), unstamped rows are never hidden
-    /// (Unknown means "not recorded", never "shallow"), and the best-play row
-    /// plus both marked rows are exempt whatever their depth — see the
-    /// contract on <see cref="DiagramRequest.MinimumCandidateAnalysisLevel"/>.
+    /// on the level axis's declared ascending-rigor order — the interleaved
+    /// order (…3-ply, XG Roller, 4-ply, XG Roller+, 5-ply…), so a ply floor
+    /// catches the Roller levels beneath it. Rollout-family modes are never
+    /// hidden (their level is the rollout's <em>inner</em> level, not the
+    /// analysis's own depth), unstamped rows are never hidden (clause (a):
+    /// Unknown is outside the rigor scale — "not recorded", never "shallow"
+    /// — so the guard is explicit, since Unknown's zero numbering would
+    /// otherwise compare below every floor), and the best-play row plus both
+    /// marked rows are exempt whatever their depth — see the contract on
+    /// <see cref="DiagramRequest.MinimumCandidateAnalysisLevel"/>.
     /// </para>
     /// </summary>
     /// <param name="request">The request whose depth-treatment options apply.</param>

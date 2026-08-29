@@ -327,13 +327,23 @@ Rendered in Solution mode only. Two shapes:
     candidate iff its numbers came from a direct evaluation
     (`AnalysisMode.Evaluation`) whose stamped `AnalysisLevel` sits strictly
     below the floor on the level axis's declared ascending-rigor order (the
-    floor is inclusive: "4-ply and lower hidden" is `Ply5`). Rollout-family
+    floor is inclusive: "4-ply and lower hidden" is `Ply5`). That order
+    *interleaves* the ply family and the XG Roller family rather than
+    stacking them as two blocks — 1-ply, 2-ply, 3-ply Red, 3-ply, XG Roller,
+    4-ply, XG Roller+, 5-ply, 6-ply, 7-ply, XG Roller++
+    (halheinrich/backgammon#159) — so a ply floor also sweeps out the Roller
+    levels beneath it: the `Ply5` floor above hides `XgRoller` and
+    `XgRollerPlus` along with the shallow plies, and `XgRollerPlusPlus` is
+    the one Roller level no ply floor can reach. Rollout-family
     rows are never hidden — their `AnalysisLevel` is the rollout's *inner*
     level, not the analysis's own depth — and unstamped rows (`Unknown`
     mode or level) are never hidden: Unknown means "not recorded", never
-    "shallow". **The best-play row and both marked rows are never hidden,
-    whatever their depth** — review must always show what was best and what
-    was played.
+    "shallow". That last is clause (a) of the `AnalysisLevel` contract
+    (Unknown sits outside the rigor scale), and it is enforced by an explicit
+    guard rather than falling out of the comparison — `Unknown = 0` would
+    otherwise rank below every floor. **The best-play row and both marked
+    rows are never hidden, whatever their depth** — review must always show
+    what was best and what was played.
   - Every per-row treatment — rank number, the * / † marks, the
     rank-inversion italics — is keyed to the play's **source index**, so
     marks follow candidates, not row positions, under reordering, and each
