@@ -69,27 +69,25 @@ public class RendererPanelContentTests
     }
 
     [Fact]
-    public void CubePanel_BestLine_TieBoundaryIncoherentPairJoins()
+    public void CubePanel_BestLine_TieBoundaryIncoherentPairReadsTooGood()
     {
         // nd=1.00, dt=1.20 — the measure-zero boundary DecisionData names.
         // Both halves tie and their ruled tie-breaks compose the incoherent
         // cell: the claim comparison is strict (nd > 1 is false) so the claim
         // stays NoDouble, while dt >= 1 makes the response Pass, giving
-        // BestClaimPair = NoDoublePass. That cell is not a reachable verdict,
-        // and it is exactly where the claim-alone compression must NOT apply:
-        // "No double" alone would be the NoDoubleTake verdict, a different
-        // answer. The banner joins instead and says what the analysis says.
+        // BestClaimPair = NoDoublePass.
         //
-        // Also the one Best-line position whose wording the claim level
-        // changes in the other direction: composed from board actions this
-        // read "Too Good", because CubeDecisionPair.IsTooGood tests only the
-        // (NoDouble, Pass) shape and not the no-double equity that the claim
-        // derivation requires.
+        // The banner reads "Too good" — SPEC-scoring §3's sixth-cell ruling
+        // buckets that cell with Too good / Pass as the posture's degenerate
+        // point, and a banner must not print a verdict the model itself calls
+        // incoherent. What it must NOT read is "No double", which is the
+        // NoDoubleTake verdict and a different answer; the claim-alone
+        // compression does not reach this cell.
         var request = MinimalCubeBuilder(noDoubleEquity: 1.00, doubleTakeEquity: 1.20).Build();
         var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
 
-        Assert.Contains("Best:   No double / Pass", svg);
-        Assert.DoesNotContain("Best:   Too good", svg);
+        Assert.Contains("Best:   Too good", svg);
+        Assert.DoesNotContain("Best:   No double", svg);
     }
 
     [Fact]

@@ -379,13 +379,14 @@ Rendered in Solution mode only. Two shapes:
     actions. Composing it was the defect
     (`halheinrich/backgammon#185`): Too good and No double share a board
     action, so at the action level the claim has nowhere to live and a
-    too-good position printed `"No double / Take"`. Labelling the pair
-    also splits the two boundary readings that action-level composition
-    conflated — at `NoDoubleEquity == 1` exactly with a pass, the derived
-    claim pair is the incoherent `NoDoublePass` and the banner says
-    `"No double / Pass"`, where the action shape alone said too good —
-    `CubeDecisionPair.IsTooGood` tests the (NoDouble, Pass) shape and not
-    the no-double equity the claim derivation also requires.
+    too-good position printed `"No double / Take"`. At the one boundary
+    where the two levels could still have parted — `NoDoubleEquity == 1`
+    exactly with a pass, where the halves' ruled tie-breaks compose the
+    incoherent `NoDoublePass` — they agree, and by ruling rather than by
+    accident: SPEC-scoring §3 buckets that cell with Too good / Pass as
+    the posture's degenerate point, so `CubeLabels` labels it `Too good`
+    and the banner reads `"Best:   Too good"`. What the banner must never
+    print there is `"No double"`, which is a different verdict.
   - Actual reports what was played, so it stays action-level: the stamped
     `DecisionData.UserDoublerAction` / `UserTakerAction`, assembled by
     `CubeDecisionLine`. Actual is **not** inferred from `UserDoubleError`
@@ -570,16 +571,23 @@ static string Label(CubeAction action);      // No double / Double / Take / Pass
 static string Label(CubeClaimPair pair);     // the pair rule, below
 ```
 
-**The pair rule:** a pair reads as its claim alone when that claim has
-exactly one reachable pair, else claim and response joined by `" / "` —
-so the four reachable verdicts read `No double`, `Double / Take`,
-`Double / Pass`, `Too good` (ruled 2026-09-02 on
+**The pair rule, in two clauses.** A pair reads as its claim alone when
+that claim has exactly one reachable pair, else claim and response joined
+by `" / "` — so the four reachable verdicts read `No double`,
+`Double / Take`, `Double / Pass`, `Too good` (ruled 2026-09-02 on
 `halheinrich/backgammon#185`; reachability is SPEC-scoring §3 as amended
-2026-09-02). `CubeClaimPair` is a closed 3×2 and the function is total
-over it: the two cells no analysis derives — `TooGoodTake` and
-`NoDoublePass` — join, because for them the response is exactly what the
-claim does *not* imply, and compressing either would collide with the
-reachable pair of the same claim.
+2026-09-02). And the incoherent cell `NoDoublePass` reads `Too good`:
+§3's sixth-cell ruling buckets it with Too good / Pass as that posture's
+degenerate point — derivable only at the exact tie boundary — and a
+banner must not print a verdict the model itself calls incoherent.
+
+`Label` is therefore **not injective** over `CubeClaimPair`, by design:
+`NoDoublePass` and `TooGoodPass` share a label. The pair is not lossy,
+only its spelling is; callers needing to tell the two apart hold the
+pair. `CubeClaimPair` is a closed 3×2 and the function is total over it,
+which leaves `TooGoodTake` — unreachable as a verdict since Too good came
+to require the pass — as the one cell joining on its own account, because
+its response is exactly what its claim does *not* imply.
 
 Every member is exhaustive over its type and throws
 `ArgumentOutOfRangeException` outside it, including on the non-meaningful

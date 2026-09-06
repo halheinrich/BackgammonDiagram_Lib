@@ -73,32 +73,46 @@ public static class CubeLabels
     };
 
     /// <summary>
-    /// The user-facing spelling of a complete cube answer. A pair reads as
-    /// its claim alone when that claim has exactly one reachable pair, and
-    /// otherwise as claim and response joined by <c>" / "</c> — so the four
-    /// reachable verdicts read <c>No double</c>, <c>Double / Take</c>,
-    /// <c>Double / Pass</c>, <c>Too good</c> (ruled 2026-09-02,
-    /// halheinrich/backgammon#185).
+    /// The user-facing spelling of a complete cube answer, in two clauses.
+    /// A pair reads as its claim alone when that claim has exactly one
+    /// reachable pair, and otherwise as claim and response joined by
+    /// <c>" / "</c> — so the four reachable verdicts read <c>No double</c>,
+    /// <c>Double / Take</c>, <c>Double / Pass</c>, <c>Too good</c> (ruled
+    /// 2026-09-02, halheinrich/backgammon#185). And the incoherent cell
+    /// <see cref="CubeClaimPair.NoDoublePass"/> reads <c>Too good</c>, the
+    /// posture whose degenerate point SPEC-scoring §3's sixth-cell ruling
+    /// says it is.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The rule is a compression, not an omission: where the claim admits
-    /// only one response, naming that response adds nothing a reader could
-    /// not supply.
+    /// The first clause is a compression, not an omission: where the claim
+    /// admits only one response, naming that response adds nothing a reader
+    /// could not supply.
     /// </para>
     /// <para>
-    /// <see cref="CubeClaimPair"/> is a closed 3×2, and the two cells outside
-    /// the reachable four — <see cref="CubeClaimPair.TooGoodTake"/> and
-    /// <see cref="CubeClaimPair.NoDoublePass"/> — are labelled too, so this
-    /// function stays total over the type. They take the joined form
-    /// (<c>Too good / Take</c>, <c>No double / Pass</c>) because for them the
-    /// response is exactly what is <em>not</em> implied: each contradicts the
-    /// response its claim reaches, and that contradiction is the whole of
-    /// what the pair says. Neither is derivable as a verdict — Too good
-    /// requires the pass, and no-double/pass is incoherent off the tie
-    /// boundary (SPEC-scoring §3, amended 2026-09-02) — so they arrive here
-    /// only from a stored or submitted answer, where spelling them in full is
-    /// the honest reading.
+    /// The second clause is why this method is <strong>not injective</strong>
+    /// over <see cref="CubeClaimPair"/>, by design:
+    /// <see cref="CubeClaimPair.NoDoublePass"/> and
+    /// <see cref="CubeClaimPair.TooGoodPass"/> share the label
+    /// <c>Too good</c>. §3 buckets the sixth cell with Too good / Pass rather
+    /// than giving it a bucket of its own — it is the too-good posture's
+    /// degenerate point, derivable only at the exact tie boundary
+    /// (<c>NoDoubleEquity == 1</c> with <c>DoubleTakeEquity &gt;= 1</c>,
+    /// where the two halves' ruled tie-breaks compose it) — and a banner must
+    /// not print a verdict the model itself calls incoherent. Callers that
+    /// need to tell the two apart have the pair, which is not lossy; only its
+    /// spelling is.
+    /// </para>
+    /// <para>
+    /// <see cref="CubeClaimPair"/> is a closed 3×2 and this function stays
+    /// total over it. That leaves
+    /// <see cref="CubeClaimPair.TooGoodTake"/> as the one cell taking the
+    /// joined form on its own account (<c>Too good / Take</c>): unreachable
+    /// as a verdict since Too good came to require the pass (SPEC-scoring §3,
+    /// amended 2026-09-02), it arrives here only from a stored or submitted
+    /// answer, and its response is exactly what its claim does <em>not</em>
+    /// imply — that contradiction is the whole of what the pair says, so
+    /// spelling it in full is the honest reading.
     /// </para>
     /// </remarks>
     /// <param name="pair">The cube answer to label.</param>
@@ -119,6 +133,14 @@ public static class CubeLabels
                 "CubeLabels.Label requires a CubeClaimPair whose Taker is a "
                 + "taker-half action (Take or Pass).");
 
+        // The sixth cell reads as the posture it degenerates from, ahead of
+        // the reachability rule below: SPEC-scoring §3 buckets (No double,
+        // Pass) with Too good / Pass rather than giving it a bucket of its
+        // own. Named through CubeClaimPair's own IsIncoherent so the cell is
+        // identified where it is defined, not re-spelled here.
+        if (pair.IsIncoherent)
+            return Label(CubeClaim.TooGood);
+
         string claim = Label(pair.Claim);
         return ReadsAsClaimAlone(pair) ? claim : claim + PairSeparator + Label(pair.Taker);
     }
@@ -130,7 +152,10 @@ public static class CubeLabels
     /// <see cref="CubeClaim.NoDouble"/> reaches only
     /// <see cref="CubeAction.Take"/> and <see cref="CubeClaim.TooGood"/> only
     /// <see cref="CubeAction.Pass"/>, while <see cref="CubeClaim.Double"/>
-    /// reaches both and so is always joined.
+    /// reaches both and so is always joined. Pure reachability: the
+    /// incoherent cell is answered by the caller's earlier clause and never
+    /// arrives here, so this stays the one statement of which pairs an
+    /// analysis can derive.
     /// </summary>
     private static bool ReadsAsClaimAlone(CubeClaimPair pair) => pair.Claim switch
     {

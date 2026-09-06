@@ -52,11 +52,12 @@ public class CubeLabelsTests
     //  The pair rule — the closed 3×2, all six cells
     // -----------------------------------------------------------------------
     //
-    //  A pair reads as its claim alone when that claim has exactly one
-    //  reachable pair, else claim and response joined by " / ". The four
-    //  reachable verdicts and the two representable-but-unreachable cells are
-    //  pinned together, because the rule is only meaningful as a total
-    //  function over the type.
+    //  Two clauses: a pair reads as its claim alone when that claim has
+    //  exactly one reachable pair, else claim and response joined by " / ";
+    //  and the incoherent cell reads as the posture it degenerates from. The
+    //  four reachable verdicts and the two cells outside them are pinned
+    //  together, because the rule is only meaningful as a total function over
+    //  the type.
 
     [Theory]
     // The four reachable verdicts (SPEC-scoring §3, amended 2026-09-02).
@@ -64,32 +65,42 @@ public class CubeLabelsTests
     [InlineData(CubeClaim.Double, CubeAction.Take, "Double / Take")]
     [InlineData(CubeClaim.Double, CubeAction.Pass, "Double / Pass")]
     [InlineData(CubeClaim.TooGood, CubeAction.Pass, "Too good")]
-    // The two cells the type still represents but no analysis derives. They
-    // join, because for them the response is exactly what the claim does
-    // *not* imply: each contradicts the response its claim reaches, and that
-    // contradiction is the whole of what the pair says. Compressing either to
-    // its claim alone would also collide with the reachable pair of the same
-    // claim, spelling two different answers the same way.
+    // TooGoodTake: representable, but no analysis derives it since Too good
+    // came to require the pass. It joins, because its response is exactly
+    // what its claim does *not* imply — that contradiction is the whole of
+    // what the pair says.
     [InlineData(CubeClaim.TooGood, CubeAction.Take, "Too good / Take")]
-    [InlineData(CubeClaim.NoDouble, CubeAction.Pass, "No double / Pass")]
-    public void Label_Pair_ReadsAsClaimAloneOnlyWhenTheResponseIsImplied(
+    // NoDoublePass, the incoherent cell: reads as Too good, not as its own
+    // halves. SPEC-scoring §3's sixth-cell ruling buckets it with
+    // Too good / Pass rather than giving it a bucket of its own — it is that
+    // posture's degenerate point, derivable only at the exact tie boundary —
+    // and a banner must not print a verdict the model calls incoherent.
+    [InlineData(CubeClaim.NoDouble, CubeAction.Pass, "Too good")]
+    public void Label_Pair_SpellsEveryCellOfTheClosedGrid(
         CubeClaim claim, CubeAction taker, string expected)
         => Assert.Equal(expected, CubeLabels.Label(new CubeClaimPair(claim, taker)));
 
     [Fact]
-    public void Label_Pair_CoversTheWholeClosedGrid()
+    public void Label_Pair_CoversTheWholeClosedGridAndIsNotInjective()
     {
-        // Totality, stated as such: every cell of the closed 3×2 labels, and
-        // no two cells share a label. Distinctness is the property the
-        // claim-alone compression could quietly break — it is only safe
-        // because the compressed cell is its claim's sole reachable pair.
+        // Totality, stated as such: every cell of the closed 3×2 labels.
+        //
+        // Exactly one collision, and it is the deliberate one: NoDoublePass
+        // and TooGoodPass both read "Too good", per the sixth-cell ruling.
+        // The count is pinned at five rather than left open because the other
+        // way a label could collide — the claim-alone compression swallowing
+        // a cell its claim does not uniquely reach — would be a defect, and
+        // this is what would catch it.
         var labels = new List<string>();
         foreach (CubeClaim claim in Enum.GetValues<CubeClaim>())
             foreach (CubeAction taker in new[] { CubeAction.Take, CubeAction.Pass })
                 labels.Add(CubeLabels.Label(new CubeClaimPair(claim, taker)));
 
         Assert.Equal(6, labels.Count);
-        Assert.Equal(6, labels.Distinct().Count());
+        Assert.Equal(5, labels.Distinct().Count());
+        Assert.Equal(
+            CubeLabels.Label(CubeClaimPair.TooGoodPass),
+            CubeLabels.Label(CubeClaimPair.NoDoublePass));
     }
 
     [Fact]
@@ -110,7 +121,7 @@ public class CubeLabelsTests
         // same six values; pinning through the statics guards against the
         // rule being keyed to something other than the pair's own halves.
         Assert.Equal("No double", CubeLabels.Label(CubeClaimPair.NoDoubleTake));
-        Assert.Equal("No double / Pass", CubeLabels.Label(CubeClaimPair.NoDoublePass));
+        Assert.Equal("Too good", CubeLabels.Label(CubeClaimPair.NoDoublePass));
         Assert.Equal("Double / Take", CubeLabels.Label(CubeClaimPair.DoubleTake));
         Assert.Equal("Double / Pass", CubeLabels.Label(CubeClaimPair.DoublePass));
         Assert.Equal("Too good / Take", CubeLabels.Label(CubeClaimPair.TooGoodTake));
