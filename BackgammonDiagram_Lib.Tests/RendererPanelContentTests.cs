@@ -9,8 +9,11 @@ namespace BackgammonDiagram_Lib.Tests;
 /// <summary>
 /// Tests the cube-panel contents rendered into SVG:
 /// the Best Decision banner, the four-row Equity/Loss table, the two
-/// percentages tables (No Double, Take), the footer lines, plus equity
+/// percentages tables (No double, Take), the footer lines, plus equity
 /// formatting, percentage scale, and PanelBackgroundColor wiring.
+///
+/// Every cube word pinned here is CubeLabels' spelling; CubeLabelsTests owns
+/// the labels themselves, and these tests own which label each line carries.
 /// </summary>
 public class RendererPanelContentTests
 {
@@ -29,55 +32,81 @@ public class RendererPanelContentTests
     }
 
     [Fact]
-    public void CubePanel_BestLine_NoDoubleTakeRendersBothHalves()
+    public void CubePanel_BestLine_NoDoubleClaimReadsAlone()
     {
-        // nd=1.20, dt=0.50 → BestDoublerAction = NoDouble (min(dt,1)=0.50 is
-        // not greater than nd=1.20), BestTakerAction = Take (dt < 1). That is
-        // the (NoDouble, Take) pair, NOT the too-good (NoDouble, Pass) one:
-        // No Double is right because doubling gains nothing, not because the
-        // position is too good. Both halves are analysis rather than game
-        // record — the taker half says what the response to a double would
-        // be — so both render, and "No Double / Take" reads as the distinct
-        // verdict it is. Guards the boundary of the Too Good rule from the
-        // low side.
+        // nd=1.20, dt=0.50 → BestDoublerClaim = NoDouble (doubling gains
+        // nothing) and BestTakerAction = Take (dt < 1), so BestClaimPair is
+        // NoDoubleTake — NOT the too-good pair: the position is not good
+        // enough to double, not too good to. No double reaches only the take,
+        // so the banner reads the claim alone (halheinrich/backgammon#185).
+        // Guards the boundary of the Too good rule from the low side.
         var request = MinimalCubeBuilder(noDoubleEquity: 1.20, doubleTakeEquity: 0.50).Build();
         var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
 
-        Assert.Contains("Best:   No Double / Take", svg);
-        Assert.DoesNotContain("Too Good", svg);
+        Assert.Contains("Best:   No double", svg);
+        Assert.DoesNotContain("Best:   No double /", svg);
+        Assert.DoesNotContain("Too good", svg);
     }
 
     [Fact]
     public void CubePanel_BestLine_TooGoodRendersTooGood()
     {
-        // nd=1.50, dt=1.20 → BestDoublerAction = NoDouble (min(dt,1)=1.00 is
-        // not greater than nd=1.50) and BestTakerAction = Pass (dt >= 1).
-        // (NoDouble, Pass) is CubeDecisionPair.TooGood: the doubler wins more
-        // playing on than cashing. The banner names that pair rather than
-        // printing the bare doubler half.
+        // nd=1.50, dt=1.20 → BestDoublerClaim = TooGood (no double, and the
+        // no-double equity beats the cash) with BestTakerAction = Pass
+        // (dt >= 1), so BestClaimPair is TooGoodPass. This is defect 1 of
+        // halheinrich/backgammon#185: composed from the two board actions the
+        // banner read "No double / Take", because Too good and No double
+        // share a board action and the claim had nowhere to live. Read whole,
+        // the claim pair says Too good — and Too good reaches only the pass,
+        // so the response is implied and not printed.
         var request = MinimalCubeBuilder(noDoubleEquity: 1.50, doubleTakeEquity: 1.20).Build();
         var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
 
-        Assert.Contains("Best:   Too Good", svg);
-        Assert.DoesNotContain("Best:   No Double", svg);
-        // The pair label replaces the halves — no " / Pass" tail.
-        Assert.DoesNotContain("Too Good /", svg);
+        Assert.Contains("Best:   Too good", svg);
+        Assert.DoesNotContain("Best:   No double", svg);
+        // The claim reads alone — no " / Pass" tail.
+        Assert.DoesNotContain("Too good /", svg);
     }
 
     [Fact]
-    public void CubePanel_BestLine_NoDoubleTakeHoldsWhenDoublingIsActivelyBad()
+    public void CubePanel_BestLine_TieBoundaryIncoherentPairJoins()
     {
-        // nd=0.25, dt=-0.10 → doubleEquity=min(dt,1)=-0.10 < nd, so best is
-        // "No Double", and dt < 1 makes the best response Take. The same
-        // (NoDouble, Take) pair as above but reached from a negative
-        // double/take equity, where doubling loses ground rather than merely
-        // gaining none. The taker half still renders: how far short the
-        // double falls does not change that a take is what a double would
-        // meet.
+        // nd=1.00, dt=1.20 — the measure-zero boundary DecisionData names.
+        // Both halves tie and their ruled tie-breaks compose the incoherent
+        // cell: the claim comparison is strict (nd > 1 is false) so the claim
+        // stays NoDouble, while dt >= 1 makes the response Pass, giving
+        // BestClaimPair = NoDoublePass. That cell is not a reachable verdict,
+        // and it is exactly where the claim-alone compression must NOT apply:
+        // "No double" alone would be the NoDoubleTake verdict, a different
+        // answer. The banner joins instead and says what the analysis says.
+        //
+        // Also the one Best-line position whose wording the claim level
+        // changes in the other direction: composed from board actions this
+        // read "Too Good", because CubeDecisionPair.IsTooGood tests only the
+        // (NoDouble, Pass) shape and not the no-double equity that the claim
+        // derivation requires.
+        var request = MinimalCubeBuilder(noDoubleEquity: 1.00, doubleTakeEquity: 1.20).Build();
+        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
+
+        Assert.Contains("Best:   No double / Pass", svg);
+        Assert.DoesNotContain("Best:   Too good", svg);
+    }
+
+    [Fact]
+    public void CubePanel_BestLine_NoDoubleClaimHoldsWhenDoublingIsActivelyBad()
+    {
+        // nd=0.25, dt=-0.10 → doubleEquity=min(dt,1)=-0.10 < nd, so the claim
+        // is No double, and dt < 1 makes the best response Take. The same
+        // NoDoubleTake pair as above but reached from a negative double/take
+        // equity, where doubling loses ground rather than merely gaining
+        // none. How far short the double falls does not change the claim, and
+        // the nd <= 1.0 arm of the Too good predicate keeps it a no-double
+        // rather than a too-good.
         var request = MinimalCubeBuilder(noDoubleEquity: 0.25, doubleTakeEquity: -0.10).Build();
         var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
 
-        Assert.Contains("Best:   No Double / Take", svg);
+        Assert.Contains("Best:   No double", svg);
+        Assert.DoesNotContain("Best:   No double /", svg);
     }
 
     [Fact]
@@ -110,7 +139,7 @@ public class RendererPanelContentTests
         // 0.50: doubling gains nothing, so the tie-break picks NoDouble as
         // BestDoublerAction and UserDoubleError is 0 because the double cost
         // nothing. The old derivation read that zero as "played the best
-        // action" and printed "No Double" for a game that was doubled and
+        // action" and printed "No double" for a game that was doubled and
         // taken. Both errors are set here to exactly the values that used to
         // mislead the line; only the stamped actions decide it now.
         var b = MinimalCubeBuilder(noDoubleEquity: 0.50, doubleTakeEquity: 0.50);
@@ -121,7 +150,7 @@ public class RendererPanelContentTests
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
         Assert.Contains("Actual: Double / Take", svg);
-        Assert.DoesNotContain("Actual: No Double", svg);
+        Assert.DoesNotContain("Actual: No double", svg);
     }
 
     [Fact]
@@ -136,8 +165,8 @@ public class RendererPanelContentTests
         b.UserTakerAction = null;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        Assert.Contains("Actual: No Double", svg);
-        Assert.DoesNotContain("Actual: No Double /", svg);
+        Assert.Contains("Actual: No double", svg);
+        Assert.DoesNotContain("Actual: No double /", svg);
     }
 
     [Fact]
@@ -150,38 +179,40 @@ public class RendererPanelContentTests
         // (NoDouble, Take) can reach the renderer even though the opponent
         // cannot have taken a cube that was never offered. The Actual line
         // drops that stale taker at its stamped-data boundary. The Best line
-        // has no such rule — its (NoDouble, Take) is analysis and renders in
-        // full.
+        // has no such rule — it labels a producer-derived claim pair, never a
+        // stamped one.
         var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
         b.UserDoublerAction = CubeAction.NoDouble;
         b.UserTakerAction = CubeAction.Take;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        Assert.Contains("Actual: No Double", svg);
-        Assert.DoesNotContain("Actual: No Double /", svg);
+        Assert.Contains("Actual: No double", svg);
+        Assert.DoesNotContain("Actual: No double /", svg);
     }
 
     [Fact]
     public void CubePanel_ActualLine_StampedTooGoodPairRendersTooGood()
     {
-        // The too-good classification is pair-level and applies to Actual
-        // exactly as it does to Best: a stamped (NoDouble, Pass) is the
-        // too-good pair and names itself. Guards the reach of the
-        // stale-taker filter, which drops only (NoDouble, Take) and must
-        // leave this NoDouble-doubler pair intact to be classified.
+        // The Actual line stays action-level, but a stamped (NoDouble, Pass)
+        // is still the too-good pair and names itself — and it names itself
+        // through CubeLabels.Label(CubeClaimPair.TooGoodPass), the same
+        // spelling the Best banner reaches for, so the two lines cannot spell
+        // the claim two ways. Guards the reach of the stale-taker filter,
+        // which drops only (NoDouble, Take) and must leave this
+        // NoDouble-doubler pair intact to be classified.
         var b = MinimalCubeBuilder(noDoubleEquity: 1.50, doubleTakeEquity: 1.20);
         b.UserDoublerAction = CubeAction.NoDouble;
         b.UserTakerAction = CubeAction.Pass;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        Assert.Contains("Actual: Too Good", svg);
-        Assert.DoesNotContain("Actual: No Double", svg);
+        Assert.Contains("Actual: Too good", svg);
+        Assert.DoesNotContain("Actual: No double", svg);
     }
 
     [Fact]
     public void CubePanel_ActualLine_StampedActionsIgnoreTheBestPair()
     {
-        // nd=1.50, dt=1.20 → Best = (NoDouble, Pass) = Too Good. The player
+        // nd=1.50, dt=1.20 → BestClaimPair = TooGoodPass. The player
         // doubled anyway and was passed, so Actual is (Double, Pass). Guards
         // that the line reads its own halves rather than leaking the Best
         // pair's classification onto them.
@@ -190,9 +221,9 @@ public class RendererPanelContentTests
         b.UserTakerAction = CubeAction.Pass;
         var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
 
-        Assert.Contains("Best:   Too Good", svg);
+        Assert.Contains("Best:   Too good", svg);
         Assert.Contains("Actual: Double / Pass", svg);
-        Assert.DoesNotContain("Actual: Too Good", svg);
+        Assert.DoesNotContain("Actual: Too good", svg);
     }
 
     [Fact]
@@ -238,7 +269,7 @@ public class RendererPanelContentTests
         var request = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60).Build();
         var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
 
-        Assert.Contains(">No Double<", svg);
+        Assert.Contains(">No double<", svg);
         Assert.Contains(">Double<", svg);
         Assert.Contains(">Take<", svg);
         Assert.Contains(">Pass<", svg);
@@ -248,7 +279,7 @@ public class RendererPanelContentTests
     public void CubePanel_EquityLoss_ShownForAllRows_IncludingZero()
     {
         // nd=0.40, dt=0.60.
-        //   No Double loss = 0.60 - 0.40 = 0.2000
+        //   No double loss = 0.60 - 0.40 = 0.2000
         //   Double    loss = 0          = 0.0000
         //   Take      loss = 0          = 0.0000
         //   Pass      loss = 1.00 - 0.60 = 0.4000
@@ -256,7 +287,7 @@ public class RendererPanelContentTests
         var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
 
         Assert.Contains(">0.0000<", svg);   // correct-option rows
-        Assert.Contains(">0.2000<", svg);   // No Double mistake
+        Assert.Contains(">0.2000<", svg);   // No double mistake
         Assert.Contains(">0.4000<", svg);   // Pass mistake
         Assert.DoesNotContain(">-0.2000<", svg);
         Assert.DoesNotContain(">-0.4000<", svg);

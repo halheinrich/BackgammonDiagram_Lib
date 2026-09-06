@@ -451,7 +451,7 @@ public class VisualOutputTests
         b.LoseBgPctAfterDoubleTake = 0.003;
         b.UserDoubleError = 0.1;
         b.UserTakeError = 0;
-        // Undoubled game → Actual shows only "No Double".
+        // Undoubled game → Actual shows only "No double".
         b.UserDoublerAction = CubeAction.NoDouble;
         b.UserTakerAction = null;
         b.ProbOfOpponentErrorJustifyingDouble = 0.42;

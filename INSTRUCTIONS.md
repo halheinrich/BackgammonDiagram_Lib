@@ -61,6 +61,7 @@ Directory.Build.props         — repo-wide build policy (TFM, nullable, warning
 Directory.Packages.props
 BackgammonDiagram_Lib/                    (core — native-free)
   BackgammonDiagram_Lib.csproj
+  CubeLabels.cs               — public static: the wording of a cube answer (SSOT)
   Watermarks.cs               — public static Watermarks.Default byte[] accessor
   Assets/
     board-watermark.png       — pre-baked transparent watermark (EmbeddedResource, SSOT)
@@ -367,33 +368,47 @@ Rendered in Solution mode only. Two shapes:
     legacy marked-rows-only window is preserved byte-for-byte.
 
 - **Cube panel** (`Decision.IsCube == true`). Best/Actual banner,
-  Equity/Loss table (No Double / Double / Take / Pass), two percentage
-  tables (No Double and Take played-out stats), footer lines. Invariants:
-  - The Best/Actual banner is atomic: both lines are a pair of per-half
-    cube actions run through one builder (`CubeDecisionLine`). Best reads
-    `DecisionData.BestDoublerAction` / `BestTakerAction`; Actual reads the
-    stamped `DecisionData.UserDoublerAction` / `UserTakerAction`.
-    Actual is **not** inferred from `UserDoubleError` / `UserTakeError`,
-    and there is no legacy fallback to that inference: a zero error does
-    not identify the action when the two cube equities tie, which used to
-    misreport an equity-tie double as "No Double". A null half means the
-    producer recorded no action for it — that half is omitted, and a cube
-    decision with neither half stamped (a resignation-terminal record, or
-    JSON written before the fields existed) drops the Actual line
-    entirely.
+  Equity/Loss table (No double / Double / Take / Pass), two percentage
+  tables (No double and Take played-out stats), footer lines. Every word
+  of every cube label comes from `CubeLabels` (see Public API); the
+  renderer holds no cube wording of its own. Invariants:
+  - **The Best line is claim-level; the Actual line is action-level.**
+    Best is the analysis verdict, and a verdict is a claim: the line
+    labels `DecisionData.BestClaimPair` whole — the producer's one
+    derivation site — and never composes itself from the two board
+    actions. Composing it was the defect
+    (`halheinrich/backgammon#185`): Too good and No double share a board
+    action, so at the action level the claim has nowhere to live and a
+    too-good position printed `"No double / Take"`. Labelling the pair
+    also splits the two boundary readings that action-level composition
+    conflated — at `NoDoubleEquity == 1` exactly with a pass, the derived
+    claim pair is the incoherent `NoDoublePass` and the banner says
+    `"No double / Pass"`, where the action shape alone said too good —
+    `CubeDecisionPair.IsTooGood` tests the (NoDouble, Pass) shape and not
+    the no-double equity the claim derivation also requires.
+  - Actual reports what was played, so it stays action-level: the stamped
+    `DecisionData.UserDoublerAction` / `UserTakerAction`, assembled by
+    `CubeDecisionLine`. Actual is **not** inferred from `UserDoubleError`
+    / `UserTakeError`, and there is no legacy fallback to that inference:
+    a zero error does not identify the action when the two cube equities
+    tie, which used to misreport an equity-tie double as "No double". A
+    null half means the producer recorded no action for it — that half is
+    omitted, and a cube decision with neither half stamped (a
+    resignation-terminal record, or JSON written before the fields
+    existed) drops the Actual line entirely.
     When both halves are present they form a complete decision and are
     classified as a `BgDataTypes_Lib.CubeDecisionPair`: the too-good pair
-    (NoDouble, Pass) renders as `"Too Good"` instead of its two halves.
+    (NoDouble, Pass) is named rather than rendered as its two halves.
     That rule lives in `CubeDecisionPair.IsTooGood`, not here — the
-    renderer must not re-encode "NoDouble + Pass means too good".
+    renderer must not re-encode "NoDouble + Pass means too good" — and
+    the resulting word is `CubeLabels.Label(CubeClaimPair.TooGoodPass)`,
+    the same spelling the Best banner reaches for, so the two lines
+    cannot spell the claim two ways.
     Otherwise `CubeDecisionLine` renders every half that is present and
     suppresses none: presence is the only thing that decides whether a
     half appears, and no half is dropped on account of the other's value.
-    A (NoDouble, Take) best therefore renders `"No Double / Take"` in
-    full — the halves are analysis, the taker half states what a double
-    would meet, and "no double, take" is a verdict distinct from
-    "Too Good". The quiz scores both halves, so suppressing one hid the
-    half the user was asked about.
+    A stamped (NoDouble, Take) therefore renders `"No double / Take"` in
+    full.
   - The **stale-taker rule belongs to the Actual line's stamped-data
     boundary**, not to `CubeDecisionLine`: `DiagramRenderer
     .StampedTakerAction` drops the taker half of a stamped
@@ -403,13 +418,13 @@ Rendered in Solution mode only. Two shapes:
     leaves cross-half consistency (a recorded taker response implies the
     doubler doubled) to the producer — so an opponent cannot appear to
     have taken a cube that was never offered. Only that one pair is
-    filtered; (NoDouble, Pass) passes through to the Too Good
-    classification. The Best line gets no such pass, because halves
-    derived from the cube equities can never be out of contract.
-  - `"Actual: Too Good"` is unreachable from real data **by design** — the
+    filtered; (NoDouble, Pass) passes through to the too-good
+    classification. The Best line gets no such pass, because it labels a
+    producer-derived claim pair, never a stamped one.
+  - `"Actual: Too good"` is unreachable from real data **by design** — the
     Actual line reports the game's actions, and on a too-good decline the
-    action played was No Double with no taker decision in existence, so
-    the Too Good pair never gets stamped. Too Good is a Best-line verdict.
+    action played was No double with no taker decision in existence, so
+    the too-good pair never gets stamped. Too good is a Best-line verdict.
     Don't "fix" this by stamping a fabricated Pass: it would violate the
     producer's cross-half contract (a recorded taker response implies a
     double) to make the renderer print a decision nobody made.
@@ -541,6 +556,36 @@ tests carry `[Trait("Category", "Visual")]`.
 static string RenderSvg(DiagramRequest request, DiagramOptions options);
 static BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions options);
 ```
+
+### `CubeLabels` (core — `BackgammonDiagram_Lib`)
+
+Single source of truth for the user-facing wording of a cube answer —
+one case throughout, sentence case. Every surface that names a cube
+answer reads it here: this library's cube panel, and the consuming apps
+(`halheinrich/backgammon#185`).
+
+```csharp
+static string Label(CubeClaim claim);        // No double / Double / Too good
+static string Label(CubeAction action);      // No double / Double / Take / Pass
+static string Label(CubeClaimPair pair);     // the pair rule, below
+```
+
+**The pair rule:** a pair reads as its claim alone when that claim has
+exactly one reachable pair, else claim and response joined by `" / "` —
+so the four reachable verdicts read `No double`, `Double / Take`,
+`Double / Pass`, `Too good` (ruled 2026-09-02 on
+`halheinrich/backgammon#185`; reachability is SPEC-scoring §3 as amended
+2026-09-02). `CubeClaimPair` is a closed 3×2 and the function is total
+over it: the two cells no analysis derives — `TooGoodTake` and
+`NoDoublePass` — join, because for them the response is exactly what the
+claim does *not* imply, and compressing either would collide with the
+reachable pair of the same claim.
+
+Every member is exhaustive over its type and throws
+`ArgumentOutOfRangeException` outside it, including on the non-meaningful
+`default(CubeClaimPair)`, whose `Taker` escapes that type's half-guards.
+There is no display fallback: an unlabelled value is a programming error,
+and rendering a placeholder would ship it to the reader.
 
 ### `SvgFormat` (core — `BackgammonDiagram_Lib`)
 

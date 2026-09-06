@@ -1302,12 +1302,12 @@ public static class DiagramRenderer
 
     // Cube panel layout:
     //   Best Decision (two centered lines: "Best Decision" / "<doubler> / <opp>")
-    //   Equity/Loss table (header + 4 rows: No Double, Double, Take, Pass)
-    //   Percentages table for No Double (played-out stats)
+    //   Equity/Loss table (header + 4 rows: No double, Double, Take, Pass)
+    //   Percentages table for No double (played-out stats)
     //   Percentages table for Take (played-out stats)
     //   Footer lines: Analysis Level, Pass Prob Justifying Dbl
     //
-    // Two decisions are surfaced: the doubler's (Double vs. No Double) and
+    // Two decisions are surfaced: the doubler's (Double vs. No double) and
     // the opponent's (Take vs. Pass). Losses are mistake costs measured
     // against the decider's correct play.
     private static void AppendCubePanel(StringBuilder sb, double px, double pw, double ph,
@@ -1342,31 +1342,29 @@ public static class DiagramRenderer
         double doubleEquity = Math.Min(dt, pass);
 
         // ── Best / Actual banner ───────────────────────────────────────
-        // Both lines are atomic: each is a pair of per-half cube actions,
-        // and both run through CubeDecisionLine, so the too-good
-        // classification has a single definition.
+        // The two lines speak at different levels, as ruled
+        // (halheinrich/backgammon#185).
         //
-        // "Best" is the correct play — BestDoublerAction plus the taker half.
-        // Both halves are analysis, derived from the cube equities, so both
-        // always exist and both always render: "No Double / Take" is a
-        // verdict in its own right, distinct from the too-good "No Double /
-        // Pass", and hiding the taker half would hide half of what the
-        // analysis says.
+        // "Best" is the analysis verdict, and a verdict is a claim: it is
+        // read whole off DecisionData.BestClaimPair — the producer's one
+        // derivation site — and spelled by CubeLabels, which owns the rule
+        // for when a pair reads as its claim alone. Composing it from the
+        // two board actions instead is what made a too-good position print
+        // "No double / Take": at the action level the claim has nowhere to
+        // live, since Too good and No double share the board action.
         //
-        // "Actual" is what was played, read straight off the stamped
-        // UserDoublerAction / UserTakerAction. It is not inferred from
+        // "Actual" is what was played, and a played record is action-level:
+        // read straight off the stamped UserDoublerAction /
+        // UserTakerAction, through CubeDecisionLine. It is not inferred from
         // UserDoubleError / UserTakeError: a zero error does not identify the
         // action when the two cube equities tie, so an equity-tie double
         // (NoDoubleEquity == DoubleTakeEquity, error 0, tie-break best
-        // NoDouble) used to be misreported as "No Double". Null means the
+        // NoDouble) used to be misreported as "No double". Null means the
         // producer recorded no action for that half — that half is omitted,
         // and a wholly unrecorded decision drops the Actual line entirely.
         // Being external input, the stamped halves also go through
         // StampedTakerAction first; see its comment.
-        CubeAction bestDoublerAction = d.BestDoublerAction;
-        CubeAction bestTakerAction = d.BestTakerAction;
-
-        string bestLine = CubeDecisionLine("Best:   ", bestDoublerAction, bestTakerAction);
+        string bestLine = "Best:   " + CubeLabels.Label(d.BestClaimPair);
         sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(bestLine)}</text>""");
         y += CubePanelLineHeight;
 
@@ -1390,19 +1388,19 @@ public static class DiagramRenderer
         // Per-row loss values come from the atomic-level helpers — each row
         // is the mistake cost for the decider of that row.
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
-            label: "No Double", equity: nd,           loss: d.DoublerActionError(CubeAction.NoDouble));
+            label: CubeLabels.Label(CubeAction.NoDouble), equity: nd,           loss: d.DoublerActionError(CubeAction.NoDouble));
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
-            label: "Double",    equity: doubleEquity, loss: d.DoublerActionError(CubeAction.Double));
+            label: CubeLabels.Label(CubeAction.Double),   equity: doubleEquity, loss: d.DoublerActionError(CubeAction.Double));
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
-            label: "Take",      equity: dt,           loss: d.TakerActionError(CubeAction.Take));
+            label: CubeLabels.Label(CubeAction.Take),     equity: dt,           loss: d.TakerActionError(CubeAction.Take));
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
-            label: "Pass",      equity: pass,         loss: d.TakerActionError(CubeAction.Pass));
+            label: CubeLabels.Label(CubeAction.Pass),     equity: pass,         loss: d.TakerActionError(CubeAction.Pass));
 
         y += CubePanelSectionGap;
 
-        // ── Percentages tables (No Double, Take) ───────────────────────
+        // ── Percentages tables (No double, Take) ───────────────────────
         y = AppendPctTable(sb, textX, numericRightX, y, CubePanelLabelFontSize, textColor, dimColor,
-            decisionLabel: "No Double",
+            decisionLabel: CubeLabels.Label(CubeAction.NoDouble),
             onRollWin: d.WinPctAfterNoDouble,
             onRollGammon: d.GammonPctAfterNoDouble,
             onRollBg: d.BgPctAfterNoDouble,
@@ -1413,7 +1411,7 @@ public static class DiagramRenderer
         y += CubePanelSectionGap;
 
         y = AppendPctTable(sb, textX, numericRightX, y, CubePanelLabelFontSize, textColor, dimColor,
-            decisionLabel: "Take",
+            decisionLabel: CubeLabels.Label(CubeAction.Take),
             onRollWin: d.WinPctAfterDoubleTake,
             onRollGammon: d.GammonPctAfterDoubleTake,
             onRollBg: d.BgPctAfterDoubleTake,
@@ -1497,47 +1495,47 @@ public static class DiagramRenderer
     }
 
     // -----------------------------------------------------------------------
-    //  Cube label formatting
+    //  Cube decision line
     // -----------------------------------------------------------------------
     //
-    //  Label helpers map BgDataTypes_Lib's CubeAction values — and, for the
-    //  too-good case, a whole CubeDecisionPair — to their user-facing
-    //  strings. Centralised here rather than scattered through
-    //  AppendCubePanel so the two-word "No Double" formatting and the Best
-    //  and Actual decision lines each have one definition site.
+    //  Wording is not this renderer's to choose: every cube label it prints
+    //  comes from CubeLabels, the library's one public label home
+    //  (halheinrich/backgammon#185). What lives here is only the Actual
+    //  line's shape — how present and absent stamped halves assemble.
 
-    // Builds a "<prefix><doubler> / <taker>" decision line shared by the
-    // Best and Actual banners, so the two stay consistent by construction.
+    // Builds an action-level "<prefix><doubler> / <taker>" line for the
+    // Actual banner. (The Best banner is claim-level and does not come
+    // through here; it labels DecisionData.BestClaimPair whole.)
     //
     // When both halves are present they form a complete cube decision, so the
     // line is classified as a pair rather than assembled from the two labels:
-    // (NoDouble, Pass) is the too-good-to-double case and renders as the
-    // single word-pair "Too Good". Classification is CubeDecisionPair's job —
-    // BgDataTypes_Lib owns the "NoDouble + Pass means too good" rule, and this
-    // renderer must not re-encode it. The pair constructor rejects cross-half
-    // values, but cannot throw here: both halves arrive half-correct by
-    // construction, from DecisionData's guarded BestDoublerAction /
-    // BestTakerAction or its equally guarded UserDoublerAction /
-    // UserTakerAction.
+    // (NoDouble, Pass) is the too-good-to-double case and is named by its
+    // claim pair. Classification is CubeDecisionPair's job — BgDataTypes_Lib
+    // owns the "NoDouble + Pass means too good" rule, and this renderer must
+    // not re-encode it; the wording of the result is then CubeLabels', which
+    // is what keeps the two banners from spelling the claim two ways. The
+    // pair constructor rejects cross-half values, but cannot throw here: both
+    // halves arrive half-correct by construction, from DecisionData's guarded
+    // UserDoublerAction / UserTakerAction.
     //
     // Otherwise each present half renders: a null doubler renders "?" (the
     // Actual line when the producer stamped a taker action but no doubler
     // action), and a null taker renders the doubler half alone. Presence is
     // the only thing that decides whether a half is shown — the builder never
     // suppresses one half on account of the other's value. A doubler-side
-    // "No Double" therefore keeps its taker half: "No Double / Take" is a
-    // real verdict, not a stale leftover. Deciding which stamped halves are
+    // "No double" therefore keeps its taker half: "No double / Take" is a
+    // real record, not a stale leftover. Deciding which stamped halves are
     // trustworthy belongs to the Actual line's own boundary, not here; see
     // StampedTakerAction.
     private static string CubeDecisionLine(string prefix, CubeAction? doubler, CubeAction? taker)
     {
         if (doubler is CubeAction dh && taker is CubeAction th
             && new CubeDecisionPair(dh, th).IsTooGood)
-            return prefix + TooGoodLabel;
+            return prefix + CubeLabels.Label(CubeClaimPair.TooGoodPass);
 
-        string line = prefix + (doubler is CubeAction d ? ActionLabel(d) : "?");
+        string line = prefix + (doubler is CubeAction d ? CubeLabels.Label(d) : "?");
         if (taker is CubeAction r)
-            line += " / " + ActionLabel(r);
+            line += " / " + CubeLabels.Label(r);
         return line;
     }
 
@@ -1554,27 +1552,12 @@ public static class DiagramRenderer
     // pair, which CubeDecisionLine names, so it passes through untouched — the
     // pair to reject is named by BgDataTypes_Lib as CubeDecisionPair
     // .NoDoubleTake rather than spelled out here. The Best line needs no such
-    // pass: its halves are derived from the cube equities and cannot be out of
-    // contract.
+    // pass: it labels a producer-derived claim pair, never a stamped one.
     private static CubeAction? StampedTakerAction(CubeAction? doubler, CubeAction? taker) =>
         doubler is CubeAction d && taker is CubeAction t
             && new CubeDecisionPair(d, t) == CubeDecisionPair.NoDoubleTake
                 ? null
                 : taker;
-
-    // Pair-level banner label, the one case where a complete cube decision
-    // reads as something other than its two halves joined by " / ". Title-caps
-    // to match the atomic "No Double" styling of the labels below.
-    private const string TooGoodLabel = "Too Good";
-
-    private static string ActionLabel(CubeAction action) => action switch
-    {
-        CubeAction.NoDouble => "No Double",
-        CubeAction.Double   => "Double",
-        CubeAction.Take     => "Take",
-        CubeAction.Pass     => "Pass",
-        _ => throw new ArgumentOutOfRangeException(nameof(action), action, null)
-    };
 
     // -----------------------------------------------------------------------
     //  Equity formatting
