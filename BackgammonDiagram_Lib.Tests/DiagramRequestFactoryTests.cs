@@ -14,12 +14,19 @@ public class DiagramRequestFactoryTests
 {
     // -----------------------------------------------------------------------
     //  FromDecisionData — data-layer record → DiagramRequest
+    //
+    //  Every test here runs over both fixtures (see the fixture builder at
+    //  the foot of the file): a data record is one decision kind or the other,
+    //  and the factory must hold for each — and IsCrawford and IsCube are
+    //  non-default in one fixture apiece, so only the pair keeps both
+    //  mappings under check.
     // -----------------------------------------------------------------------
 
-    [Fact]
-    public void FromDecisionData_PreservesPositionFields()
+    [Theory]
+    [MemberData(nameof(AllFixtures))]
+    public void FromDecisionData_PreservesPositionFields(DecisionFixture fixture)
     {
-        var data = FullyPopulatedData();
+        var data = FullyPopulatedData(fixture);
         var req = DiagramRequest.FromDecisionData(data);
 
         Assert.Equal(data.Position.Mop, req.Position.Mop);
@@ -33,10 +40,11 @@ public class DiagramRequestFactoryTests
         Assert.Equal(data.Position.IsJacoby, req.Position.IsJacoby);
     }
 
-    [Fact]
-    public void FromDecisionData_PreservesDecisionFields()
+    [Theory]
+    [MemberData(nameof(AllFixtures))]
+    public void FromDecisionData_PreservesDecisionFields(DecisionFixture fixture)
     {
-        var data = FullyPopulatedData();
+        var data = FullyPopulatedData(fixture);
         var req = DiagramRequest.FromDecisionData(data);
 
         Assert.Equal(data.Decision.IsCube, req.Decision.IsCube);
@@ -72,10 +80,11 @@ public class DiagramRequestFactoryTests
         Assert.Equal(data.Decision.CubelessDoubleTakeEquity, req.Decision.CubelessDoubleTakeEquity);
     }
 
-    [Fact]
-    public void FromDecisionData_PreservesDescriptiveFields()
+    [Theory]
+    [MemberData(nameof(AllFixtures))]
+    public void FromDecisionData_PreservesDescriptiveFields(DecisionFixture fixture)
     {
-        var data = FullyPopulatedData();
+        var data = FullyPopulatedData(fixture);
         var req = DiagramRequest.FromDecisionData(data);
 
         Assert.Equal(data.Descriptive.OnRollName, req.Descriptive.OnRollName);
@@ -92,34 +101,37 @@ public class DiagramRequestFactoryTests
         Assert.Equal(data.Descriptive.Flagged, req.Descriptive.Flagged);
     }
 
-    [Fact]
-    public void FromDecisionData_PreservesXgid()
+    [Theory]
+    [MemberData(nameof(AllFixtures))]
+    public void FromDecisionData_PreservesXgid(DecisionFixture fixture)
     {
         // Xgid is top-level on BgDecisionData (not in the three records), so
         // it rides the dedicated b.Xgid assignment rather than Builder.From's
         // record copy — assert that wiring survives.
-        var data = FullyPopulatedData();
+        var data = FullyPopulatedData(fixture);
         var req = DiagramRequest.FromDecisionData(data);
 
         Assert.Equal(data.Xgid, req.Xgid);
     }
 
-    [Fact]
-    public void FromDecisionData_LeavesSecondaryPlayIndexUnset()
+    [Theory]
+    [MemberData(nameof(AllFixtures))]
+    public void FromDecisionData_LeavesSecondaryPlayIndexUnset(DecisionFixture fixture)
     {
         // SecondaryPlayIndex is a render-only overlay the consumer sets
         // directly — it is NOT sourced from the data layer, so the data-record
         // factory must leave it at the default −1. This is the exports-untouched
         // guard: every export path builds through here (or FromDecisionData),
         // so a stray mapping would silently start marking a second play.
-        var data = FullyPopulatedData();
+        var data = FullyPopulatedData(fixture);
         var req = DiagramRequest.FromDecisionData(data);
 
         Assert.Equal(-1, req.SecondaryPlayIndex);
     }
 
-    [Fact]
-    public void FromDecisionData_LeavesDepthTreatmentOptionsUnset()
+    [Theory]
+    [MemberData(nameof(AllFixtures))]
+    public void FromDecisionData_LeavesDepthTreatmentOptionsUnset(DecisionFixture fixture)
     {
         // Like SecondaryPlayIndex, the depth-treatment options
         // (CandidateOrdering / MaximumHiddenCandidateAnalysisLevel,
@@ -128,7 +140,7 @@ public class DiagramRequestFactoryTests
         // factory must leave them at their defaults so every export path
         // renders exactly as before — full candidate list, caller (equity)
         // order.
-        var data = FullyPopulatedData();
+        var data = FullyPopulatedData(fixture);
         var req = DiagramRequest.FromDecisionData(data);
 
         Assert.Equal(CandidateOrdering.Equity, req.CandidateOrdering);
@@ -164,10 +176,11 @@ public class DiagramRequestFactoryTests
         Assert.Equal(2, solution.SecondaryPlayIndex);
     }
 
-    [Fact]
-    public void FromDecisionData_AppliesRendererParameters()
+    [Theory]
+    [MemberData(nameof(AllFixtures))]
+    public void FromDecisionData_AppliesRendererParameters(DecisionFixture fixture)
     {
-        var data = FullyPopulatedData();
+        var data = FullyPopulatedData(fixture);
         var req = DiagramRequest.FromDecisionData(data,
             mode: DiagramMode.Problem,
             homeBoardOnRight: false,
@@ -184,14 +197,16 @@ public class DiagramRequestFactoryTests
     //  Builder.From(DiagramRequest) — round-trip preserves every field
     // -----------------------------------------------------------------------
 
-    [Fact]
-    public void BuilderFrom_ExistingRequest_RoundTripsAllFields()
+    [Theory]
+    [MemberData(nameof(AllFixtures))]
+    public void BuilderFrom_ExistingRequest_RoundTripsAllFields(DecisionFixture fixture)
     {
         // Start from a FromDecisionData result, then Builder.From(request)
         // and rebuild — the two DiagramRequests should be value-equal across
-        // every public field.
+        // every public field. Runs over both fixtures, like the
+        // FromDecisionData tests above.
         var original = DiagramRequest.FromDecisionData(
-            FullyPopulatedData(),
+            FullyPopulatedData(fixture),
             mode: DiagramMode.Problem,
             homeBoardOnRight: false,
             analysisPanelPosition: PanelPosition.Right);
@@ -239,7 +254,9 @@ public class DiagramRequestFactoryTests
         // ToProblemSolutionPair. The refactor through Builder.From means
         // the pair expansion now can't skip a field silently. The played
         // actions matter most here — they are what the Actual line reads.
-        var data = FullyPopulatedData();
+        // Cube fixture only: the fields under test are the cube half's, and
+        // their subject is a cube decision.
+        var data = FullyPopulatedData(DecisionFixture.Cube);
         var source = DiagramRequest.FromDecisionData(data);
 
         var (problem, solution) = source.ToProblemSolutionPair();
@@ -299,75 +316,122 @@ public class DiagramRequestFactoryTests
     // -----------------------------------------------------------------------
     //  Fixture builder — every mappable field set to a distinct non-default
     //  value so any dropped mapping shows up as a failed equality assertion.
+    //
+    //  One record cannot carry IsCrawford and IsCube both non-default: doubling
+    //  is prohibited in the Crawford game, so BgDecisionData refuses a Crawford
+    //  cube decision at construction (halheinrich/backgammon#201). The builder
+    //  therefore yields two fixtures, one per side of that exclusion, and the
+    //  tests that run a data record through the factory take both — which
+    //  keeps every mapping under a non-default value in at least one fixture.
+    //  The two differ only where the rules force it: IsCrawford / IsCube, and
+    //  the Dice and Plays each decision kind carries (the Builder requires
+    //  [0, 0] dice on a cube decision and 1–6 on a checker play). Every other
+    //  field, the inactive half's included, stays populated in both: mapping
+    //  coverage is the point here, not realism.
     // -----------------------------------------------------------------------
 
-    private static BgDecisionData FullyPopulatedData() => new()
+    /// <summary>
+    /// The fully-populated fixtures <see cref="FullyPopulatedData"/> builds —
+    /// one per side of the Crawford rule's exclusion.
+    /// </summary>
+    public enum DecisionFixture
     {
-        Id = new XgpDecisionId("test.xgp"),
-        Xgid = "XGID=-b----E-C---eE---c-e----B-:0:0:1:00:0:0:0:0:10",
-        Position = new PositionData
+        /// <summary>A cube decision: <c>IsCube</c> true, <c>IsCrawford</c> false.</summary>
+        Cube,
+
+        /// <summary>A Crawford checker play: <c>IsCrawford</c> true, <c>IsCube</c> false.</summary>
+        CrawfordPlay,
+    }
+
+    /// <summary>Every <see cref="DecisionFixture"/>, as theory data.</summary>
+    public static TheoryData<DecisionFixture> AllFixtures => new(Enum.GetValues<DecisionFixture>());
+
+    private static BgDecisionData FullyPopulatedData(DecisionFixture fixture)
+    {
+        var (isCrawford, isCube) = fixture switch
         {
-            Mop = MakeDistinctMop(),
-            OnRollNeeds = 7,
-            OpponentNeeds = 9,
-            OnRollPipCount = 131,
-            OpponentPipCount = 142,
-            CubeSize = 4,
-            CubeOwner = CubeOwner.OnRoll,
-            IsCrawford = true,
-            IsJacoby = true,
-        },
-        Decision = new DecisionData
+            DecisionFixture.Cube => (false, true),
+            DecisionFixture.CrawfordPlay => (true, false),
+            _ => throw new ArgumentOutOfRangeException(nameof(fixture), fixture, null),
+        };
+
+        return new()
         {
-            IsCube = true,
-            Dice = [0, 0],
-            Plays = [],
-            CubeDepth = "XG Roller+",
-            CubeDepthAbbreviation = "R+",
-            CubeDepthRank = 45,
-            CubeAnalysisMode = AnalysisMode.Rollout,
-            CubeAnalysisLevel = AnalysisLevel.XgRollerPlus,
-            BestPlayIndex = 2,
-            UserPlayIndex = 1,
-            UserPlayError = 0.0123,
-            NoDoubleEquity = 0.4321,
-            DoubleTakeEquity = 0.6543,
-            CubelessNoDoubleEquity = 0.4111,
-            CubelessDoubleTakeEquity = 0.6222,
-            WinPctAfterNoDouble = 0.71,
-            GammonPctAfterNoDouble = 0.12,
-            BgPctAfterNoDouble = 0.013,
-            LosePctAfterNoDouble = 0.29,
-            LoseGammonPctAfterNoDouble = 0.09,
-            LoseBgPctAfterNoDouble = 0.003,
-            WinPctAfterDoubleTake = 0.72,
-            GammonPctAfterDoubleTake = 0.13,
-            BgPctAfterDoubleTake = 0.014,
-            LosePctAfterDoubleTake = 0.28,
-            LoseGammonPctAfterDoubleTake = 0.08,
-            LoseBgPctAfterDoubleTake = 0.002,
-            ProbOfOpponentErrorJustifyingDouble = 0.05,
-            UserDoubleError = 0.006,
-            UserTakeError = 0.0,
-            UserDoublerAction = CubeAction.Double,
-            UserTakerAction = CubeAction.Take,
-        },
-        Descriptive = new DescriptiveData
-        {
-            OnRollName = "Alice",
-            OpponentName = "Bob",
-            Title = "Pivotal decision",
-            MatchLength = 11,
-            Date = new DateOnly(2026, 4, 16),
-            Event = "Club championship",
-            SourceFile = "mochy-falafel.xg",
-            Game = 3,
-            MoveNumber = 17,
-            IsStandardStart = true,
-            Comment = "Blitz or prime?",
-            Flagged = true,
-        },
-    };
+            Id = new XgpDecisionId("test.xgp"),
+            Xgid = "XGID=-b----E-C---eE---c-e----B-:0:0:1:00:0:0:0:0:10",
+            Position = new PositionData
+            {
+                Mop = MakeDistinctMop(),
+                OnRollNeeds = 7,
+                OpponentNeeds = 9,
+                OnRollPipCount = 131,
+                OpponentPipCount = 142,
+                CubeSize = 4,
+                CubeOwner = CubeOwner.OnRoll,
+                IsCrawford = isCrawford,
+                IsJacoby = true,
+            },
+            Decision = new DecisionData
+            {
+                IsCube = isCube,
+                Dice = isCube ? [0, 0] : [6, 2],
+                // BestPlayIndex (2) and UserPlayIndex (1) below index into these;
+                // UserPlayError is row 1's loss.
+                Plays = isCube
+                    ? []
+                    :
+                    [
+                        new PlayCandidate { MoveNotation = "24/16", Equity = 0.1100, EquityLoss = 0.0400 },
+                        new PlayCandidate { MoveNotation = "13/7 13/11", Equity = 0.1377, EquityLoss = 0.0123 },
+                        new PlayCandidate { MoveNotation = "24/18 13/11", Equity = 0.1500, EquityLoss = 0.0 },
+                    ],
+                CubeDepth = "XG Roller+",
+                CubeDepthAbbreviation = "R+",
+                CubeDepthRank = 45,
+                CubeAnalysisMode = AnalysisMode.Rollout,
+                CubeAnalysisLevel = AnalysisLevel.XgRollerPlus,
+                BestPlayIndex = 2,
+                UserPlayIndex = 1,
+                UserPlayError = 0.0123,
+                NoDoubleEquity = 0.4321,
+                DoubleTakeEquity = 0.6543,
+                CubelessNoDoubleEquity = 0.4111,
+                CubelessDoubleTakeEquity = 0.6222,
+                WinPctAfterNoDouble = 0.71,
+                GammonPctAfterNoDouble = 0.12,
+                BgPctAfterNoDouble = 0.013,
+                LosePctAfterNoDouble = 0.29,
+                LoseGammonPctAfterNoDouble = 0.09,
+                LoseBgPctAfterNoDouble = 0.003,
+                WinPctAfterDoubleTake = 0.72,
+                GammonPctAfterDoubleTake = 0.13,
+                BgPctAfterDoubleTake = 0.014,
+                LosePctAfterDoubleTake = 0.28,
+                LoseGammonPctAfterDoubleTake = 0.08,
+                LoseBgPctAfterDoubleTake = 0.002,
+                ProbOfOpponentErrorJustifyingDouble = 0.05,
+                UserDoubleError = 0.006,
+                UserTakeError = 0.0,
+                UserDoublerAction = CubeAction.Double,
+                UserTakerAction = CubeAction.Take,
+            },
+            Descriptive = new DescriptiveData
+            {
+                OnRollName = "Alice",
+                OpponentName = "Bob",
+                Title = "Pivotal decision",
+                MatchLength = 11,
+                Date = new DateOnly(2026, 4, 16),
+                Event = "Club championship",
+                SourceFile = "mochy-falafel.xg",
+                Game = 3,
+                MoveNumber = 17,
+                IsStandardStart = true,
+                Comment = "Blitz or prime?",
+                Flagged = true,
+            },
+        };
+    }
 
     private static int[] MakeDistinctMop()
     {
