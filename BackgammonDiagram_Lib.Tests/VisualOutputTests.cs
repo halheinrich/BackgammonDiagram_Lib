@@ -41,7 +41,7 @@ public class VisualOutputTests
     [Fact]
     public void Svg_ProblemBoardOnly()
     {
-        // The halheinrich/backgammon#41 board-only canvas, as amended by #98:
+        // The halheinrich/backgammon#41 board-only canvas, as amended by halheinrich/backgammon#98:
         // the board proper alone — no blank panel field and no title strip.
         // Same request as Svg_ProblemMode (plus a position number and source
         // file, which a panel-bearing preset would put in the strip) for a

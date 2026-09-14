@@ -8,7 +8,7 @@ namespace BackgammonDiagram_Lib.Tests;
 /// <summary>
 /// Renderer-geometry tests for <see cref="AspectPreset.BoardOnly"/> — the
 /// Problem-mode board-only canvas (halheinrich/backgammon#41 producer leg,
-/// amended by #98). Pins the three contracts the preset introduces: the canvas
+/// amended by halheinrich/backgammon#98). Pins the three contracts the preset introduces: the canvas
 /// is the board proper alone — no panel allocation and no title strip;
 /// RenderSvg and GetHitRegions agree on that canvas (every hit region lands on
 /// the board); and the crop is crop-only — board geometry is identical to the
