@@ -99,7 +99,7 @@ public class HitRegionsTests
     [Fact]
     public void GetHitRegions_TallStackTopCheckerStaysInsideHitRect()
     {
-        // Regression for dogfooding finding #4: a point with a full
+        // Regression for dogfooding finding 4: a point with a full
         // MaxStackCheckers-high stack draws its topmost checker beyond the
         // triangle, so a triangle-only hit rect left it unclickable (couldn't
         // play e.g. 6/5 off a 6-stack on point 6). Pin render/hit agreement by
@@ -254,8 +254,8 @@ public class HitRegionsTests
     [Fact]
     public void GetHitRegions_DiceRegionCoversBothDrawnDice()
     {
-        // Producer step 1 of finding #2 (clickable dice). Pin draw/hit
-        // agreement the way the finding-#4 checker test does: derive the dice
+        // Producer step 1 of finding 2 (clickable dice). Pin draw/hit
+        // agreement the way the finding-4 checker test does: derive the dice
         // geometry from the SAME shared source AppendDice draws from
         // (DiagramRenderer.DicePairBounds) rather than hand-copying the formula,
         // then assert the Dice hit-region is exactly that bounding box (shifted

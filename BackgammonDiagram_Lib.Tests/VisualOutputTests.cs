@@ -1,4 +1,4 @@
-﻿using BackgammonDiagram_Lib.Rendering;
+using BackgammonDiagram_Lib.Rendering;
 using BackgammonDiagram_Lib.ExportRaster;
 using BgDataTypes_Lib;
 using QuestPDF.Infrastructure;

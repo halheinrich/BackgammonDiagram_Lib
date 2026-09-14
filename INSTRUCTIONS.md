@@ -285,9 +285,10 @@ rails say the same thing even though the label itself is per-player.
 
   `null` means **the source did not stamp the fact**, never "off" — this
   renderer serves surfaces whose producers may legitimately not carry it, so
-  an unstamped money position keeps the bare pre-#143 label. It degrades; it
-  never guesses (halheinrich/backgammon#143), mirroring the
-  tolerate-don't-reject register of `PositionData.IsJacoby` itself.
+  an unstamped money position keeps the bare label from before
+  halheinrich/backgammon#143. It degrades; it never guesses
+  (halheinrich/backgammon#143), mirroring the tolerate-don't-reject register
+  of `PositionData.IsJacoby` itself.
 
 The fact only reaches the renderer because the Builder carries it — see the
 full-copy invariant under `DiagramRequest.Builder`.
@@ -793,13 +794,13 @@ to supply their own palette.
   computes each checker's centre Y inline (`base ± i·2·CheckerRadius`), and
   `HitRegionsTests` hand-copies that same formula to pin render/hit
   agreement. The stack *bound* is now single-sourced
-  (`BoardLayout.MaxStackCheckers` / `MaxStackHeight`, the finding-#4 fix),
+  (`BoardLayout.MaxStackCheckers` / `MaxStackHeight`, the finding-4 fix),
   but the per-index position formula remains duplicated — so the test
   cross-checks against a copy rather than the real method, and the two
   could drift. Expose a `BoardLayout`-level checker-centre helper (e.g.
   `CheckerCentreY(stackIndex, bottomHalf, baseY)`) that both
   `AppendCheckerStack` and the test call. Small encapsulation cleanup; do at
-  the next touch. Surfaced in the #4 hit-region fix review.
+  the next touch. Surfaced in the finding-4 hit-region fix review.
 - Defensive-copy paragraph polish in this doc: after the Pass C edit that
   relocated the CubeOwner-default sentence, the paragraph's remaining tail
   (the `BoardHitRegions.Points` exposure sentence) is topically

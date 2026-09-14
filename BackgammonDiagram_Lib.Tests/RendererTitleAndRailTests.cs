@@ -237,7 +237,7 @@ public class RendererTitleAndRailTests
     {
         // null is "the source did not stamp it", never "off" — the renderer
         // serves surfaces whose producers may legitimately not carry the fact,
-        // so it degrades to the pre-#143 label rather than guessing a rule.
+        // so it degrades to the label from before halheinrich/backgammon#143 rather than guessing a rule.
         var b = TestFixtures.MinimalBuilder();
         b.OnRollName = "Alice";
         b.OpponentName = "Bob";

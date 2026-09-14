@@ -163,7 +163,7 @@ public class BearOffTests
     [Fact]
     public void GetHitRegions_EmptyOnRollTray_DoesNotOverlapCubeSlots()
     {
-        // Mirror of the finding-#4 overlap guard, for the tray now drawn at 0
+        // Mirror of the finding-4 overlap guard, for the tray now drawn at 0
         // off. The on-roll tray occupies its half of the left rail — the band
         // between the centered-cube slot and the on-roll player's turned-cube
         // slot — and must abut, not overlap, either neighbour. (It necessarily

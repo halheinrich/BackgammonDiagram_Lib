@@ -684,7 +684,7 @@ public static class DiagramRenderer
     /// Single source of truth for dice placement: <see cref="AppendDice"/> draws
     /// from it and <see cref="GetHitRegions"/> sizes the dice hit-region from
     /// <see cref="Bounds"/>, so the hit region can never drift from the drawn
-    /// dice (cf. the point-stack draw/hit drift behind finding #4).
+    /// dice (cf. the point-stack draw/hit drift behind finding 4).
     /// </summary>
     internal readonly record struct DicePairGeometry(double D1X, double D2X, double Y, double Size, double Rx)
     {
