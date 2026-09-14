@@ -49,6 +49,7 @@ public class DiagramRequestFactoryTests
 
         Assert.Equal(data.Decision.IsCube, req.Decision.IsCube);
         Assert.Equal(data.Decision.Dice, req.Decision.Dice);
+        Assert.Equal(data.Decision.Plays, req.Decision.Plays);
         Assert.Equal(data.Decision.CubeDepth, req.Decision.CubeDepth);
         Assert.Equal(data.Decision.CubeDepthAbbreviation, req.Decision.CubeDepthAbbreviation);
         Assert.Equal(data.Decision.CubeDepthRank, req.Decision.CubeDepthRank);
@@ -218,6 +219,7 @@ public class DiagramRequestFactoryTests
         Assert.Equal(original.Position.OnRollNeeds, rebuilt.Position.OnRollNeeds);
         Assert.Equal(original.Position.CubeSize, rebuilt.Position.CubeSize);
         Assert.Equal(original.Position.CubeOwner, rebuilt.Position.CubeOwner);
+        Assert.Equal(original.Position.IsCrawford, rebuilt.Position.IsCrawford);
 
         // Decision — spot check the fields most likely to drift
         Assert.Equal(original.Decision.IsCube, rebuilt.Decision.IsCube);
@@ -311,6 +313,24 @@ public class DiagramRequestFactoryTests
 
         Assert.Equal(xgid, problem.Xgid);
         Assert.Equal(xgid, solution.Xgid);
+    }
+
+    // -----------------------------------------------------------------------
+    //  Fixture contract
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Guards the naive fix that flattens a fixture to satisfy the Crawford
+    /// rule: were IsCrawford or IsCube default in every fixture, the tests
+    /// above would compare default with default and pass on a dropped mapping.
+    /// </summary>
+    [Fact]
+    public void Fixtures_TogetherCarryIsCrawfordAndIsCube()
+    {
+        var fixtures = Enum.GetValues<DecisionFixture>().Select(FullyPopulatedData).ToList();
+
+        Assert.Contains(fixtures, f => f.Position.IsCrawford);
+        Assert.Contains(fixtures, f => f.Decision.IsCube);
     }
 
     // -----------------------------------------------------------------------
