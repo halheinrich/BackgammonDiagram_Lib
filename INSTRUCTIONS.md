@@ -53,69 +53,66 @@ Test-only:
   outside the umbrella checkout will not have the sibling submodule path
   available.
 
-## Directory tree
+## Layout
 
-```
-BackgammonDiagram_Lib.slnx
-Directory.Build.props         — repo-wide build policy (TFM, nullable, warnings-as-errors, doc file)
-Directory.Packages.props
-BackgammonDiagram_Lib/                    (core — native-free)
-  BackgammonDiagram_Lib.csproj
-  CubeLabels.cs               — public static: the wording of a cube answer (SSOT)
-  Watermarks.cs               — public static Watermarks.Default byte[] accessor
-  Assets/
-    board-watermark.png       — pre-baked transparent watermark (EmbeddedResource, SSOT)
-  Models/
-    BoardHitRegions.cs        — point/bar/cube/tray hit regions
-    DiagramOptions.cs         — record: Size, WatermarkImage, Theme, Aspect, ShowXgid
-    DiagramRequest.cs         — immutable class + inner Builder
-    DiagramRequestExtensions.cs
-    DiagramSize.cs
-    Enums.cs                  — DiagramMode, PanelPosition, DiagramSizePreset
-    MathUtils.cs
-  Rendering/
-    BoardLayout.cs            — internal geometry derived from CheckerRadius
-    DiagramRenderer.cs        — SVG entry points (RenderSvg, GetHitRegions)
-  Themes/
-    CustomTheme.cs            — public: caller-supplied palette
-    DefaultTheme.cs           — internal ITheme impl (reached via ThemeRegistry.Default)
-    GreyscaleTheme.cs         — internal ITheme impl (reached via ThemeRegistry.Greyscale)
-    ITheme.cs
-    ThemeRegistry.cs          — static Default / Greyscale
-BackgammonDiagram_Lib.ExportRaster/       (raster/export — native deps)
-  BackgammonDiagram_Lib.ExportRaster.csproj
-  DiagramRasterRenderer.cs    — public entry points (RenderPng/Pdf/Pptx)
-  Rendering/
-    ISvgRasterizer.cs         — PNG backend abstraction
-    PdfBuilder.cs             — internal, QuestPDF-based
-    PptxBuilder.cs            — internal, OpenXml-based
-    SkiaSharpRasterizer.cs    — internal default ISvgRasterizer implementation
-BackgammonDiagram_Lib.Tests/              (refs core + ExportRaster)
-  BackgammonDiagram_Lib.Tests.csproj
-  BearOffTests.cs
-  BoardLayoutTests.cs
-  BuilderFieldCarriageTests.cs  — guard: Builder carries every record field
-  ColourSchemeTests.cs
-  CoreNativeFreeTests.cs        — guard: core references no native package
-  DecisionDataDiagramTests.cs
-  DiagramRequestBuilderTests.cs
-  DiagramRequestFactoryTests.cs
-  DualPlayMarkerTests.cs
-  HitRegionsTests.cs
-  PptxConformanceTests.cs
-  PptxSizingTests.cs
-  RealFileCheckerDecisionTests.cs
-  RealFileCubeDecisionTests.cs
-  RendererPanelContentTests.cs
-  RendererPlayPanelTests.cs
-  RendererTitleAndRailTests.cs
-  SvgStructureTests.cs
-  TestFixtures.cs
-  TestPaths.cs
-  VisualOutputTests.cs
-  WatermarksTests.cs            — incl. Default_MatchesPreBakedBytes (byte pin)
-  XgidLabelTests.cs
-```
+Three projects under `BackgammonDiagram_Lib.slnx`, governed by repo-root
+`Directory.Build.props` (TFM, nullable, implicit usings,
+`TreatWarningsAsErrors`, XML doc generation) and `Directory.Packages.props`
+(Central Package Management — no inline `Version=` anywhere). Two of them
+ship; the split between those two is the native-free core invariant (see
+Architecture).
+
+**`BackgammonDiagram_Lib/`** — the core: native-free, SVG only, and what
+WebAssembly / SVG-only consumers reference. It declares itself
+trim-compatible and runs the trim analyzer in its own build; its csproj
+states why. Four areas:
+
+- **Rendering** — `Rendering/`: `DiagramRenderer`, the SVG entry points
+  (`RenderSvg`, `GetHitRegions`) and every drawing rule behind them —
+  board, checkers, dice, cube, watermark placement, title strip, rail text,
+  both analysis panels; and `BoardLayout`, the internal geometry, every
+  constant derived from `CheckerRadius`.
+- **The request and options model** — `Models/`, whose types sit in the
+  root `BackgammonDiagram_Lib` namespace rather than a `.Models` one:
+  `DiagramRequest` (immutable and validated, built through its nested
+  `Builder`) and `DiagramRequestExtensions` (`ToProblemSolutionPair`);
+  `DiagramOptions` with the `AspectPreset` canvas enum beside it;
+  `DiagramSize`; the remaining display enums in `Enums.cs`
+  (`DiagramMode`, `CandidateOrdering`, `PanelPosition`,
+  `DiagramSizePreset`); `BoardHitRegions` — the viewBox and the point,
+  bar, cube, tray and dice rectangles — with the `SvgViewBox` and
+  `HitRect` records it is expressed in; and the internal `MathUtils`.
+- **Themes** — `Themes/`: `ITheme`, the palette contract; `ThemeRegistry`,
+  which exposes the two internal built-ins (`DefaultTheme`,
+  `GreyscaleTheme`) only as `ITheme`; and `CustomTheme`, the public
+  caller-supplied palette.
+- **Single sources at the root** — `CubeLabels` (the wording of every cube
+  answer), `SvgFormat` (invariant number formatting for SVG attributes),
+  and `Watermarks`, the loader for `Assets/board-watermark.png`, the
+  pre-baked watermark shipped as an `EmbeddedResource`.
+
+**`BackgammonDiagram_Lib.ExportRaster/`** — the raster/export sibling. It
+owns every native package (Svg.Skia and, through it, SkiaSharp; QuestPDF;
+DocumentFormat.OpenXml) and references core; nothing in core references
+it, and no WebAssembly client ships it, so it is not trim-analyzed.
+`DiagramRasterRenderer` is the public entry point (PNG / PDF / PPTX);
+`Rendering/` holds the public backend seam `ISvgRasterizer` with its
+internal default `SkiaSharpRasterizer`, and the internal packagers
+`PdfBuilder` (QuestPDF) and `PptxBuilder` (OpenXml). Every type sits in the
+`BackgammonDiagram_Lib.ExportRaster` namespace, `Rendering/` included.
+
+**`BackgammonDiagram_Lib.Tests/`** — xUnit, not packable. References both
+shipped projects, `BgDataTypes_Lib`, and — test-only — `ConvertXgToJson_Lib`
+(see "Depends on"). One class per surface or behaviour area: the
+renderer's facets, the request builder and factory, hit regions, themes,
+labels and formatting, the export formats. Three guards enforce invariants
+this doc states: `CoreNativeFreeTests` (core references no native
+package), `BuilderFieldCarriageTests` (the Builder carries every record
+field and every renderer-specific field), and
+`WatermarksTests.Default_MatchesPreBakedBytes` (the watermark's exact
+bytes). `TestFixtures` holds the shared minimal builders; `TestPaths`
+resolves the umbrella's `TestData/`, which the real-file and visual tests
+read and write — see "TestData" below.
 
 ## Architecture
 
