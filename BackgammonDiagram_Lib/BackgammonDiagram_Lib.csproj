@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Framework / nullable / warnings-as-errors / doc-file policy is hoisted to
        the repo-root Directory.Build.props. -->
@@ -7,6 +7,21 @@
        (SkiaSharp, Svg.Skia, QuestPDF, DocumentFormat.OpenXml). All raster/export
        work lives in the BackgammonDiagram_Lib.ExportRaster sibling. The
        CoreNativeFreeTests guard test enforces this at build time. -->
+
+  <!-- This library's half of the trim gate (halheinrich/backgammon#197):
+       BgQuiz's WebAssembly client ships this assembly and its publish runs
+       trim analysis with warnings as errors, so the assembly declares itself
+       trim-compatible and runs the trim analyzer in its own build — a
+       trim-unsafe construct becomes a build error *here* (TreatWarningsAsErrors)
+       in the change that introduces it, not a publish-time finding in BgQuiz.
+       Per-project deliberately: the test project is not a shipped surface, and
+       the BackgammonDiagram_Lib.ExportRaster sibling stays out too — it owns
+       the native packages, so no WebAssembly client ships it. -->
+  <PropertyGroup>
+    <IsTrimmable>true</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\BgDataTypes_Lib\BgDataTypes_Lib\BgDataTypes_Lib.csproj" />
   </ItemGroup>
