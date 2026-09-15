@@ -16,7 +16,8 @@
        in the change that introduces it, not a publish-time finding in BgQuiz.
        Per-project deliberately: the test project is not a shipped surface, and
        the BackgammonDiagram_Lib.ExportRaster sibling stays out too — it owns
-       the native packages, so no WebAssembly client ships it. -->
+       the native packages, so no WebAssembly client ships it. IsTrimmable is
+       pinned by CoreTrimPostureTests. -->
   <PropertyGroup>
     <IsTrimmable>true</IsTrimmable>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
