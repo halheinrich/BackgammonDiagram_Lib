@@ -528,7 +528,7 @@ These three sections (PNG / PDF / PPTX) all live in the
 ### Hit regions
 
 `DiagramRenderer.GetHitRegions(DiagramRequest, DiagramOptions)` returns a
-`BoardHitRegions` with point, bar, cube, and tray rectangles. The
+`BoardHitRegions` with point, bar, cube, tray, and dice rectangles. The
 `DiagramRequest` is required (not just `DiagramOptions`) because
 `HomeBoardOnRight` controls the orientation mapping.
 
