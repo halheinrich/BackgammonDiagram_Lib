@@ -524,8 +524,7 @@ public static class DiagramRenderer
         string railBg = Darken(theme.BoardColor, 0.1);
         string railText = ContrastText(railBg);
 
-        sb.AppendLine($"""  <text x="{F(railX + 8)}" y="{F(cy)}" dominant-baseline="central" font-family="sans-serif" font-size="12" fill="{railText}">{Escape(topName)}</text>""");
-        sb.AppendLine($"""  <text x="{F(railX + railWidth - 8)}" y="{F(cy)}" dominant-baseline="central" text-anchor="end" font-family="sans-serif" font-size="12" fill="{railText}">{Escape(topPip)}</text>""");
+        AppendRailLabels(sb, railX, railWidth, cy, railText, topName, topPip);
     }
 
     private static void AppendBottomRail(StringBuilder sb, BoardLayout layout, ITheme theme, double bx,
@@ -545,8 +544,47 @@ public static class DiagramRenderer
         string railBg = Darken(theme.BoardColor, 0.1);
         string railText = ContrastText(railBg);
 
-        sb.AppendLine($"""  <text x="{F(railX + 8)}" y="{F(cy)}" dominant-baseline="central" font-family="sans-serif" font-size="12" fill="{railText}">{Escape(bottomName)}</text>""");
-        sb.AppendLine($"""  <text x="{F(railX + railWidth - 8)}" y="{F(cy)}" dominant-baseline="central" text-anchor="end" font-family="sans-serif" font-size="12" fill="{railText}">{Escape(bottomPip)}</text>""");
+        AppendRailLabels(sb, railX, railWidth, cy, railText, bottomName, bottomPip);
+    }
+
+    /// <summary>
+    /// Inset, in px, of both rail labels from their rail's ends: the player
+    /// label's left edge sits this far in from the rail's left end, the pip
+    /// label's right edge this far in from its right end.
+    /// </summary>
+    internal const double RailLabelInset = 8;
+
+    /// <summary>Font size of both rail labels, in px.</summary>
+    internal const double RailLabelFontSize = 12;
+
+    /// <summary>
+    /// Emits one rail's two labels, vertically centred on
+    /// <paramref name="cy"/>: the player label left-anchored at the rail's
+    /// left end and the pip label right-anchored at its right end, each
+    /// <see cref="RailLabelInset"/> in. The top and bottom rails differ only
+    /// in <paramref name="cy"/> and the texts.
+    /// </summary>
+    private static void AppendRailLabels(StringBuilder sb, double railX, double railWidth,
+        double cy, string fill, string playerLabel, string pipLabel)
+    {
+        AppendRailLabel(sb, railX + RailLabelInset, cy, anchorEnd: false, fill, playerLabel);
+        AppendRailLabel(sb, railX + railWidth - RailLabelInset, cy, anchorEnd: true, fill, pipLabel);
+    }
+
+    /// <summary>
+    /// Emits one rail label — the one place a rail <c>&lt;text&gt;</c> is
+    /// written, so its family, size and weight are stated once. Both rail
+    /// labels, the player label and the pip count, are bold on every surface
+    /// (halheinrich/backgammon#229): unconditional, because a per-surface
+    /// switch would be a second copy of a presentation rule.
+    /// <paramref name="anchorEnd"/> right-anchors the text at
+    /// <paramref name="x"/>; otherwise it starts there.
+    /// </summary>
+    private static void AppendRailLabel(StringBuilder sb, double x, double cy,
+        bool anchorEnd, string fill, string text)
+    {
+        string anchor = anchorEnd ? """ text-anchor="end" """ : " ";
+        sb.AppendLine($"""  <text x="{F(x)}" y="{F(cy)}" dominant-baseline="central"{anchor}font-family="sans-serif" font-size="{F(RailLabelFontSize)}" font-weight="bold" fill="{fill}">{Escape(text)}</text>""");
     }
 
     // -----------------------------------------------------------------------
@@ -1127,85 +1165,11 @@ public static class DiagramRenderer
     /// </summary>
     internal const double PlayPanelColumnGapEm = 1.5;
 
-    /// <summary>
-    /// Advance widths, in em, of every character the play panel's measured
-    /// columns can show: digits, <c>+ - _ / * ( ) .</c> and space, every
-    /// letter of the producer's depth grammar (<c>R</c>, <c>B</c>, <c>p</c>,
-    /// and the words <c>ply</c>, <c>Red</c>, <c>Book</c>, <c>Ro</c> and the
-    /// <c>level-</c> fallback), the column-header letters, and the letters of
-    /// <c>bar</c> / <c>off</c>. SVG built server-side cannot measure text,
-    /// so <see cref="EstimatePlayPanelTextWidth"/> sums these instead.
-    /// <para>
-    /// Source: Adobe's published Helvetica metrics (the Core 14
-    /// <c>Helvetica.afm</c>, widths per 1000 units of em); Arial is
-    /// metric-compatible with Helvetica, so the same numbers serve both. The
-    /// oblique and bold cuts give the same widths for the digits and
-    /// punctuation the italic and bold numeric cells use.
-    /// </para>
-    /// </summary>
-    private static readonly FrozenDictionary<char, double> PlayPanelGlyphAdvanceEm =
-        new Dictionary<char, double>
-        {
-            ['0'] = 0.556, ['1'] = 0.556, ['2'] = 0.556, ['3'] = 0.556, ['4'] = 0.556,
-            ['5'] = 0.556, ['6'] = 0.556, ['7'] = 0.556, ['8'] = 0.556, ['9'] = 0.556,
-            [' '] = 0.278, ['+'] = 0.584, ['-'] = 0.333, ['_'] = 0.556, ['/'] = 0.278,
-            ['*'] = 0.389, ['('] = 0.333, [')'] = 0.333, ['.'] = 0.278,
-            ['B'] = 0.667, ['D'] = 0.722, ['E'] = 0.667, ['L'] = 0.556, ['R'] = 0.722,
-            ['a'] = 0.556, ['b'] = 0.556, ['d'] = 0.556, ['e'] = 0.556, ['f'] = 0.278,
-            ['h'] = 0.556, ['i'] = 0.222, ['k'] = 0.500, ['l'] = 0.222, ['o'] = 0.556,
-            ['p'] = 0.556, ['q'] = 0.556, ['r'] = 0.333, ['s'] = 0.500, ['t'] = 0.278,
-            ['u'] = 0.556, ['v'] = 0.500, ['y'] = 0.500,
-        }.ToFrozenDictionary();
-
-    /// <summary>
-    /// The advance charged to a character absent from
-    /// <see cref="PlayPanelGlyphAdvanceEm"/>: the widest width in it, so an
-    /// unknown glyph errs wide.
-    /// </summary>
-    private static readonly double PlayPanelWidestGlyphAdvanceEm =
-        PlayPanelGlyphAdvanceEm.Values.Max();
-
-    /// <summary>
-    /// Multiplier applied on top of the summed Helvetica/Arial advances. The
-    /// SVG asks for generic <c>sans-serif</c>, which is Arial or Helvetica in
-    /// the browsers on Windows and macOS but can resolve to a wider face
-    /// elsewhere (DejaVu Sans is the usual example). The 10% is an assumed
-    /// margin for that, not a measurement.
-    /// <para>
-    /// The one measured data point (2026-09-21, one Windows 11 machine): the
-    /// raster export path — Svg.Skia 3.6.0 over SkiaSharp 2.88.9 — resolves
-    /// <c>sans-serif</c> to Segoe UI (its render pixel-identical to an explicit
-    /// Segoe UI one, not to Arial). Segoe UI's widths at 14 px for the panel's
-    /// strings sit within about 2% of Arial's: <c>Depth</c> +1.8%,
-    /// <c>24/21 13/10</c> +1.6%, <c>R++p20736</c> +0.4%, <c>+0.5000</c> −1.3%.
-    /// No DejaVu-class face was available to measure.
-    /// </para>
-    /// </summary>
-    internal const double PlayPanelTextWidthSafetyFactor = 1.10;
-
     // Column-header words. Named once because each is both emitted and
     // measured (the headers take part in their columns' width estimates).
     internal const string PlayPanelEquityHeader = "Equity";
     internal const string PlayPanelLossHeader   = "Eq Loss";
     internal const string PlayPanelDepthHeader  = "Depth";
-
-    /// <summary>
-    /// Estimated rendered width of <paramref name="text"/> at
-    /// <paramref name="fontSize"/>: the summed advances from
-    /// <see cref="PlayPanelGlyphAdvanceEm"/> (an unlisted character charged
-    /// the widest), times <see cref="PlayPanelTextWidthSafetyFactor"/>. The
-    /// one owner of text-width estimation in the play panel — the depth,
-    /// move-text and Equity estimates all come from here. Linear in
-    /// <paramref name="fontSize"/>, so a size of 1 gives the width per unit
-    /// of font size.
-    /// </summary>
-    internal static double EstimatePlayPanelTextWidth(string text, double fontSize)
-    {
-        double em = 0;
-        foreach (char c in text)
-            em += PlayPanelGlyphAdvanceEm.GetValueOrDefault(c, PlayPanelWidestGlyphAdvanceEm);
-        return em * fontSize * PlayPanelTextWidthSafetyFactor;
-    }
 
     /// <summary>
     /// Render the checker-play candidate list. One line per visible play, in
@@ -1382,7 +1346,8 @@ public static class DiagramRenderer
     /// Depth) hangs off a move-text reservation — the distance from the move
     /// text's left edge to the Equity column's right edge — rather than the
     /// panel's right edge. Two estimated widths govern it
-    /// (<see cref="EstimatePlayPanelTextWidth"/>):
+    /// (<see cref="EstimateTextWidth"/>, each cell at the weight it is
+    /// emitted in):
     /// <list type="bullet">
     /// <item><description><em>room</em> — the reservation that ends the Depth
     /// column (its widest cell, header included) exactly at the panel's right
@@ -1423,17 +1388,19 @@ public static class DiagramRenderer
     private static PlayPanelColumns LayOutPlayPanelColumns(double px, double pw,
         IReadOnlyList<PlayCandidate> plays, List<int> sequence)
     {
-        // Widths per unit of font size (EstimatePlayPanelTextWidth is linear
-        // in the size): the widest cell each measured column shows.
-        double depthPerSize  = EstimatePlayPanelTextWidth(PlayPanelDepthHeader, 1);
-        double equityPerSize = EstimatePlayPanelTextWidth(PlayPanelEquityHeader, 1);
+        // Widths per unit of font size (EstimateTextWidth is linear in the
+        // size): the widest cell each measured column shows, each at the
+        // weight AppendPlayPanel emits it in — the headers, move text and
+        // Depth regular, the Equity values bold.
+        double depthPerSize  = EstimateTextWidth(PlayPanelDepthHeader, 1, TextWeight.Regular);
+        double equityPerSize = EstimateTextWidth(PlayPanelEquityHeader, 1, TextWeight.Regular);
         double movePerSize   = 0;
         foreach (int idx in sequence)
         {
             var play = plays[idx];
-            depthPerSize  = Math.Max(depthPerSize, EstimatePlayPanelTextWidth(play.DepthAbbreviation, 1));
-            equityPerSize = Math.Max(equityPerSize, EstimatePlayPanelTextWidth(FormatEquity(play.Equity), 1));
-            movePerSize   = Math.Max(movePerSize, EstimatePlayPanelTextWidth(play.MoveNotation, 1));
+            depthPerSize  = Math.Max(depthPerSize, EstimateTextWidth(play.DepthAbbreviation, 1, TextWeight.Regular));
+            equityPerSize = Math.Max(equityPerSize, EstimateTextWidth(FormatEquity(play.Equity), 1, TextWeight.Bold));
+            movePerSize   = Math.Max(movePerSize, EstimateTextWidth(play.MoveNotation, 1, TextWeight.Regular));
         }
         double equityCellPerSize = PlayPanelColumnGapEm + equityPerSize;
         double floorPerSize      = movePerSize + equityCellPerSize;
@@ -1823,6 +1790,153 @@ public static class DiagramRenderer
     private static string FormatEquityLoss(double loss)
     {
         return loss.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    // -----------------------------------------------------------------------
+    //  Text-width estimation
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// The two font weights this renderer emits text in, as far as its width
+    /// estimate is concerned: no <c>font-weight</c> attribute, or
+    /// <c>font-weight="bold"</c>. Selects the advance table
+    /// <see cref="EstimateTextWidth"/> sums.
+    /// </summary>
+    internal enum TextWeight
+    {
+        /// <summary>Normal weight — no <c>font-weight</c> attribute.</summary>
+        Regular,
+        /// <summary><c>font-weight="bold"</c>.</summary>
+        Bold,
+    }
+
+    /// <summary>
+    /// Advance widths, in em, of the printable ASCII characters
+    /// (<c>U+0020</c>–<c>U+007E</c>) at normal weight. SVG built server-side
+    /// cannot measure text, so <see cref="EstimateTextWidth"/> sums these
+    /// instead.
+    /// <para>
+    /// Source: Adobe's published Helvetica metrics (the Core 14
+    /// <c>Helvetica.afm</c>, widths per 1000 units of em); Arial is
+    /// metric-compatible with Helvetica, so the same numbers serve both. The
+    /// apostrophe and backtick take the ASCII glyphs' widths
+    /// (<c>quotesingle</c>, <c>grave</c>), not the typographic quotes Adobe's
+    /// standard encoding puts at those codes. The oblique cut has the same
+    /// widths, so italic text is measured here too.
+    /// </para>
+    /// </summary>
+    private static readonly FrozenDictionary<char, double> HelveticaAdvanceEm =
+        new Dictionary<char, double>
+        {
+            [' '] = 0.278, ['!'] = 0.278, ['"'] = 0.355, ['#'] = 0.556, ['$'] = 0.556,
+            ['%'] = 0.889, ['&'] = 0.667, ['\''] = 0.191, ['('] = 0.333, [')'] = 0.333,
+            ['*'] = 0.389, ['+'] = 0.584, [','] = 0.278, ['-'] = 0.333, ['.'] = 0.278,
+            ['/'] = 0.278,
+            ['0'] = 0.556, ['1'] = 0.556, ['2'] = 0.556, ['3'] = 0.556, ['4'] = 0.556,
+            ['5'] = 0.556, ['6'] = 0.556, ['7'] = 0.556, ['8'] = 0.556, ['9'] = 0.556,
+            [':'] = 0.278, [';'] = 0.278, ['<'] = 0.584, ['='] = 0.584, ['>'] = 0.584,
+            ['?'] = 0.556, ['@'] = 1.015,
+            ['A'] = 0.667, ['B'] = 0.667, ['C'] = 0.722, ['D'] = 0.722, ['E'] = 0.667,
+            ['F'] = 0.611, ['G'] = 0.778, ['H'] = 0.722, ['I'] = 0.278, ['J'] = 0.500,
+            ['K'] = 0.667, ['L'] = 0.556, ['M'] = 0.833, ['N'] = 0.722, ['O'] = 0.778,
+            ['P'] = 0.667, ['Q'] = 0.778, ['R'] = 0.722, ['S'] = 0.667, ['T'] = 0.611,
+            ['U'] = 0.722, ['V'] = 0.667, ['W'] = 0.944, ['X'] = 0.667, ['Y'] = 0.667,
+            ['Z'] = 0.611,
+            ['['] = 0.278, ['\\'] = 0.278, [']'] = 0.278, ['^'] = 0.469, ['_'] = 0.556,
+            ['`'] = 0.333,
+            ['a'] = 0.556, ['b'] = 0.556, ['c'] = 0.500, ['d'] = 0.556, ['e'] = 0.556,
+            ['f'] = 0.278, ['g'] = 0.556, ['h'] = 0.556, ['i'] = 0.222, ['j'] = 0.222,
+            ['k'] = 0.500, ['l'] = 0.222, ['m'] = 0.833, ['n'] = 0.556, ['o'] = 0.556,
+            ['p'] = 0.556, ['q'] = 0.556, ['r'] = 0.333, ['s'] = 0.500, ['t'] = 0.278,
+            ['u'] = 0.556, ['v'] = 0.500, ['w'] = 0.722, ['x'] = 0.500, ['y'] = 0.500,
+            ['z'] = 0.500,
+            ['{'] = 0.334, ['|'] = 0.260, ['}'] = 0.334, ['~'] = 0.584,
+        }.ToFrozenDictionary();
+
+    /// <summary>
+    /// Advance widths, in em, of the printable ASCII characters
+    /// (<c>U+0020</c>–<c>U+007E</c>) at bold weight — the bold counterpart of
+    /// <see cref="HelveticaAdvanceEm"/>, from the Core 14
+    /// <c>Helvetica-Bold.afm</c> on the same terms. Bold widens most letters
+    /// (<c>i</c> 0.222 → 0.278, <c>m</c> 0.833 → 0.889); the digits and the
+    /// <c>+ - .</c> the numeric cells use keep their widths.
+    /// </summary>
+    private static readonly FrozenDictionary<char, double> HelveticaBoldAdvanceEm =
+        new Dictionary<char, double>
+        {
+            [' '] = 0.278, ['!'] = 0.333, ['"'] = 0.474, ['#'] = 0.556, ['$'] = 0.556,
+            ['%'] = 0.889, ['&'] = 0.722, ['\''] = 0.238, ['('] = 0.333, [')'] = 0.333,
+            ['*'] = 0.389, ['+'] = 0.584, [','] = 0.278, ['-'] = 0.333, ['.'] = 0.278,
+            ['/'] = 0.278,
+            ['0'] = 0.556, ['1'] = 0.556, ['2'] = 0.556, ['3'] = 0.556, ['4'] = 0.556,
+            ['5'] = 0.556, ['6'] = 0.556, ['7'] = 0.556, ['8'] = 0.556, ['9'] = 0.556,
+            [':'] = 0.333, [';'] = 0.333, ['<'] = 0.584, ['='] = 0.584, ['>'] = 0.584,
+            ['?'] = 0.611, ['@'] = 0.975,
+            ['A'] = 0.722, ['B'] = 0.722, ['C'] = 0.722, ['D'] = 0.722, ['E'] = 0.667,
+            ['F'] = 0.611, ['G'] = 0.778, ['H'] = 0.722, ['I'] = 0.278, ['J'] = 0.556,
+            ['K'] = 0.722, ['L'] = 0.611, ['M'] = 0.833, ['N'] = 0.722, ['O'] = 0.778,
+            ['P'] = 0.667, ['Q'] = 0.778, ['R'] = 0.722, ['S'] = 0.667, ['T'] = 0.611,
+            ['U'] = 0.722, ['V'] = 0.667, ['W'] = 0.944, ['X'] = 0.667, ['Y'] = 0.667,
+            ['Z'] = 0.611,
+            ['['] = 0.333, ['\\'] = 0.278, [']'] = 0.333, ['^'] = 0.584, ['_'] = 0.556,
+            ['`'] = 0.333,
+            ['a'] = 0.556, ['b'] = 0.611, ['c'] = 0.556, ['d'] = 0.611, ['e'] = 0.556,
+            ['f'] = 0.333, ['g'] = 0.611, ['h'] = 0.611, ['i'] = 0.278, ['j'] = 0.278,
+            ['k'] = 0.556, ['l'] = 0.278, ['m'] = 0.889, ['n'] = 0.611, ['o'] = 0.611,
+            ['p'] = 0.611, ['q'] = 0.611, ['r'] = 0.389, ['s'] = 0.556, ['t'] = 0.333,
+            ['u'] = 0.611, ['v'] = 0.556, ['w'] = 0.778, ['x'] = 0.556, ['y'] = 0.556,
+            ['z'] = 0.500,
+            ['{'] = 0.389, ['|'] = 0.280, ['}'] = 0.389, ['~'] = 0.584,
+        }.ToFrozenDictionary();
+
+    // The advance charged to a character absent from a table (anything
+    // outside printable ASCII): the widest width in that table, so an
+    // unknown glyph errs wide.
+    private static readonly double HelveticaWidestAdvanceEm = HelveticaAdvanceEm.Values.Max();
+    private static readonly double HelveticaBoldWidestAdvanceEm = HelveticaBoldAdvanceEm.Values.Max();
+
+    /// <summary>
+    /// Multiplier applied on top of the summed Helvetica/Arial advances. The
+    /// SVG asks for generic <c>sans-serif</c>, which is Arial or Helvetica in
+    /// the browsers on Windows and macOS but can resolve to a wider face
+    /// elsewhere (DejaVu Sans is the usual example). The 10% is an assumed
+    /// margin for that, not a measurement.
+    /// <para>
+    /// The one measured data point (2026-09-21, one Windows 11 machine): the
+    /// raster export path — Svg.Skia 3.6.0 over SkiaSharp 2.88.9 — resolves
+    /// <c>sans-serif</c> to Segoe UI (its render pixel-identical to an explicit
+    /// Segoe UI one, not to Arial). Segoe UI's widths at 14 px for the play
+    /// panel's strings sit within about 2% of Arial's: <c>Depth</c> +1.8%,
+    /// <c>24/21 13/10</c> +1.6%, <c>R++p20736</c> +0.4%, <c>+0.5000</c> −1.3%.
+    /// No DejaVu-class face was available to measure.
+    /// </para>
+    /// </summary>
+    internal const double TextWidthSafetyFactor = 1.10;
+
+    /// <summary>
+    /// Estimated rendered width of <paramref name="text"/> at
+    /// <paramref name="fontSize"/> and <paramref name="weight"/>: the summed
+    /// advances from <see cref="HelveticaAdvanceEm"/> or
+    /// <see cref="HelveticaBoldAdvanceEm"/> (a character outside printable
+    /// ASCII charged that table's widest), times
+    /// <see cref="TextWidthSafetyFactor"/>. The one owner of text-width
+    /// estimation in this renderer — the play panel's column layout and the
+    /// rail-label fit both measure through it. Linear in
+    /// <paramref name="fontSize"/>, so a size of 1 gives the width per unit
+    /// of font size.
+    /// </summary>
+    internal static double EstimateTextWidth(string text, double fontSize, TextWeight weight)
+    {
+        var (advances, widest) = weight switch
+        {
+            TextWeight.Regular => (HelveticaAdvanceEm, HelveticaWidestAdvanceEm),
+            TextWeight.Bold    => (HelveticaBoldAdvanceEm, HelveticaBoldWidestAdvanceEm),
+            _ => throw new ArgumentOutOfRangeException(nameof(weight), weight, null),
+        };
+        double em = 0;
+        foreach (char c in text)
+            em += advances.GetValueOrDefault(c, widest);
+        return em * fontSize * TextWidthSafetyFactor;
     }
 
     // -----------------------------------------------------------------------

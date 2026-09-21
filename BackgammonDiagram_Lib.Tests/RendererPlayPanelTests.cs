@@ -147,7 +147,8 @@ public class RendererPlayPanelTests
         // derived from the renderer's constants, not pasted.
         var (px, pw) = Panel(svg, request);
         double depthX = px + pw - DiagramRenderer.PanelMargin
-                        - DiagramRenderer.EstimatePlayPanelTextWidth("3p1296", DiagramRenderer.PlayPanelFontSize);
+                        - DiagramRenderer.EstimateTextWidth("3p1296", DiagramRenderer.PlayPanelFontSize,
+                                                            DiagramRenderer.TextWeight.Regular);
         double lossX = depthX - DiagramRenderer.PlayPanelFontSize * DiagramRenderer.PlayPanelColumnGapEm;
         double equityX = lossX - DiagramRenderer.PlayPanelFontSize * DiagramRenderer.PlayPanelLossColumnEm;
         string depthAt = Regex.Escape(SvgFormat.Number(depthX));
@@ -374,8 +375,9 @@ public class RendererPlayPanelTests
     private const double GapEm = DiagramRenderer.PlayPanelColumnGapEm;
     private const double LossEm = DiagramRenderer.PlayPanelLossColumnEm;
 
-    private static double Width(string text, double size) =>
-        DiagramRenderer.EstimatePlayPanelTextWidth(text, size);
+    private static double Width(string text, double size,
+        DiagramRenderer.TextWeight weight = DiagramRenderer.TextWeight.Regular) =>
+        DiagramRenderer.EstimateTextWidth(text, size, weight);
 
     /// <summary>The Equity column's texts: its header and every play's
     /// value, formatted as the renderer formats them.</summary>
@@ -385,8 +387,13 @@ public class RendererPlayPanelTests
                          + p.Equity.ToString("F4", System.Globalization.CultureInfo.InvariantCulture))
             .Append(DiagramRenderer.PlayPanelEquityHeader);
 
+    // Each cell at the weight it is emitted in: the header regular, the
+    // values bold.
     private static double WidestEquityCell(DiagramRequest request, double size) =>
-        EquityCells(request).Max(t => Width(t, size));
+        EquityCells(request).Max(t => Width(t, size,
+            t == DiagramRenderer.PlayPanelEquityHeader
+                ? DiagramRenderer.TextWeight.Regular
+                : DiagramRenderer.TextWeight.Bold));
 
     private static double LongestMove(DiagramRequest request, double size) =>
         request.Decision.Plays.Max(p => Width(p.MoveNotation, size));
@@ -441,13 +448,20 @@ public class RendererPlayPanelTests
         return request;
     }
 
-    [Fact]
-    public void TextWidthEstimate_UnknownGlyph_ChargedTheWidestKnownGlyph()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TextWidthEstimate_UnknownGlyph_ChargedTheWidestKnownGlyph(bool bold)
     {
-        // Every character class the table lists; '§' is in none of them.
-        const string known = "0123456789 +-_/*().BDELRabdefhikloprqstuvy";
-        double widestKnown = known.Max(c => Width(c.ToString(), FullSize));
-        Assert.Equal(widestKnown, Width("§", FullSize));
+        var weight = bold ? DiagramRenderer.TextWeight.Bold : DiagramRenderer.TextWeight.Regular;
+        // The tables list printable ASCII, U+0020 to U+007E; '§' is outside it.
+        var known = Enumerable.Range(0x20, 0x7F - 0x20).Select(c => (char)c).ToList();
+        double widestKnown = known.Max(c => Width(c.ToString(), FullSize, weight));
+        Assert.Equal(widestKnown, Width("§", FullSize, weight));
+        // Exactly one ASCII character ('@', in both weights) measures the
+        // widest — so none is missing from the table, since a missing one
+        // would be charged the widest too.
+        Assert.Single(known, c => Width(c.ToString(), FullSize, weight) == widestKnown);
     }
 
     [Theory]

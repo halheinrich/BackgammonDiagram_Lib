@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using BackgammonDiagram_Lib.Rendering;
 using Xunit;
 
@@ -286,6 +287,123 @@ public class RendererTitleAndRailTests
     }
 
     // -----------------------------------------------------------------------
+    //  Rail labels — weight, anchors, positions, fit (halheinrich/backgammon#229)
+    // -----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(PanelPosition.Left)]
+    [InlineData(PanelPosition.Right)]
+    public void RailLabels_AllFourAreBold_AtTheirAnchorsAndPositions(PanelPosition side)
+    {
+        var b = TestFixtures.MinimalBuilder();
+        b.OnRollName = "Alice";
+        b.OpponentName = "Bob";
+        b.MatchLength = 7;
+        b.OnRollNeeds = 3;
+        b.OpponentNeeds = 5;
+        b.AnalysisPanelPosition = side;
+        var request = b.Build();
+        // Natural: the intrinsic panel width, so the board's x offset derives
+        // from BoardLayout alone.
+        var svg = DiagramRenderer.RenderSvg(request, new DiagramOptions { Aspect = AspectPreset.Natural });
+
+        // Board-local coordinates (the board sits in the title strip's
+        // translate group). The rails run between the side rails.
+        var layout = BoardLayout.Default;
+        double railX = layout.BoardOffsetX(side == PanelPosition.Left) + layout.LeftRailWidth;
+        double railWidth = layout.BoardWidth - layout.LeftRailWidth - layout.RightRailWidth;
+        double nameX = railX + DiagramRenderer.RailLabelInset;
+        double pipX = railX + railWidth - DiagramRenderer.RailLabelInset;
+        double topY = layout.TopRailHeight / 2;
+        double bottomY = layout.BottomRailY + layout.BottomRailHeight / 2;
+
+        // On roll at bottom: the bottom rail carries the on-roll player.
+        Assert.True(request.OnRollAtBottom);
+        AssertRailLabel(svg, "Bob needs 5", nameX, topY, anchorEnd: false);
+        AssertRailLabel(svg, $"Pip: {request.Position.OpponentPipCount}", pipX, topY, anchorEnd: true);
+        AssertRailLabel(svg, "Alice needs 3", nameX, bottomY, anchorEnd: false);
+        AssertRailLabel(svg, $"Pip: {request.Position.OnRollPipCount}", pipX, bottomY, anchorEnd: true);
+    }
+
+    [Fact]
+    public void RailLabels_BoldIsSpeltOnce_InTheOneRailTextEmitter()
+    {
+        // A survey of the renderer's source: the rails' only <text> markup is
+        // AppendRailLabel's, so the weight (and family and size) is written
+        // once. A rail method that emitted its own <text> would be a second
+        // copy of the presentation rule.
+        string source = File.ReadAllText(RendererSourcePath());
+
+        foreach (string caller in new[] { "AppendTopRail", "AppendBottomRail", "AppendRailLabels" })
+        {
+            string body = MethodBody(source, caller);
+            Assert.DoesNotContain("<text", body);
+            Assert.DoesNotContain("font-weight", body);
+        }
+
+        string emitter = MethodBody(source, "AppendRailLabel");
+        Assert.Equal(1, TestFixtures.CountOccurrences(emitter, "<text"));
+        Assert.Equal(1, TestFixtures.CountOccurrences(emitter, """font-weight="bold" """));
+    }
+
+    /// <summary>
+    /// The longest labels the rail carries: a long real name with the
+    /// Crawford suffix, and the same name with the longest money-game text;
+    /// the pip label at the largest possible count (15 checkers on the bar).
+    /// </summary>
+    public static TheoryData<AspectPreset, int> RailFitCases()
+    {
+        var data = new TheoryData<AspectPreset, int>();
+        foreach (var preset in Enum.GetValues<AspectPreset>())
+        {
+            data.Add(preset, 11);  // match: "... needs 11 Crawford"
+            data.Add(preset, 0);   // money: "... (Money Game, No Jacoby)"
+        }
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(RailFitCases))]
+    public void RailLabels_LongestPlayerLabel_DoesNotReachThePipLabel(AspectPreset preset, int matchLength)
+    {
+        const string longName = "Mochizuki Masayuki";
+        const int maxPip = 375;
+        var b = TestFixtures.MinimalBuilder();
+        b.OnRollName = longName;
+        b.OpponentName = longName;
+        b.MatchLength = matchLength;
+        b.OnRollNeeds = 11;
+        b.OpponentNeeds = 11;
+        b.IsCrawford = matchLength > 0;
+        b.IsJacoby = false;
+        b.OnRollPipCount = maxPip;
+        b.OpponentPipCount = maxPip;
+        var svg = DiagramRenderer.RenderSvg(b.Build(), new DiagramOptions { Aspect = preset });
+
+        string playerLabel = matchLength > 0
+            ? $"{longName} needs 11 Crawford"
+            : $"{longName} (Money Game, No Jacoby)";
+        string pipLabel = $"Pip: {maxPip}";
+
+        var names = RailTexts(svg, playerLabel);
+        var pips = RailTexts(svg, pipLabel);
+        Assert.Equal(2, names.Count);
+        Assert.Equal(2, pips.Count);
+
+        double nameWidth = DiagramRenderer.EstimateTextWidth(
+            playerLabel, DiagramRenderer.RailLabelFontSize, DiagramRenderer.TextWeight.Bold);
+        double pipWidth = DiagramRenderer.EstimateTextWidth(
+            pipLabel, DiagramRenderer.RailLabelFontSize, DiagramRenderer.TextWeight.Bold);
+        for (int rail = 0; rail < 2; rail++)
+        {
+            double nameRight = Num(names[rail]["x"]) + nameWidth;
+            double pipLeft = Num(pips[rail]["x"]) - pipWidth;
+            Assert.True(nameRight < pipLeft,
+                $"{preset}: \"{playerLabel}\" ends at {nameRight:F2}, \"{pipLabel}\" starts at {pipLeft:F2}.");
+        }
+    }
+
+    // -----------------------------------------------------------------------
     //  Hit-region offset correctness when a title is present
     // -----------------------------------------------------------------------
 
@@ -312,6 +430,65 @@ public class RendererTitleAndRailTests
     // -----------------------------------------------------------------------
     //  Helpers
     // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Asserts the one rail <c>&lt;text&gt;</c> carrying <paramref name="content"/>:
+    /// bold, at today's family and size, vertically centred at
+    /// (<paramref name="x"/>, <paramref name="y"/>), right-anchored when
+    /// <paramref name="anchorEnd"/> and start-anchored (no attribute) otherwise.
+    /// </summary>
+    private static void AssertRailLabel(string svg, string content, double x, double y, bool anchorEnd)
+    {
+        var attrs = Assert.Single(RailTexts(svg, content));
+        Assert.Equal("bold", attrs["font-weight"]);
+        Assert.Equal("sans-serif", attrs["font-family"]);
+        Assert.Equal(SvgFormat.Number(DiagramRenderer.RailLabelFontSize), attrs["font-size"]);
+        Assert.Equal("central", attrs["dominant-baseline"]);
+        Assert.Equal(SvgFormat.Number(x), attrs["x"]);
+        Assert.Equal(SvgFormat.Number(y), attrs["y"]);
+        if (anchorEnd)
+            Assert.Equal("end", attrs["text-anchor"]);
+        else
+            Assert.False(attrs.ContainsKey("text-anchor"), $"\"{content}\" should be start-anchored.");
+    }
+
+    /// <summary>
+    /// The attributes of every <c>&lt;text&gt;</c> element whose content is
+    /// exactly <paramref name="content"/>, in document order.
+    /// </summary>
+    private static List<Dictionary<string, string>> RailTexts(string svg, string content) =>
+        Regex.Matches(svg, $"<text ([^>]*)>{Regex.Escape(content)}</text>")
+            .Select(m => Regex.Matches(m.Groups[1].Value, "([a-z-]+)=\"([^\"]*)\"")
+                .ToDictionary(a => a.Groups[1].Value, a => a.Groups[2].Value))
+            .ToList();
+
+    private static double Num(string x) =>
+        double.Parse(x, System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// The renderer's source file, reached from the test binary the way
+    /// <see cref="TestPaths"/> reaches TestData: bin/{config}/{tfm} is three
+    /// levels below this test project, which sits beside the library's.
+    /// </summary>
+    private static string RendererSourcePath()
+    {
+        string path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
+            "..", "..", "..", "..", "BackgammonDiagram_Lib", "Rendering", "DiagramRenderer.cs"));
+        Assert.True(File.Exists(path), $"Renderer source not found: {path}");
+        return path;
+    }
+
+    /// <summary>
+    /// The source of the <c>static void</c> method <paramref name="name"/>,
+    /// from its declaration to its closing brace at member indentation.
+    /// </summary>
+    private static string MethodBody(string source, string name)
+    {
+        var match = Regex.Match(source, $@"static void {Regex.Escape(name)}\(.*?\n    \}}\r?\n",
+            RegexOptions.Singleline);
+        Assert.True(match.Success, $"Method {name} not found in the renderer's source.");
+        return match.Value;
+    }
 
     /// <summary>Extracts the height component from <c>viewBox="0 0 W H"</c>.</summary>
     private static double ExtractViewBoxHeight(string svg)
