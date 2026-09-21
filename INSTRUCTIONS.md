@@ -304,6 +304,19 @@ Rendered in Solution mode only. Two shapes:
   - The Depth column renders `PlayCandidate.DepthAbbreviation`, not
     `PlayCandidate.Depth`. Rows with empty `DepthAbbreviation` omit the
     Depth cell entirely (the column header still renders).
+  - Column placement (halheinrich/backgammon#252). The numeric block
+    (Equity, Eq Loss, Depth) hangs off a move-text reservation of 15 em
+    rather than the panel's right edge, and the reservation yields only when
+    the Depth column would otherwise run past the panel's right edge less the
+    margin: then it is exactly the room left, never below a floor of the
+    longest move text + the column gap + the widest Equity cell. Where even
+    the floor does not fit, the reservation is the floor and the Depth column
+    overruns by the least amount. Widths are estimates — SVG built
+    server-side cannot measure text — from one owner,
+    `EstimatePlayPanelTextWidth`: a Helvetica/Arial advance-width table
+    times a 1.10 safety factor. On Natural and 4:3, where not even an empty
+    move text fits, the layout is left as it was: that pre-existing overflow
+    is halheinrich/backgammon#253's.
   - Bold `font-weight` on the Equity and Eq Loss **values** — the figures a
     reader scans the panel for. Their column headers, the rank and move-
     notation cells, and the Depth column all keep the normal weight; the

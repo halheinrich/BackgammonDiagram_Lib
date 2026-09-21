@@ -1,5 +1,6 @@
 using BgDataTypes_Lib;
 using BackgammonDiagram_Lib.Themes;
+using System.Collections.Frozen;
 using System.Numerics;
 using System.Text;
 
@@ -39,7 +40,9 @@ public static class DiagramRenderer
     // Play-panel layout constants. The cube panel has its own set below
     // because its content (Best/Actual banner + 4-row equity/loss table +
     // two 3-row pct tables + footer) is denser and visually unrelated.
-    private const double PanelMargin = 6;
+    // PanelMargin is internal so the play-panel layout tests derive the
+    // panel's right limit from it rather than pasting the number.
+    internal const double PanelMargin = 6;
     private const double PanelLineHeight = 13;
     private const double PanelFontSize = 9;
 
@@ -1065,9 +1068,114 @@ public static class DiagramRenderer
     // -----------------------------------------------------------------------
 
     // Play-panel layout constants. Matches the cube-panel type ramp for
-    // deck-wide visual consistency.
+    // deck-wide visual consistency. The horizontal ones are internal so the
+    // play-panel layout tests derive their expected anchors from them rather
+    // than pasting numbers.
     private const double PlayPanelLineHeight = 20;
-    private const double PlayPanelFontSize   = 14;
+    internal const double PlayPanelFontSize  = 14;
+
+    /// <summary>
+    /// The move-text reservation when the panel has room for it, in em: the
+    /// distance from the move text's left edge to the Equity column's right
+    /// edge. The numeric block sits just past this reservation rather than
+    /// pinned to the panel's right edge, so it stays close to the move
+    /// notation however wide the aspect preset stretches the panel. It yields
+    /// only when the Depth column would otherwise run past the panel — see
+    /// <see cref="PlayPanelMoveReserve"/>.
+    /// </summary>
+    internal const double PlayPanelMoveReserveEm = 15;
+
+    /// <summary>
+    /// Width of the Eq Loss column, in em: the distance from the Equity
+    /// column's right edge to the Eq Loss column's right edge (both
+    /// right-anchored).
+    /// </summary>
+    internal const double PlayPanelLossColumnEm = 4.5;
+
+    /// <summary>
+    /// Inter-column gap, in em: from the Eq Loss column's right edge to the
+    /// left-anchored Depth column, and the gap the move-reservation floor
+    /// keeps between the longest move text and the widest Equity value.
+    /// </summary>
+    internal const double PlayPanelColumnGapEm = 1.5;
+
+    /// <summary>
+    /// Advance widths, in em, of every character the play panel's measured
+    /// columns can show: digits, <c>+ - _ / * ( ) .</c> and space, every
+    /// letter of the producer's depth grammar (<c>R</c>, <c>B</c>, <c>p</c>,
+    /// and the words <c>ply</c>, <c>Red</c>, <c>Book</c>, <c>Ro</c> and the
+    /// <c>level-</c> fallback), the column-header letters, and the letters of
+    /// <c>bar</c> / <c>off</c>. SVG built server-side cannot measure text,
+    /// so <see cref="EstimatePlayPanelTextWidth"/> sums these instead.
+    /// <para>
+    /// Source: Adobe's published Helvetica metrics (the Core 14
+    /// <c>Helvetica.afm</c>, widths per 1000 units of em); Arial is
+    /// metric-compatible with Helvetica, so the same numbers serve both. The
+    /// oblique and bold cuts give the same widths for the digits and
+    /// punctuation the italic and bold numeric cells use.
+    /// </para>
+    /// </summary>
+    private static readonly FrozenDictionary<char, double> PlayPanelGlyphAdvanceEm =
+        new Dictionary<char, double>
+        {
+            ['0'] = 0.556, ['1'] = 0.556, ['2'] = 0.556, ['3'] = 0.556, ['4'] = 0.556,
+            ['5'] = 0.556, ['6'] = 0.556, ['7'] = 0.556, ['8'] = 0.556, ['9'] = 0.556,
+            [' '] = 0.278, ['+'] = 0.584, ['-'] = 0.333, ['_'] = 0.556, ['/'] = 0.278,
+            ['*'] = 0.389, ['('] = 0.333, [')'] = 0.333, ['.'] = 0.278,
+            ['B'] = 0.667, ['D'] = 0.722, ['E'] = 0.667, ['L'] = 0.556, ['R'] = 0.722,
+            ['a'] = 0.556, ['b'] = 0.556, ['d'] = 0.556, ['e'] = 0.556, ['f'] = 0.278,
+            ['h'] = 0.556, ['i'] = 0.222, ['k'] = 0.500, ['l'] = 0.222, ['o'] = 0.556,
+            ['p'] = 0.556, ['q'] = 0.556, ['r'] = 0.333, ['s'] = 0.500, ['t'] = 0.278,
+            ['u'] = 0.556, ['v'] = 0.500, ['y'] = 0.500,
+        }.ToFrozenDictionary();
+
+    /// <summary>
+    /// The advance charged to a character absent from
+    /// <see cref="PlayPanelGlyphAdvanceEm"/>: the widest width in it, so an
+    /// unknown glyph errs wide.
+    /// </summary>
+    private static readonly double PlayPanelWidestGlyphAdvanceEm =
+        PlayPanelGlyphAdvanceEm.Values.Max();
+
+    /// <summary>
+    /// Multiplier applied on top of the summed Helvetica/Arial advances. The
+    /// SVG asks for generic <c>sans-serif</c>, which is Arial or Helvetica in
+    /// the browsers on Windows and macOS but can resolve to a wider face
+    /// elsewhere (DejaVu Sans is the usual example). The 10% is an assumed
+    /// margin for that, not a measurement.
+    /// <para>
+    /// The one measured data point (2026-09-21, one Windows 11 machine): the
+    /// raster export path — Svg.Skia 3.6.0 over SkiaSharp 2.88.9 — resolves
+    /// <c>sans-serif</c> to Segoe UI (its render pixel-identical to an explicit
+    /// Segoe UI one, not to Arial). Segoe UI's widths at 14 px for the panel's
+    /// strings sit within about 2% of Arial's: <c>Depth</c> +1.8%,
+    /// <c>24/21 13/10</c> +1.6%, <c>R++p20736</c> +0.4%, <c>+0.5000</c> −1.3%.
+    /// No DejaVu-class face was available to measure.
+    /// </para>
+    /// </summary>
+    internal const double PlayPanelTextWidthSafetyFactor = 1.10;
+
+    // Column-header words. Named once because each is both emitted and
+    // measured (the headers take part in their columns' width estimates).
+    internal const string PlayPanelEquityHeader = "Equity";
+    internal const string PlayPanelLossHeader   = "Eq Loss";
+    internal const string PlayPanelDepthHeader  = "Depth";
+
+    /// <summary>
+    /// Estimated rendered width of <paramref name="text"/> at the play-panel
+    /// font size: the summed advances from
+    /// <see cref="PlayPanelGlyphAdvanceEm"/> (an unlisted character charged
+    /// the widest), times <see cref="PlayPanelTextWidthSafetyFactor"/>. The
+    /// one owner of text-width estimation in the play panel — the depth,
+    /// move-text and Equity estimates all come from here.
+    /// </summary>
+    internal static double EstimatePlayPanelTextWidth(string text)
+    {
+        double em = 0;
+        foreach (char c in text)
+            em += PlayPanelGlyphAdvanceEm.GetValueOrDefault(c, PlayPanelWidestGlyphAdvanceEm);
+        return em * PlayPanelFontSize * PlayPanelTextWidthSafetyFactor;
+    }
 
     /// <summary>
     /// Render the checker-play candidate list. One line per visible play, in
@@ -1089,34 +1197,10 @@ public static class DiagramRenderer
     private static void AppendPlayPanel(StringBuilder sb, double px, double pw, double ph,
         string textColor, string dimColor, DiagramRequest request)
     {
-        _ = pw;  // panel width not used — numeric block anchors to moveX instead.
         var plays = request.Decision.Plays;
         if (plays.Count == 0) return;
 
-        // Column x-anchors. Equity and Eq Loss sit just past a fixed move-text
-        // reservation rather than pinned to the panel's right edge, so the
-        // numeric block stays close to the move notation regardless of how
-        // wide the panel is stretched by the aspect preset.
-        double markerX = px + PanelMargin + 4;                     // "*" or blank
-        double rankX   = markerX + PlayPanelFontSize * 0.9;        // rank number
-        double moveX   = rankX   + PlayPanelFontSize * 2.2;        // move text (left-anchored)
-        double equityX = moveX   + PlayPanelFontSize * 15;         // equity right-edge
-        double lossX   = equityX + PlayPanelFontSize * 4.5;        // eq-loss right-edge
-        double depthX  = lossX   + PlayPanelFontSize * 1.5;        // depth left-edge
-
-        double y = PanelMargin;
-
-        // Column-header row — applies only when there are plays to label.
-        sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(y + PlayPanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">Equity</text>""");
-        sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + PlayPanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">Eq Loss</text>""");
-        sb.AppendLine($"""  <text x="{F(depthX)}" y="{F(y + PlayPanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">Depth</text>""");
-        y += PlayPanelLineHeight;
-
-        double rowBudget = ph - PanelMargin;
-
-        int fitCount = (int)Math.Max(0, (rowBudget - y) / PlayPanelLineHeight);
         int total = plays.Count;
-
         int userIndex = request.Decision.UserPlayIndex;
         int secondaryIndex = request.SecondaryPlayIndex;
 
@@ -1138,6 +1222,31 @@ public static class DiagramRenderer
         bool depthTreatmentActive =
             request.CandidateOrdering != CandidateOrdering.Equity
             || request.MaximumHiddenCandidateAnalysisLevel is not null;
+
+        // Column x-anchors. Equity and Eq Loss sit just past the move-text
+        // reservation rather than pinned to the panel's right edge, so the
+        // numeric block stays close to the move notation regardless of how
+        // wide the panel is stretched by the aspect preset; the reservation
+        // yields only when the Depth column would otherwise overrun the panel
+        // (see PlayPanelMoveReserve).
+        double markerX = px + PanelMargin + 4;                     // "*" or blank
+        double rankX   = markerX + PlayPanelFontSize * 0.9;        // rank number
+        double moveX   = rankX   + PlayPanelFontSize * 2.2;        // move text (left-anchored)
+        double equityX = moveX   + PlayPanelMoveReserve(px, pw, moveX, plays, sequence); // equity right-edge
+        double lossX   = equityX + PlayPanelFontSize * PlayPanelLossColumnEm;  // eq-loss right-edge
+        double depthX  = lossX   + PlayPanelFontSize * PlayPanelColumnGapEm;   // depth left-edge
+
+        double y = PanelMargin;
+
+        // Column-header row — applies only when there are plays to label.
+        sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(y + PlayPanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">{PlayPanelEquityHeader}</text>""");
+        sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + PlayPanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">{PlayPanelLossHeader}</text>""");
+        sb.AppendLine($"""  <text x="{F(depthX)}" y="{F(y + PlayPanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(PlayPanelFontSize)}" fill="{dimColor}">{PlayPanelDepthHeader}</text>""");
+        y += PlayPanelLineHeight;
+
+        double rowBudget = ph - PanelMargin;
+
+        int fitCount = (int)Math.Max(0, (rowBudget - y) / PlayPanelLineHeight);
 
         // Decide the visible index set. Normally the first
         // min(fitCount, sequence.Count) entries of the display sequence. Up to
@@ -1233,6 +1342,72 @@ public static class DiagramRenderer
 
             y += PlayPanelLineHeight;
         }
+    }
+
+    /// <summary>
+    /// The play panel's move-text reservation — the distance from the move
+    /// text's left edge (<paramref name="moveX"/>) to the Equity column's
+    /// right edge — for the plays <paramref name="sequence"/> shows.
+    /// <para>
+    /// The reservation yields only when it must: it is
+    /// <see cref="PlayPanelMoveReserveEm"/> unless that would carry the Depth
+    /// column past the panel's right edge less <see cref="PanelMargin"/>, in
+    /// which case it is exactly the room left there, and the whole numeric
+    /// block shifts left by the shortfall. The Depth column's width is the
+    /// estimated width of the longest of its header and the sequence's depth
+    /// abbreviations (<see cref="EstimatePlayPanelTextWidth"/>).
+    /// </para>
+    /// <para>
+    /// It never shrinks below a floor: the estimated width of the longest
+    /// move text shown, plus <see cref="PlayPanelColumnGapEm"/>, plus the
+    /// estimated width of the widest Equity cell (header or value) — Equity is
+    /// right-anchored at the reservation's end, so all three live inside it.
+    /// Where the room is below the floor the reservation is the floor: the
+    /// move text and Equity never collide, and the Depth column overruns by
+    /// the least amount possible (floor minus room) rather than by everything.
+    /// So the reservation is <c>min(full, max(room, floor))</c>.
+    /// </para>
+    /// <para>
+    /// Where not even an empty move text fits (the room is below the gap plus
+    /// the widest Equity cell), nothing can help: that is the narrow presets'
+    /// (<see cref="AspectPreset.Natural"/>, <see cref="AspectPreset.Standard4x3"/>)
+    /// pre-existing overflow, which halheinrich/backgammon#253 owns, and the
+    /// reservation stays at the full <see cref="PlayPanelMoveReserveEm"/> so
+    /// their output is exactly what it was before the reservation could yield.
+    /// </para>
+    /// </summary>
+    private static double PlayPanelMoveReserve(double px, double pw, double moveX,
+        IReadOnlyList<PlayCandidate> plays, List<int> sequence)
+    {
+        double fullReserve = PlayPanelFontSize * PlayPanelMoveReserveEm;
+        double gap = PlayPanelFontSize * PlayPanelColumnGapEm;
+
+        double depthWidth  = EstimatePlayPanelTextWidth(PlayPanelDepthHeader);
+        double equityWidth = EstimatePlayPanelTextWidth(PlayPanelEquityHeader);
+        double moveWidth   = 0;
+        foreach (int idx in sequence)
+        {
+            var play = plays[idx];
+            depthWidth  = Math.Max(depthWidth, EstimatePlayPanelTextWidth(play.DepthAbbreviation));
+            equityWidth = Math.Max(equityWidth, EstimatePlayPanelTextWidth(FormatEquity(play.Equity)));
+            moveWidth   = Math.Max(moveWidth, EstimatePlayPanelTextWidth(play.MoveNotation));
+        }
+
+        // The reservation that puts the Depth column's estimated right edge
+        // exactly at the panel's right edge less the margin.
+        double depthRightLimit = px + pw - PanelMargin;
+        double room = depthRightLimit - depthWidth - gap
+                      - PlayPanelFontSize * PlayPanelLossColumnEm - moveX;
+
+        // Not even an empty move text fits beside the numeric block: the
+        // narrow presets' pre-existing overflow (halheinrich/backgammon#253).
+        // Nothing here can help, so the layout stays exactly as it was.
+        double equityCell = gap + equityWidth;
+        if (room < equityCell)
+            return fullReserve;
+
+        double floor = moveWidth + equityCell;
+        return Math.Min(fullReserve, Math.Max(room, floor));
     }
 
     /// <summary>

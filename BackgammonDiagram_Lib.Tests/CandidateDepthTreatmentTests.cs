@@ -75,12 +75,16 @@ public class CandidateDepthTreatmentTests
     /// <summary>Depth-cell text of the row whose move notation is
     /// <paramref name="move"/>, paired through the shared row y-coordinate.
     /// The Depth column carries the italic attribute, so its cell pattern is
-    /// looser than the others.</summary>
+    /// looser than the others. The column's x is read off its rendered header
+    /// rather than fixed: the Depth column moves left when a long
+    /// abbreviation would overrun the panel (halheinrich/backgammon#252).</summary>
     private static string DepthOfMove(string svg, string move)
     {
         var row = MoveCell.Matches(svg).Single(m => m.Groups[2].Value == move);
+        var header = Regex.Match(svg,
+            $$"""<text x="([0-9.]+)" y="[0-9.]+" font-family="sans-serif" font-size="14"[^>]*>{{DiagramRenderer.PlayPanelDepthHeader}}</text>""");
         var depth = new Regex(
-            $$"""<text x="347\.4" y="{{Regex.Escape(row.Groups[1].Value)}}" """
+            $$"""<text x="{{Regex.Escape(header.Groups[1].Value)}}" y="{{Regex.Escape(row.Groups[1].Value)}}" """
             + """font-family="sans-serif" font-size="14"[^>]*>([^<]+)</text>""");
         return depth.Match(svg).Groups[1].Value;
     }
@@ -101,8 +105,12 @@ public class CandidateDepthTreatmentTests
     /// DepthRank values are the producer's live grid
     /// (halheinrich/backgammon#159): evaluations on a decade scale — a full
     /// N-ply ranks 10 × N and an interleaved level takes the midpoint
-    /// (3-ply Red 25, XG Roller 35, XG Roller+ 45, XG Roller++ 75) — book 99,
-    /// rollout 100 + inner ply. This fixture previously carried the flat
+    /// (3-ply Red 25, XG Roller 35, XG Roller+ 45, XG Roller++ 75) — book 99.
+    /// The rollout rows' ranks (103, 104) are synthetic: since
+    /// halheinrich/backgammon#251 the producer stamps a rollout
+    /// 100 + the inner level's evaluation rank (a 4-ply rollout ranks 140),
+    /// and these values are compared only by order, which they share with
+    /// the live grid. This fixture previously carried the flat
     /// scale that preceded halheinrich/backgammon#159
     /// (ply → N, Roller family → 20–22), which encoded the
     /// superseded plies-below-Rollers block order; its assertions survived the
@@ -485,8 +493,9 @@ public class CandidateDepthTreatmentTests
         b.CandidateOrdering = CandidateOrdering.DepthFirst;
         var svg = TestFixtures.Render(b.Build());
 
-        // The rollout anchor (rank 104) outranks every evaluation and heads
-        // the sorted list; the eleven ladder rows follow in contractual order.
+        // The rollout anchor outranks every evaluation (its rank is synthetic
+        // but, like the producer's rollout ranks, above every evaluation
+        // rank) and heads the sorted list; the eleven ladder rows follow in contractual order.
         Assert.Equal(
             [LadderAnchor, .. LevelLadder.Select(e => e.Level.ToString())],
             Moves(svg));
