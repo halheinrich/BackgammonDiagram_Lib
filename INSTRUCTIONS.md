@@ -266,6 +266,8 @@ preset.
 scores, the Crawford indicator, or the money-game label. Both players' labels
 are composed the same way: the Jacoby rule is a per-session fact, so both
 rails say the same thing even though the label itself is per-player.
+Both rail labels — the player label and `Pip: N` — are bold on every
+surface, emitted by the one helper `DiagramRenderer.AppendRailLabel`.
 
 - **Match play** (`Descriptive.MatchLength != 0`) — `{name} needs {n}`, plus
   ` Crawford` when `Position.IsCrawford`. A match record carrying a non-null
