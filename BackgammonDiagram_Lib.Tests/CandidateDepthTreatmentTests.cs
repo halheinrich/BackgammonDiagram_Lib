@@ -47,29 +47,33 @@ public class CandidateDepthTreatmentTests
 {
     private const string Dagger = "†";
 
-    // Cell regexes at the Medium-size play-panel anchors (see AppendPlayPanel
-    // and the sibling test classes): marker column bold at x=10, rank at
-    // x=22.6, move notation at x=53.4. Each captures the row's y so rows can
-    // be paired across columns.
+    // Play-row cell patterns. They are structural rather than pinned to
+    // anchors or a font size: the panel shrinks its font when its content is
+    // too wide (halheinrich/backgammon#252), which this file's ladder fixture
+    // — AnalysisLevel names as move text — is, and every column but the
+    // marker's moves with the size. The layout itself is pinned in
+    // RendererPlayPanelTests; this file pins order and labels. The marker
+    // column (bold, at the fixed inset x=10) does not move. Each play row
+    // emits its rank cell and then its move cell on the same y, so one
+    // pattern captures the row's y, rank and move together.
     private static readonly Regex MarkerCell = new(
-        """<text x="10" y="([0-9.]+)" font-family="sans-serif" font-size="14" font-weight="bold" fill="[^"]*">([^<]+)</text>""");
-    private static readonly Regex RankCell = new(
-        """<text x="22\.6" y="([0-9.]+)" font-family="sans-serif" font-size="14" fill="[^"]*">([0-9]+)</text>""");
-    private static readonly Regex MoveCell = new(
-        """<text x="53\.4" y="([0-9.]+)" font-family="sans-serif" font-size="14" fill="[^"]*">([^<]+)</text>""");
+        """<text x="10" y="([0-9.]+)" font-family="sans-serif" font-size="[0-9.]+" font-weight="bold" fill="[^"]*">([^<]+)</text>""");
+    private static readonly Regex RowCells = new(
+        """<text x="[0-9.]+" y="([0-9.]+)" font-family="sans-serif" font-size="[0-9.]+" fill="[^"]*">([0-9]+)</text>\s*"""
+        + """<text x="[0-9.]+" y="\1" font-family="sans-serif" font-size="[0-9.]+" fill="[^"]*">([^<]+)</text>""");
 
     private static List<string> Moves(string svg) =>
-        MoveCell.Matches(svg).Select(m => m.Groups[2].Value).ToList();
+        RowCells.Matches(svg).Select(m => m.Groups[3].Value).ToList();
 
     private static List<int> Ranks(string svg) =>
-        RankCell.Matches(svg).Select(m => int.Parse(m.Groups[2].Value)).ToList();
+        RowCells.Matches(svg).Select(m => int.Parse(m.Groups[2].Value)).ToList();
 
     /// <summary>Move notation of the row carrying <paramref name="marker"/>,
     /// paired through the shared row y-coordinate.</summary>
     private static string MoveOfMarker(string svg, string marker)
     {
         var mark = MarkerCell.Matches(svg).Single(m => m.Groups[2].Value == marker);
-        return MoveCell.Matches(svg).Single(m => m.Groups[1].Value == mark.Groups[1].Value).Groups[2].Value;
+        return RowCells.Matches(svg).Single(m => m.Groups[1].Value == mark.Groups[1].Value).Groups[3].Value;
     }
 
     /// <summary>Depth-cell text of the row whose move notation is
@@ -80,12 +84,12 @@ public class CandidateDepthTreatmentTests
     /// abbreviation would overrun the panel (halheinrich/backgammon#252).</summary>
     private static string DepthOfMove(string svg, string move)
     {
-        var row = MoveCell.Matches(svg).Single(m => m.Groups[2].Value == move);
+        var row = RowCells.Matches(svg).Single(m => m.Groups[3].Value == move);
         var header = Regex.Match(svg,
-            $$"""<text x="([0-9.]+)" y="[0-9.]+" font-family="sans-serif" font-size="14"[^>]*>{{DiagramRenderer.PlayPanelDepthHeader}}</text>""");
+            $$"""<text x="([0-9.]+)" y="[0-9.]+" font-family="sans-serif" font-size="[0-9.]+"[^>]*>{{DiagramRenderer.PlayPanelDepthHeader}}</text>""");
         var depth = new Regex(
             $$"""<text x="{{Regex.Escape(header.Groups[1].Value)}}" y="{{Regex.Escape(row.Groups[1].Value)}}" """
-            + """font-family="sans-serif" font-size="14"[^>]*>([^<]+)</text>""");
+            + """font-family="sans-serif" font-size="[0-9.]+"[^>]*>([^<]+)</text>""");
         return depth.Match(svg).Groups[1].Value;
     }
 
@@ -93,7 +97,7 @@ public class CandidateDepthTreatmentTests
     private static int RankOfMarker(string svg, string marker)
     {
         var mark = MarkerCell.Matches(svg).Single(m => m.Groups[2].Value == marker);
-        return int.Parse(RankCell.Matches(svg).Single(m => m.Groups[1].Value == mark.Groups[1].Value).Groups[2].Value);
+        return int.Parse(RowCells.Matches(svg).Single(m => m.Groups[1].Value == mark.Groups[1].Value).Groups[2].Value);
     }
 
     /// <summary>

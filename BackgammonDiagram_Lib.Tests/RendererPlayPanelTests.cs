@@ -147,7 +147,7 @@ public class RendererPlayPanelTests
         // derived from the renderer's constants, not pasted.
         var (px, pw) = Panel(svg, request);
         double depthX = px + pw - DiagramRenderer.PanelMargin
-                        - DiagramRenderer.EstimatePlayPanelTextWidth("3p1296");
+                        - DiagramRenderer.EstimatePlayPanelTextWidth("3p1296", DiagramRenderer.PlayPanelFontSize);
         double lossX = depthX - DiagramRenderer.PlayPanelFontSize * DiagramRenderer.PlayPanelColumnGapEm;
         double equityX = lossX - DiagramRenderer.PlayPanelFontSize * DiagramRenderer.PlayPanelLossColumnEm;
         string depthAt = Regex.Escape(SvgFormat.Number(depthX));
@@ -252,8 +252,16 @@ public class RendererPlayPanelTests
     private const double RenderedRounding = 0.005;
 
     // A four-part move too long to fit beside a nine-character depth on 16:9
-    // even at the floor.
+    // at the full font size; it fits by shrinking.
     private const string FourPartMove = "24/20 13/9 8/4 6/2";
+
+    // The user's worst case (2026-09-22): four hits, too long to fit at the
+    // full size beside any depth.
+    private const string UserMove = "24/23* 23/22* 22/21* 21/20*";
+
+    // Synthetic, not a legal move: long enough that even the minimum font
+    // size cannot fit it beside a nine-character depth on 16:9.
+    private const string SyntheticMove = "24/23* 23/22* 22/21* 21/20* 20/19* 19/18*";
 
     /// <summary>A fixed three-play request. <paramref name="longDepth"/> puts
     /// the nine-character abbreviation on one play and an eight-character one
@@ -275,21 +283,19 @@ public class RendererPlayPanelTests
         return b.Build();
     }
 
-    /// <summary>One rendered text element: its x attribute (as emitted and
-    /// parsed), whether it is right-anchored, and its content.</summary>
-    private sealed record TextCell(string X, bool AnchorEnd, string Content)
-    {
-        public double XValue => double.Parse(X, System.Globalization.CultureInfo.InvariantCulture);
-    }
+    /// <summary>One rendered text element: its x attribute (as emitted),
+    /// whether it is right-anchored, its font-size attribute, and its
+    /// content.</summary>
+    private sealed record TextCell(string X, bool AnchorEnd, string FontSize, string Content);
 
     private static readonly Regex TextElement =
-        new("""<text x="([0-9.]+)" y="[0-9.]+"( text-anchor="end")?[^>]*>([^<]+)</text>""");
+        new("""<text x="([0-9.]+)" y="[0-9.]+"( text-anchor="end")? font-family="sans-serif" font-size="([0-9.]+)"[^>]*>([^<]+)</text>""");
 
     private static List<TextCell> Cells(string svg, IEnumerable<string> contents)
     {
         var wanted = contents.ToHashSet();
         return TextElement.Matches(svg)
-            .Select(m => new TextCell(m.Groups[1].Value, m.Groups[2].Success, m.Groups[3].Value))
+            .Select(m => new TextCell(m.Groups[1].Value, m.Groups[2].Success, m.Groups[3].Value, m.Groups[4].Value))
             .Where(c => wanted.Contains(c.Content))
             .ToList();
     }
@@ -305,13 +311,24 @@ public class RendererPlayPanelTests
         return (layout.PanelX(request.PanelOnLeft), layout.PanelWidth);
     }
 
-    /// <summary>The four column anchors as rendered, read off each column's
-    /// header, after asserting every cell of the column shares it and the
-    /// numeric columns stay right-anchored while Depth stays left-anchored.</summary>
-    private static (string MoveX, string EquityX, string LossX, string DepthX) Anchors(
-        string svg, DiagramRequest request)
+    /// <summary>The panel's rendered font size and four column anchors, as
+    /// emitted.</summary>
+    private sealed record RenderedColumns(string FontSize, string MoveX, string EquityX, string LossX, string DepthX);
+
+    /// <summary>The panel's font size and column anchors as rendered, read off
+    /// each column's header, after asserting every cell of the column shares
+    /// its anchor, the numeric columns stay right-anchored while Depth stays
+    /// left-anchored, and every cell — header row and play rows alike — is
+    /// set in one font size.</summary>
+    private static RenderedColumns Anchors(string svg, DiagramRequest request)
     {
         var plays = request.Decision.Plays;
+        var all = Cells(svg, plays.Select(p => p.MoveNotation)
+            .Concat(EquityCells(request))
+            .Append(DiagramRenderer.PlayPanelLossHeader)
+            .Concat(plays.Select(p => p.DepthAbbreviation))
+            .Append(DiagramRenderer.PlayPanelDepthHeader));
+        string fontSize = Assert.Single(all.Select(c => c.FontSize).Distinct());
 
         var move = Cells(svg, plays.Select(p => p.MoveNotation));
         Assert.Equal(plays.Count, move.Count);
@@ -335,7 +352,7 @@ public class RendererPlayPanelTests
         Assert.Single(depth.Select(c => c.X).Distinct());
         Assert.All(depth, c => Assert.False(c.AnchorEnd));
 
-        return (move[0].X, equity[0].X, loss[0].X, depth[0].X);
+        return new RenderedColumns(fontSize, move[0].X, equity[0].X, loss[0].X, depth[0].X);
     }
 
     /// <summary>The anchors the full move reservation produces, from the
@@ -353,7 +370,12 @@ public class RendererPlayPanelTests
     private static double Num(string x) =>
         double.Parse(x, System.Globalization.CultureInfo.InvariantCulture);
 
-    private static double Em(double em) => DiagramRenderer.PlayPanelFontSize * em;
+    private const double FullSize = DiagramRenderer.PlayPanelFontSize;
+    private const double GapEm = DiagramRenderer.PlayPanelColumnGapEm;
+    private const double LossEm = DiagramRenderer.PlayPanelLossColumnEm;
+
+    private static double Width(string text, double size) =>
+        DiagramRenderer.EstimatePlayPanelTextWidth(text, size);
 
     /// <summary>The Equity column's texts: its header and every play's
     /// value, formatted as the renderer formats them.</summary>
@@ -363,79 +385,148 @@ public class RendererPlayPanelTests
                          + p.Equity.ToString("F4", System.Globalization.CultureInfo.InvariantCulture))
             .Append(DiagramRenderer.PlayPanelEquityHeader);
 
-    private static double WidestEquityCell(DiagramRequest request) =>
-        EquityCells(request).Max(DiagramRenderer.EstimatePlayPanelTextWidth);
+    private static double WidestEquityCell(DiagramRequest request, double size) =>
+        EquityCells(request).Max(t => Width(t, size));
 
-    private static double LongestMove(DiagramRequest request) =>
-        request.Decision.Plays.Max(p => DiagramRenderer.EstimatePlayPanelTextWidth(p.MoveNotation));
+    private static double LongestMove(DiagramRequest request, double size) =>
+        request.Decision.Plays.Max(p => Width(p.MoveNotation, size));
 
-    /// <summary>The reservation's floor: longest move text, the column gap,
-    /// the widest Equity cell.</summary>
-    private static double Floor(DiagramRequest request) =>
-        LongestMove(request) + Em(DiagramRenderer.PlayPanelColumnGapEm) + WidestEquityCell(request);
+    private static double WidestDepthCell(DiagramRequest request, double size) =>
+        request.Decision.Plays.Select(p => p.DepthAbbreviation)
+            .Append(DiagramRenderer.PlayPanelDepthHeader)
+            .Max(t => Width(t, size));
+
+    /// <summary>The reservation's floor at <paramref name="size"/>: longest
+    /// move text, the column gap, the widest Equity cell.</summary>
+    private static double Floor(DiagramRequest request, double size) =>
+        LongestMove(request, size) + size * GapEm + WidestEquityCell(request, size);
+
+    /// <summary>The panel's right limit (its right edge less the margin) and
+    /// its marker column (left edge plus margin plus the fixed inset).</summary>
+    private static (double Limit, double MarkerX) Bounds(double px, double pw) =>
+        (px + pw - DiagramRenderer.PanelMargin,
+         px + DiagramRenderer.PanelMargin + DiagramRenderer.PlayPanelMarkerInset);
+
+    private static double MoveXAt(double markerX, double size) =>
+        markerX + size * (DiagramRenderer.PlayPanelRankOffsetEm + DiagramRenderer.PlayPanelMoveOffsetEm);
+
+    /// <summary>The reservation at <paramref name="size"/> that ends the Depth
+    /// column exactly at the panel's right limit.</summary>
+    private static double Room(DiagramRequest request, double px, double pw, double size)
+    {
+        var (limit, markerX) = Bounds(px, pw);
+        return limit - WidestDepthCell(request, size) - size * GapEm - size * LossEm - MoveXAt(markerX, size);
+    }
+
+    /// <summary>The spec's size: 14 when the floor fits in the room at 14;
+    /// otherwise the closed-form size at which floor equals room — the span
+    /// from the marker column to the right limit over the per-size sum of
+    /// every scaling term — clamped to the minimum.</summary>
+    private static double ExpectedSize(DiagramRequest request, double px, double pw)
+    {
+        if (Floor(request, FullSize) <= Room(request, px, pw, FullSize))
+            return FullSize;
+        var (limit, markerX) = Bounds(px, pw);
+        double perSize = DiagramRenderer.PlayPanelRankOffsetEm + DiagramRenderer.PlayPanelMoveOffsetEm
+                         + Floor(request, 1) + LossEm + GapEm + WidestDepthCell(request, 1);
+        return Math.Max(DiagramRenderer.PlayPanelMinimumFontSize, (limit - markerX) / perSize);
+    }
+
+    private static DiagramRequest WidescreenRequest(bool longDepth, PanelPosition side, string firstMove,
+        out string svg, out double px, out double pw)
+    {
+        var request = LayoutRequest(longDepth, side, firstMove);
+        svg = DiagramRenderer.RenderSvg(request, new DiagramOptions { Aspect = AspectPreset.Widescreen16x9 });
+        (px, pw) = Panel(svg, request);
+        return request;
+    }
 
     [Fact]
     public void TextWidthEstimate_UnknownGlyph_ChargedTheWidestKnownGlyph()
     {
         // Every character class the table lists; '§' is in none of them.
         const string known = "0123456789 +-_/*().BDELRabdefhikloprqstuvy";
-        double widestKnown = known.Max(c => DiagramRenderer.EstimatePlayPanelTextWidth(c.ToString()));
-        Assert.Equal(widestKnown, DiagramRenderer.EstimatePlayPanelTextWidth("§"));
+        double widestKnown = known.Max(c => Width(c.ToString(), FullSize));
+        Assert.Equal(widestKnown, Width("§", FullSize));
     }
 
     [Theory]
     [InlineData(PanelPosition.Left)]
     [InlineData(PanelPosition.Right)]
-    public void NineCharDepth_Widescreen_DepthColumnEndsInsidePanel(PanelPosition side)
+    public void NineCharDepth_Widescreen_FitsAt14_DepthColumnEndsAtTheLimit(PanelPosition side)
     {
-        var request = LayoutRequest(longDepth: true, side);
-        var options = new DiagramOptions { Aspect = AspectPreset.Widescreen16x9 };
-        var svg = DiagramRenderer.RenderSvg(request, options);
+        var request = WidescreenRequest(longDepth: true, side, "24/21 13/10", out var svg, out var px, out var pw);
+        var c = Anchors(svg, request);
+        var (limit, _) = Bounds(px, pw);
 
-        var (px, pw) = Panel(svg, request);
-        var (moveX, equityX, _, depthX) = Anchors(svg, request);
-        double limit = px + pw - DiagramRenderer.PanelMargin;
+        // It fits at the full size.
+        Assert.Equal(SvgFormat.Number(FullSize), c.FontSize);
 
         // The Depth column's estimated right edge is at or inside the limit —
         // and, the reservation having yielded, exactly at it: the numeric
         // block shifted left by the shortfall and no further.
-        double depthRight = Num(depthX) + DiagramRenderer.EstimatePlayPanelTextWidth(NineCharDepth);
+        double depthRight = Num(c.DepthX) + Width(NineCharDepth, FullSize);
         Assert.InRange(depthRight, limit - 2 * RenderedRounding, limit + RenderedRounding);
 
         // The reservation did yield, and not below its floor: the longest
         // move text, the column gap, and the widest Equity cell.
-        double reserve = Num(equityX) - Num(moveX);
-        double full = Em(DiagramRenderer.PlayPanelMoveReserveEm);
-        double floor = Floor(request);
+        double reserve = Num(c.EquityX) - Num(c.MoveX);
+        double full = FullSize * DiagramRenderer.PlayPanelMoveReserveEm;
+        double floor = Floor(request, FullSize);
         Assert.True(reserve < full, $"reservation {reserve} did not yield from {full}");
         Assert.True(reserve >= floor - 2 * RenderedRounding, $"reservation {reserve} below floor {floor}");
     }
 
     [Theory]
+    [InlineData(false, UserMove,     PanelPosition.Left)]
+    [InlineData(false, UserMove,     PanelPosition.Right)]
+    [InlineData(true,  UserMove,     PanelPosition.Left)]
+    [InlineData(true,  UserMove,     PanelPosition.Right)]
+    [InlineData(true,  FourPartMove, PanelPosition.Left)]
+    [InlineData(true,  FourPartMove, PanelPosition.Right)]
+    public void TooWideAt14_Widescreen_ShrinksToTheClosedFormSizeAndFits(bool longDepth, string firstMove, PanelPosition side)
+    {
+        var request = WidescreenRequest(longDepth, side, firstMove, out var svg, out var px, out var pw);
+        var c = Anchors(svg, request);
+        var (limit, _) = Bounds(px, pw);
+
+        // Precondition: the content does not fit at the full size.
+        Assert.True(Floor(request, FullSize) > Room(request, px, pw, FullSize), "fixture should not fit at 14");
+
+        // The size is the closed-form one, strictly inside the clamp.
+        double size = ExpectedSize(request, px, pw);
+        Assert.InRange(size, DiagramRenderer.PlayPanelMinimumFontSize, FullSize);
+        Assert.NotEqual(DiagramRenderer.PlayPanelMinimumFontSize, size);
+        Assert.InRange(Num(c.FontSize), size - RenderedRounding, size + RenderedRounding);
+
+        // At that size it fits: floor equals room, so the reservation is the
+        // floor and the Depth column ends at the right limit, not past it.
+        Assert.InRange(Num(c.EquityX) - Num(c.MoveX),
+            Floor(request, size) - 2 * RenderedRounding, Floor(request, size) + 2 * RenderedRounding);
+        double depthRight = Num(c.DepthX) + WidestDepthCell(request, size);
+        Assert.True(depthRight <= limit + 2 * RenderedRounding, $"depth ends at {depthRight}, past {limit}");
+    }
+
+    [Theory]
     [InlineData(PanelPosition.Left)]
     [InlineData(PanelPosition.Right)]
-    public void FourPartMove_NineCharDepth_Widescreen_ReservesExactlyTheFloor(PanelPosition side)
+    public void TooWideEvenAtMinimum_Widescreen_FloorWins_DepthOverrunsByFloorMinusRoom(PanelPosition side)
     {
-        // Where even the floor does not leave the Depth column inside the
-        // panel, the reservation is the floor: move text and Equity never
-        // collide, and the Depth column overruns by exactly floor minus room.
-        var request = LayoutRequest(longDepth: true, side, FourPartMove);
-        var svg = DiagramRenderer.RenderSvg(request, new DiagramOptions { Aspect = AspectPreset.Widescreen16x9 });
+        var request = WidescreenRequest(longDepth: true, side, SyntheticMove, out var svg, out var px, out var pw);
+        var c = Anchors(svg, request);
+        var (limit, _) = Bounds(px, pw);
+        const double min = DiagramRenderer.PlayPanelMinimumFontSize;
 
-        var (px, pw) = Panel(svg, request);
-        var (moveX, equityX, _, depthX) = Anchors(svg, request);
-        double limit = px + pw - DiagramRenderer.PanelMargin;
+        // Clamped at the minimum, where it still cannot fit.
+        Assert.Equal(SvgFormat.Number(min), c.FontSize);
+        double room = Room(request, px, pw, min);
+        double floor = Floor(request, min);
+        Assert.True(floor > room, $"fixture should not fit at the minimum: room {room}, floor {floor}");
 
-        double room = limit - DiagramRenderer.EstimatePlayPanelTextWidth(NineCharDepth)
-                      - Em(DiagramRenderer.PlayPanelColumnGapEm)
-                      - Em(DiagramRenderer.PlayPanelLossColumnEm)
-                      - Num(moveX);
-        double floor = Floor(request);
-        Assert.True(room < floor, $"fixture should not fit: room {room}, floor {floor}");
-
-        Assert.InRange(Num(equityX) - Num(moveX), floor - 2 * RenderedRounding, floor + 2 * RenderedRounding);
-
-        double overrun = Num(depthX) + DiagramRenderer.EstimatePlayPanelTextWidth(NineCharDepth) - limit;
+        // The floor wins over the cap: move text and Equity do not collide,
+        // and the Depth column overruns by exactly floor minus room.
+        Assert.InRange(Num(c.EquityX) - Num(c.MoveX), floor - 2 * RenderedRounding, floor + 2 * RenderedRounding);
+        double overrun = Num(c.DepthX) + WidestDepthCell(request, min) - limit;
         Assert.InRange(overrun, floor - room - 3 * RenderedRounding, floor - room + 3 * RenderedRounding);
     }
 
@@ -448,14 +539,21 @@ public class RendererPlayPanelTests
     [InlineData(false, FourPartMove,  PanelPosition.Right)]
     [InlineData(true,  FourPartMove,  PanelPosition.Left)]
     [InlineData(true,  FourPartMove,  PanelPosition.Right)]
+    [InlineData(false, UserMove,      PanelPosition.Left)]
+    [InlineData(false, UserMove,      PanelPosition.Right)]
+    [InlineData(true,  UserMove,      PanelPosition.Left)]
+    [InlineData(true,  UserMove,      PanelPosition.Right)]
+    [InlineData(true,  SyntheticMove, PanelPosition.Left)]
+    [InlineData(true,  SyntheticMove, PanelPosition.Right)]
     public void Widescreen_EquityNeverPrecedesMoveTextPlusGap(bool longDepth, string firstMove, PanelPosition side)
     {
-        var request = LayoutRequest(longDepth, side, firstMove);
-        var svg = DiagramRenderer.RenderSvg(request, new DiagramOptions { Aspect = AspectPreset.Widescreen16x9 });
-        var (moveX, equityX, _, _) = Anchors(svg, request);
+        // At every size — full, shrunk, or clamped at the minimum.
+        var request = WidescreenRequest(longDepth, side, firstMove, out var svg, out var px, out var pw);
+        var c = Anchors(svg, request);
+        double size = ExpectedSize(request, px, pw);
 
-        double equityLeft = Num(equityX) - WidestEquityCell(request);
-        double moveRightPlusGap = Num(moveX) + LongestMove(request) + Em(DiagramRenderer.PlayPanelColumnGapEm);
+        double equityLeft = Num(c.EquityX) - WidestEquityCell(request, size);
+        double moveRightPlusGap = Num(c.MoveX) + LongestMove(request, size) + size * GapEm;
         Assert.True(equityLeft >= moveRightPlusGap - 2 * RenderedRounding,
             $"equity left edge {equityLeft} precedes move right edge plus gap {moveRightPlusGap}");
     }
@@ -465,13 +563,14 @@ public class RendererPlayPanelTests
     [InlineData(PanelPosition.Right)]
     public void ShortDepths_Widescreen_AnchorsAreTheFullReservation(PanelPosition side)
     {
-        // Behaviour-neutral pin: with room to spare the reservation does not
-        // yield, so every anchor is what the fixed reservation always gave.
-        var request = LayoutRequest(longDepth: false, side);
-        var svg = DiagramRenderer.RenderSvg(request, new DiagramOptions { Aspect = AspectPreset.Widescreen16x9 });
+        // Behaviour-neutral pin: with room to spare nothing yields or shrinks,
+        // so the size is 14 and every anchor is what the fixed reservation
+        // always gave.
+        var request = WidescreenRequest(longDepth: false, side, "24/21 13/10", out var svg, out _, out _);
 
-        var (moveX, equityX, lossX, depthX) = Anchors(svg, request);
-        Assert.Equal(FullReservationAnchors(moveX), (equityX, lossX, depthX));
+        var c = Anchors(svg, request);
+        Assert.Equal(SvgFormat.Number(FullSize), c.FontSize);
+        Assert.Equal(FullReservationAnchors(c.MoveX), (c.EquityX, c.LossX, c.DepthX));
     }
 
     [Theory]
@@ -489,7 +588,8 @@ public class RendererPlayPanelTests
         var request = LayoutRequest(longDepth, PanelPosition.Left);
         var svg = DiagramRenderer.RenderSvg(request, new DiagramOptions { Aspect = aspect });
 
-        var (moveX, equityX, lossX, depthX) = Anchors(svg, request);
-        Assert.Equal(FullReservationAnchors(moveX), (equityX, lossX, depthX));
+        var c = Anchors(svg, request);
+        Assert.Equal(SvgFormat.Number(FullSize), c.FontSize);
+        Assert.Equal(FullReservationAnchors(c.MoveX), (c.EquityX, c.LossX, c.DepthX));
     }
 }
