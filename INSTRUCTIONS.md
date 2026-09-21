@@ -327,8 +327,10 @@ Rendered in Solution mode only. Two shapes:
 
     All three are `reserve = max(floor, min(15 em, room))` at the chosen
     size. Widths are estimates — SVG built server-side cannot measure text —
-    from one owner, `EstimatePlayPanelTextWidth`: a Helvetica/Arial
-    advance-width table times a 1.10 safety factor. On Natural and 4:3,
+    from one owner, `EstimateTextWidth`: Helvetica/Arial advance-width
+    tables for regular and bold (each cell measured at the weight it is
+    drawn in) times a 1.10 safety factor. The same estimator serves the
+    rail labels' fit check (halheinrich/backgammon#229). On Natural and 4:3,
     where not even an empty move text fits at 14, none of this applies and
     the layout is left as it was: that pre-existing overflow is
     halheinrich/backgammon#253's.

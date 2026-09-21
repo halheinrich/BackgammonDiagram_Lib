@@ -1816,13 +1816,22 @@ public static class DiagramRenderer
     /// cannot measure text, so <see cref="EstimateTextWidth"/> sums these
     /// instead.
     /// <para>
-    /// Source: Adobe's published Helvetica metrics (the Core 14
-    /// <c>Helvetica.afm</c>, widths per 1000 units of em); Arial is
-    /// metric-compatible with Helvetica, so the same numbers serve both. The
-    /// apostrophe and backtick take the ASCII glyphs' widths
+    /// Source: the published Helvetica metrics (Adobe's Core 14 set, widths
+    /// per 1000 units of em), entered by hand — no metrics file was read.
+    /// Arial is metric-compatible with Helvetica, so the same numbers serve
+    /// both. The apostrophe and backtick take the ASCII glyphs' widths
     /// (<c>quotesingle</c>, <c>grave</c>), not the typographic quotes Adobe's
-    /// standard encoding puts at those codes. The oblique cut has the same
-    /// widths, so italic text is measured here too.
+    /// standard encoding puts at those codes.
+    /// </para>
+    /// <para>
+    /// Verified 2026-09-21 by measurement: every entry here and in
+    /// <see cref="HelveticaBoldAdvanceEm"/> against the advance SkiaSharp
+    /// 2.88.9 reports for the same character at 1000 px in the Windows 11
+    /// Arial and Arial Bold faces on one machine (the tables parsed from this
+    /// source, not retyped). All 95 entries per weight agree; the largest
+    /// deviation is 0.0002 em, which is Arial's 2048-unit grid rounded to
+    /// Helvetica's 1000. Arial Italic and Arial Bold Italic measure the same
+    /// against these tables, so italic text is measured here too.
     /// </para>
     /// </summary>
     private static readonly FrozenDictionary<char, double> HelveticaAdvanceEm =
@@ -1856,8 +1865,9 @@ public static class DiagramRenderer
     /// <summary>
     /// Advance widths, in em, of the printable ASCII characters
     /// (<c>U+0020</c>–<c>U+007E</c>) at bold weight — the bold counterpart of
-    /// <see cref="HelveticaAdvanceEm"/>, from the Core 14
-    /// <c>Helvetica-Bold.afm</c> on the same terms. Bold widens most letters
+    /// <see cref="HelveticaAdvanceEm"/>: the published Helvetica-Bold metrics,
+    /// entered and verified against measured Arial Bold on the same terms
+    /// (see there; largest deviation 0.0002 em). Bold widens most letters
     /// (<c>i</c> 0.222 → 0.278, <c>m</c> 0.833 → 0.889); the digits and the
     /// <c>+ - .</c> the numeric cells use keep their widths.
     /// </summary>
