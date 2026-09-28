@@ -1,144 +1,132 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using BackgammonDiagram_Lib.Rendering;
 using BgDataTypes_Lib;
+using BgDataTypes_Lib.TestSupport;
 using Xunit;
 
 namespace BackgammonDiagram_Lib.Tests;
 
 /// <summary>
-/// Invariants of the checker-play analysis panel — the contract the renderer
-/// owes its caller for <see cref="DiagramRequest.Decision"/>.<see cref="DecisionData.Plays"/>:
+/// Invariants of the checker-play analysis panel's cells and layout:
 ///
-///   * Under the default <see cref="DiagramRequest.CandidateOrdering"/>,
-///     caller order is preserved verbatim (no implicit re-sort inside the
-///     renderer). The opt-in depth treatment is pinned separately in
-///     <see cref="CandidateDepthTreatmentTests"/>.
-///   * <see cref="PlayCandidate.EquityLoss"/> is rendered as text for every
-///     non-best entry; omitted when the field is &lt;= 0 (which in practice
-///     means the candidate is itself a best play — <c>EquityLoss == 0.0</c>
-///     marks membership in the best-equity equivalence class).
+///   * The Eq Loss cell is the ranking's error, rendered for every play the
+///     ranking scores behind the best, blank for the best play and any play
+///     tying it. (The ranking's order, numbers and not-scored mark are pinned
+///     in <see cref="PlayPanelRankingTests"/>.)
+///   * The Depth cell is the candidate's derived abbreviation, and a
+///     candidate with no depth recorded draws none.
 ///   * The Equity and Eq Loss <em>values</em> render bold; their column
 ///     headers, and every other column, keep the normal weight.
-///
-/// This pins the contract so a future behavior regression shows up here and
-/// upstream data-layer investigations can proceed without having to re-verify
-/// the renderer is innocent.
+///   * The rank-inversion italic, and the column layout against the panel
+///     width (halheinrich/backgammon#252).
 /// </summary>
 public class RendererPlayPanelTests
 {
+    /// <summary>A candidate from the standard start: <paramref name="play"/>, at <paramref name="equity"/>, analysed as stated.</summary>
+    private static PlayCandidate Candidate(Play play, double equity,
+        AnalysisMode mode = AnalysisMode.Evaluation, AnalysisLevel level = AnalysisLevel.Ply3, int? trials = null) =>
+        TestRecords.Candidate(play: play, equity: equity, analysisMode: mode, analysisLevel: level, rolloutTrials: trials);
+
+    private static DiagramRequest Solution(List<PlayCandidate> plays, BoardPosition? board = null) =>
+        TestFixtures.RequestFor(TestFixtures.CheckerPlayWith(plays, userPlayIndex: null, board: board), DiagramMode.Solution);
+
     [Fact]
-    public void Plays_RenderedInCallerOrder_WithEqLossForEveryNonBestPlay()
+    public void Plays_EqLossForEveryPlayBehindTheBest()
     {
-        // Five plays pre-sorted descending by Equity. The first (best) play
-        // takes the default EquityLoss = 0.0 (membership in the best-equity
-        // equivalence class); each subsequent loss is bestEquity - thisEquity.
-        // Values chosen so every formatted loss is a unique substring — makes
-        // the negative "absent for best" assertion clean.
-        var plays = new List<PlayCandidate>
-        {
-            new() { MoveNotation = "8/5 6/5",     Equity = 0.50 },
-            new() { MoveNotation = "13/10 8/5",   Equity = 0.48, EquityLoss = 0.02 },
-            new() { MoveNotation = "24/21 13/10", Equity = 0.45, EquityLoss = 0.05 },
-            new() { MoveNotation = "24/21 8/5",   Equity = 0.42, EquityLoss = 0.08 },
-            new() { MoveNotation = "13/10 13/10", Equity = 0.39, EquityLoss = 0.11 },
-        };
+        // Five plays in equity order. The best play's cell is blank; each
+        // other's is its error against the best, each formatted value unique.
+        List<PlayCandidate> plays =
+        [
+            Candidate([new(8, 5), new(6, 5)], 0.50),
+            Candidate([new(13, 10), new(8, 5)], 0.48),
+            Candidate([new(24, 21), new(13, 10)], 0.45),
+            Candidate([new(24, 21), new(8, 5)], 0.42),
+            Candidate([new(13, 10), new(13, 10)], 0.39),
+        ];
+        var svg = DiagramRenderer.RenderSvg(Solution(plays), TestFixtures.DefaultOptions());
 
-        var b = TestFixtures.MinimalBuilder();
-        b.Mode = DiagramMode.Solution;
-        b.Plays = plays;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
-
-        // ---- Row order matches caller input exactly ----
-        // Move-notation text is left-anchored at moveX=53.4 (MinimalBuilder's
-        // default size). Extract in SVG emission order and compare.
+        // Move text is left-anchored at moveX=53.4 (Medium size, the panel on
+        // the left at the full font size), each the play's notation.
         var moveRow = new Regex("""<text x="53\.4" [^>]*font-size="14"[^>]*>([^<]+)</text>""");
-        var renderedMoves = moveRow.Matches(svg).Select(m => m.Groups[1].Value).ToList();
-        Assert.Equal(plays.Select(p => p.MoveNotation).ToList(), renderedMoves);
+        Assert.Equal(plays.Select(p => p.Notation), moveRow.Matches(svg).Select(m => m.Groups[1].Value));
 
-        // ---- Eq-Loss text present for every non-best play ----
         Assert.Contains(">0.0200</text>", svg);
         Assert.Contains(">0.0500</text>", svg);
         Assert.Contains(">0.0800</text>", svg);
         Assert.Contains(">0.1100</text>", svg);
 
-        // ---- Eq-Loss absent only for the best play ----
-        // Loss values render right-anchored at lossX=326.4. Four non-best
-        // plays should produce exactly four numeric loss texts at that X.
-        // (The "Eq Loss" column header also anchors at 326.4 but carries
-        // text rather than a decimal, so the numeric pattern excludes it.)
+        // Loss values render right-anchored at lossX=326.4: four behind the
+        // best, none for the best. (The "Eq Loss" header also anchors there
+        // but is not a decimal.)
         var lossCell = new Regex("""<text x="326\.4" [^>]*text-anchor="end"[^>]*>[0-9]+\.[0-9]{4}</text>""");
         Assert.Equal(4, lossCell.Matches(svg).Count);
     }
 
     [Fact]
+    public void Plays_ATieWithTheBest_IsBlankToo()
+    {
+        // Error exactly 0 is a best play under the ranking: every tie at the
+        // top renders a blank cell, uniformly.
+        List<PlayCandidate> plays =
+        [
+            Candidate([new(8, 5), new(6, 5)], 0.50),
+            Candidate([new(13, 10), new(8, 5)], 0.50),
+            Candidate([new(24, 21), new(13, 10)], 0.45),
+        ];
+
+        Assert.Equal([null, null, "0.0500"], PlayPanelReader.Rows(TestFixtures.Render(Solution(plays))).Select(r => r.Loss));
+    }
+
+    // Three evaluations at falling depth ranks (3-ply 30, 2-ply 20, 1-ply 10):
+    // no row sits deeper than its predecessor, so none is italic.
+    private static List<PlayCandidate> FallingDepths() =>
+    [
+        Candidate([new(8, 5), new(6, 5)], 0.50, level: AnalysisLevel.Ply3),
+        Candidate([new(13, 10), new(8, 5)], 0.48, level: AnalysisLevel.Ply2),
+        Candidate([new(24, 21), new(8, 5)], 0.42, level: AnalysisLevel.Ply1),
+    ];
+
+    [Fact]
     public void Plays_DepthColumn_RendersPerPlayAbbreviationLeftAnchoredAtDepthX()
     {
-        // depthX = lossX + 1.5 * PlayPanelFontSize = 326.4 + 21 = 347.4
-        // (MinimalBuilder's default Medium size). Abbreviation strings render
-        // left-anchored at depthX (no text-anchor attribute). Ranks are
-        // monotone non-increasing (3, 2, 0) so no row is italicised.
-        var plays = new List<PlayCandidate>
-        {
-            new() { MoveNotation = "8/5 6/5",   Equity = 0.50,                     DepthAbbreviation = "3-ply", DepthRank = 3 },
-            new() { MoveNotation = "13/10 8/5", Equity = 0.48, EquityLoss = 0.02,  DepthAbbreviation = "2-ply", DepthRank = 2 },
-            new() { MoveNotation = "24/21 8/5", Equity = 0.42, EquityLoss = 0.08,  DepthAbbreviation = "R+",    DepthRank = 0 },
-        };
+        // depthX = lossX + 1.5 * PlayPanelFontSize = 326.4 + 21 = 347.4.
+        // Abbreviations render left-anchored there (no text-anchor attribute).
+        var svg = DiagramRenderer.RenderSvg(Solution(FallingDepths()), TestFixtures.DefaultOptions());
 
-        var b = TestFixtures.MinimalBuilder();
-        b.Mode = DiagramMode.Solution;
-        b.Plays = plays;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
-
-        // All x=347.4 text cells, in emission order: one header + one per play.
-        // Matching on left-anchored cells (no text-anchor attribute) is what
-        // distinguishes the Depth column from the right-anchored Equity/Eq Loss.
         var depthCell = new Regex("""<text x="347\.4" y="[0-9.]+" font-family="sans-serif"[^>]*>([^<]+)</text>""");
-        var rendered = depthCell.Matches(svg).Select(m => m.Groups[1].Value).ToList();
-        Assert.Equal(new[] { "Depth", "3-ply", "2-ply", "R+" }, rendered);
-
-        // None of the ranks go up along the list, so none of the depth cells
-        // carry italic styling.
+        Assert.Equal(["Depth", "3-ply", "2-ply", "1-ply"], depthCell.Matches(svg).Select(m => m.Groups[1].Value));
         Assert.DoesNotContain("font-style=\"italic\"", svg);
     }
 
     [Fact]
-    public void Plays_DepthColumn_OmitsRowWhenPlayAbbreviationEmpty()
+    public void Plays_DepthColumn_OmitsTheCellWhenNoDepthIsRecorded()
     {
-        var plays = new List<PlayCandidate>
-        {
-            new() { MoveNotation = "8/5 6/5", Equity = 0.50 /* DepthAbbreviation defaults to "" */ },
-        };
-        var b = TestFixtures.MinimalBuilder();
-        b.Mode = DiagramMode.Solution;
-        b.Plays = plays;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        // No depth recorded — the abbreviation is null — draws no cell; the
+        // column header still renders.
+        List<PlayCandidate> plays = [Candidate([new(8, 5), new(6, 5)], 0.50, AnalysisMode.Unknown, AnalysisLevel.Unknown)];
+        var svg = DiagramRenderer.RenderSvg(Solution(plays), TestFixtures.DefaultOptions());
 
-        // Header still renders; the one play row contributes no depth cell.
-        // So exactly one x=347.4 left-anchored cell — the header — should match.
         var depthCell = new Regex("""<text x="347\.4" y="[0-9.]+" font-family="sans-serif"[^>]*>([^<]+)</text>""");
-        var rendered = depthCell.Matches(svg).Select(m => m.Groups[1].Value).ToList();
-        Assert.Equal(new[] { "Depth" }, rendered);
+        Assert.Equal(["Depth"], depthCell.Matches(svg).Select(m => m.Groups[1].Value));
     }
 
     [Fact]
     public void Plays_ItalicAppliedToEquityLossAndDepthOnRankInversionRows()
     {
-        // Three plays, equity-sorted. Ranks [5, 10, 5]:
+        // Three plays, stored in equity order, depth ranks 45 / 130 / 45:
         //   row 0 — no predecessor, never italic.
-        //   row 1 — rank 10 > 5, so italic (deeper analysis below shallower)
-        //           on all three of Equity, Eq Loss, and Depth cells.
-        //   row 2 — rank 5 <= 10, so not italic.
-        var plays = new List<PlayCandidate>
-        {
-            new() { MoveNotation = "8/5 6/5",   Equity = 0.50,                     DepthAbbreviation = "R+",     DepthRank = 5 },
-            new() { MoveNotation = "13/10 8/5", Equity = 0.48, EquityLoss = 0.02,  DepthAbbreviation = "3p1296", DepthRank = 10 },
-            new() { MoveNotation = "24/21 8/5", Equity = 0.42, EquityLoss = 0.08,  DepthAbbreviation = "R+",     DepthRank = 5 },
-        };
-
-        var b = TestFixtures.MinimalBuilder();
-        b.Mode = DiagramMode.Solution;
-        b.Plays = plays;
-        var request = b.Build();
+        //   row 1 — a 1296-trial rollout (130) below an XG Roller+ (45): a
+        //           deeper analysis below a shallower one, so italic on its
+        //           Equity, Eq Loss and Depth cells.
+        //   row 2 — 45 <= 130, so not italic.
+        List<PlayCandidate> plays =
+        [
+            Candidate([new(8, 5), new(6, 5)], 0.50, level: AnalysisLevel.XgRollerPlus),
+            Candidate([new(13, 10), new(8, 5)], 0.48, AnalysisMode.Rollout, AnalysisLevel.Ply3, trials: 1296),
+            Candidate([new(24, 21), new(8, 5)], 0.42, level: AnalysisLevel.XgRollerPlus),
+        ];
+        var request = Solution(plays);
         var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
 
         // The six-character "3p1296" is wide enough that the move reservation
@@ -156,22 +144,20 @@ public class RendererPlayPanelTests
         string equityAt = Regex.Escape(SvgFormat.Number(equityX));
 
         // Depth cells: header + 3 rows at depthX.
-        var depthCell = new Regex($$"""<text x="{{depthAt}}" y="[0-9.]+" font-family="sans-serif"[^>]*>([^<]+)</text>""");
-        var depth = depthCell.Matches(svg).ToList();
+        var depth = new Regex($$"""<text x="{{depthAt}}" y="[0-9.]+" font-family="sans-serif"[^>]*>([^<]+)</text>""").Matches(svg).ToList();
         Assert.Equal(4, depth.Count);
         Assert.Equal("Depth", depth[0].Groups[1].Value);
         Assert.DoesNotContain("font-style=\"italic\"", depth[0].Value);   // header never italic
         Assert.Equal("R+", depth[1].Groups[1].Value);
         Assert.DoesNotContain("font-style=\"italic\"", depth[1].Value);   // row 0: no predecessor
         Assert.Equal("3p1296", depth[2].Groups[1].Value);
-        Assert.Contains("font-style=\"italic\"", depth[2].Value);         // row 1: 10 > 5 → italic
+        Assert.Contains("font-style=\"italic\"", depth[2].Value);         // row 1: 130 > 45 → italic
         Assert.DoesNotContain("font-weight=\"bold\"", depth[2].Value);    // ...but Depth is not a numeric column
         Assert.Equal("R+", depth[3].Groups[1].Value);
-        Assert.DoesNotContain("font-style=\"italic\"", depth[3].Value);   // row 2: 5 <= 10
+        Assert.DoesNotContain("font-style=\"italic\"", depth[3].Value);   // row 2: 45 <= 130
 
         // Equity cells: header ("Equity") + 3 rows at equityX, right-anchored.
-        var equityCell = new Regex($$"""<text x="{{equityAt}}" y="[0-9.]+" text-anchor="end" [^>]*>([^<]+)</text>""");
-        var equity = equityCell.Matches(svg).ToList();
+        var equity = new Regex($$"""<text x="{{equityAt}}" y="[0-9.]+" text-anchor="end" [^>]*>([^<]+)</text>""").Matches(svg).ToList();
         Assert.Equal(4, equity.Count);
         Assert.DoesNotContain("font-style=\"italic\"", equity[0].Value);  // header
         Assert.DoesNotContain("font-style=\"italic\"", equity[1].Value);  // row 0
@@ -181,12 +167,9 @@ public class RendererPlayPanelTests
         // bold-italic, the cue does not displace the numeric bold.
         Assert.Contains("font-weight=\"bold\"", equity[2].Value);
 
-        // Eq Loss cells: header ("Eq Loss") + rows 1 and 2 at lossX (row 0
-        // is a best play with EquityLoss = 0.0 and renders no cell). Header
-        // is the only non-numeric content in the column, so picking by row
-        // content is unambiguous.
-        var lossCell = new Regex($$"""<text x="{{lossAt}}" y="[0-9.]+" text-anchor="end" [^>]*>([^<]+)</text>""");
-        var loss = lossCell.Matches(svg).ToList();
+        // Eq Loss cells: header + rows 1 and 2 (row 0 is the best play and
+        // renders no cell).
+        var loss = new Regex($$"""<text x="{{lossAt}}" y="[0-9.]+" text-anchor="end" [^>]*>([^<]+)</text>""").Matches(svg).ToList();
         Assert.Equal(3, loss.Count);
         Assert.DoesNotContain("font-style=\"italic\"", loss[0].Value);    // header
         Assert.Contains("font-style=\"italic\"", loss[1].Value);          // row 1 inverted
@@ -195,36 +178,60 @@ public class RendererPlayPanelTests
     }
 
     [Fact]
+    public void Plays_ItalicFollowsTheRankingsOrder_NotTheStoredOrder()
+    {
+        // Stored rollout first, evaluation second — the evaluation rating
+        // higher. Under equity the evaluation ranks first and the deeper
+        // rollout below it is the inversion, though stored first; under depth
+        // first the rollout ranks first and nothing is inverted.
+        List<PlayCandidate> plays =
+        [
+            Candidate([new(13, 10), new(8, 5)], 0.45, AnalysisMode.Rollout, AnalysisLevel.Ply3, trials: 1296),
+            Candidate([new(8, 5), new(6, 5)], 0.50, level: AnalysisLevel.Ply3),
+        ];
+        var request = Solution(plays);
+
+        var byEquity = PlayPanelReader.Rows(TestFixtures.Render(request));
+        Assert.Equal([false, true], byEquity.Select(r => r.Italic));
+        Assert.Equal(plays[0].Notation, byEquity[1].Move);
+
+        var depthFirst = PlayPanelReader.Rows(TestFixtures.Render(request with { Ranking = PlayRanking.DepthFirst }));
+        Assert.All(depthFirst, row => Assert.False(row.Italic));
+    }
+
+    [Fact]
+    public void Plays_AnUnrecordedDepthIsNoInversion()
+    {
+        // A recorded depth below one not recorded is not "deeper below
+        // shallower": an unrecorded depth is not shallow, only unrecorded
+        // (its rank is null), so no italic.
+        List<PlayCandidate> plays =
+        [
+            Candidate([new(8, 5), new(6, 5)], 0.50, AnalysisMode.Unknown, AnalysisLevel.Unknown),
+            Candidate([new(13, 10), new(8, 5)], 0.48, AnalysisMode.Rollout, AnalysisLevel.Ply3, trials: 1296),
+        ];
+
+        Assert.All(PlayPanelReader.Rows(TestFixtures.Render(Solution(plays))), row => Assert.False(row.Italic));
+    }
+
+    [Fact]
     public void Plays_EquityAndEqLossValues_RenderBold_HeadersAndOtherColumnsDoNot()
     {
         // Bold is the numeric-column treatment: the Equity and Eq Loss
-        // *values* only. Ranks are monotone non-increasing so no row is
+        // *values* only. Depth ranks fall down the list so no row is
         // italicised — this isolates weight from the rank-inversion style.
-        var plays = new List<PlayCandidate>
-        {
-            new() { MoveNotation = "8/5 6/5",   Equity = 0.50,                     DepthAbbreviation = "3-ply", DepthRank = 3 },
-            new() { MoveNotation = "13/10 8/5", Equity = 0.48, EquityLoss = 0.02,  DepthAbbreviation = "2-ply", DepthRank = 2 },
-            new() { MoveNotation = "24/21 8/5", Equity = 0.42, EquityLoss = 0.08,  DepthAbbreviation = "R+",    DepthRank = 0 },
-        };
-
-        var b = TestFixtures.MinimalBuilder();
-        b.Mode = DiagramMode.Solution;
-        b.Plays = plays;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        var svg = DiagramRenderer.RenderSvg(Solution(FallingDepths()), TestFixtures.DefaultOptions());
 
         // Equity column at x=263.4, right-anchored: header + one cell per play.
-        var equityCell = new Regex("""<text x="263\.4" y="[0-9.]+" text-anchor="end" [^>]*>([^<]+)</text>""");
-        var equity = equityCell.Matches(svg).ToList();
+        var equity = new Regex("""<text x="263\.4" y="[0-9.]+" text-anchor="end" [^>]*>([^<]+)</text>""").Matches(svg).ToList();
         Assert.Equal(4, equity.Count);
         Assert.Equal("Equity", equity[0].Groups[1].Value);
         Assert.DoesNotContain("font-weight=\"bold\"", equity[0].Value);   // header keeps normal weight
         Assert.All(equity.Skip(1), m => Assert.Contains("font-weight=\"bold\"", m.Value));
 
-        // Eq Loss column at x=326.4: header + rows 1 and 2. Row 0 is a best
-        // play (EquityLoss == 0.0) and still renders no cell at all — this
-        // change moves weight, not the blank-cell contract.
-        var lossCell = new Regex("""<text x="326\.4" y="[0-9.]+" text-anchor="end" [^>]*>([^<]+)</text>""");
-        var loss = lossCell.Matches(svg).ToList();
+        // Eq Loss column at x=326.4: header + rows 1 and 2. Row 0 is the best
+        // play and still renders no cell at all.
+        var loss = new Regex("""<text x="326\.4" y="[0-9.]+" text-anchor="end" [^>]*>([^<]+)</text>""").Matches(svg).ToList();
         Assert.Equal(3, loss.Count);
         Assert.Equal("Eq Loss", loss[0].Groups[1].Value);
         Assert.DoesNotContain("font-weight=\"bold\"", loss[0].Value);
@@ -245,44 +252,89 @@ public class RendererPlayPanelTests
     //  Column layout against the panel width (halheinrich/backgammon#252)
     // -----------------------------------------------------------------------
 
-    // The longest depth abbreviation the producer emits (nine characters).
+    // The longest depth abbreviation the producer emits for a recognised
+    // level (nine characters): an XG Roller++ rollout of 20736 trials.
     private const string NineCharDepth = "R++p20736";
 
     // Half the last digit SvgFormat.Number keeps ("0.##"): a rendered
     // coordinate differs from the value the renderer computed by at most this.
     private const double RenderedRounding = 0.005;
 
-    // A four-part move too long to fit beside a nine-character depth on 16:9
-    // at the full font size; it fits by shrinking.
-    private const string FourPartMove = "24/20 13/9 8/4 6/2";
-
-    // The user's worst case (2026-09-22): four hits, too long to fit at the
-    // full size beside any depth.
-    private const string UserMove = "24/23* 23/22* 22/21* 21/20*";
-
-    // Synthetic, not a legal move: long enough that even the minimum font
-    // size cannot fit it beside a nine-character depth on 16:9.
-    private const string SyntheticMove = "24/23* 23/22* 22/21* 21/20* 20/19* 19/18*";
-
-    /// <summary>A fixed three-play request. <paramref name="longDepth"/> puts
-    /// the nine-character abbreviation on one play and an eight-character one
-    /// on another; otherwise every depth is at most the header's length.
-    /// <paramref name="firstMove"/> is the best play's (and the longest)
-    /// move text.</summary>
-    private static DiagramRequest LayoutRequest(bool longDepth, PanelPosition side,
-        string firstMove = "24/21 13/10")
+    /// <summary>The depth abbreviations of the layout fixture's three candidates.</summary>
+    public enum Depths
     {
-        var b = TestFixtures.MinimalBuilder();
-        b.Mode = DiagramMode.Solution;
-        b.AnalysisPanelPosition = side;
-        b.Plays =
-        [
-            new() { MoveNotation = firstMove,     Equity = 0.50,                    DepthAbbreviation = longDepth ? NineCharDepth : "R++", DepthRank = 3 },
-            new() { MoveNotation = "13/10 8/5",   Equity = 0.48, EquityLoss = 0.02, DepthAbbreviation = longDepth ? "B3_20736" : "4-ply", DepthRank = 2 },
-            new() { MoveNotation = "8/5 6/5",     Equity = -0.42, EquityLoss = 0.92, DepthAbbreviation = "Book", DepthRank = 0 },
-        ];
-        return b.Build();
+        /// <summary>R++, 4-ply, Book: each at most the header's length.</summary>
+        Short,
+        /// <summary>R++p20736 and B3_20736, then Book.</summary>
+        Long,
+        /// <summary>
+        /// R++p20736, then an abbreviation no recognised level writes —
+        /// level-9999p99999, a rollout at a level the library does not
+        /// recognise, keeping its raw code — wide enough that even the
+        /// minimum font size cannot fit it beside the four-hit move on 16:9,
+        /// and not so wide that not even an empty move text fits at the full
+        /// size (the narrow presets' overflow, halheinrich/backgammon#253's).
+        /// </summary>
+        Extreme,
     }
+
+    /// <summary>The best play's (and the longest) move of the layout fixture.</summary>
+    public enum FirstMove
+    {
+        /// <summary>24/21 13/10, from the standard start.</summary>
+        Short,
+        /// <summary>24/20 13/9 8/4 6/2: too long to fit beside a nine-character depth at the full size; it fits by shrinking.</summary>
+        FourPart,
+        /// <summary>The user's worst case (2026-09-22): four hits, 24/23* 23/22* 22/21* 21/20*, too long to fit at the full size beside any depth.</summary>
+        FourHits,
+    }
+
+    /// <summary>
+    /// A board with the opponent's blots on the 23- to 20-points, so four
+    /// hits in one play are valid, and the on-roll checkers the fixture's
+    /// other plays move from.
+    /// </summary>
+    private static readonly BoardPosition BlotsBoard = TestFixtures.Board(
+        (1, -2), (12, -5), (19, -4), (20, -1), (21, -1), (22, -1), (23, -1),
+        (24, 1), (13, 5), (8, 3), (6, 6));
+
+    /// <summary>A fixed three-play request: the <paramref name="firstMove"/>
+    /// best, then 13/10 8/5 and 8/5 6/5, at the given depths.</summary>
+    private static DiagramRequest LayoutRequest(Depths depths, PanelPosition side, FirstMove firstMove = FirstMove.Short)
+    {
+        Play first = firstMove switch
+        {
+            FirstMove.Short => [new(24, 21), new(13, 10)],
+            FirstMove.FourPart => [new(24, 20), new(13, 9), new(8, 4), new(6, 2)],
+            _ => [new(24, -23), new(23, -22), new(22, -21), new(21, -20)],
+        };
+        PlayCandidate[] depthOf = depths switch
+        {
+            Depths.Short =>
+            [
+                Candidate(first, 0.50, level: AnalysisLevel.XgRollerPlusPlus),
+                Candidate([new(13, 10), new(8, 5)], 0.48, level: AnalysisLevel.Ply4),
+                Candidate([new(8, 5), new(6, 5)], -0.42, AnalysisMode.BookRollout, AnalysisLevel.Unknown),
+            ],
+            Depths.Long =>
+            [
+                Candidate(first, 0.50, AnalysisMode.Rollout, AnalysisLevel.XgRollerPlusPlus, trials: 20736),
+                Candidate([new(13, 10), new(8, 5)], 0.48, AnalysisMode.BookRollout, AnalysisLevel.Ply3, trials: 20736),
+                Candidate([new(8, 5), new(6, 5)], -0.42, AnalysisMode.BookRollout, AnalysisLevel.Unknown),
+            ],
+            _ =>
+            [
+                Candidate(first, 0.50, AnalysisMode.Rollout, AnalysisLevel.XgRollerPlusPlus, trials: 20736),
+                TestRecords.Candidate(play: [new(13, 10), new(8, 5)], equity: 0.48, analysisMode: AnalysisMode.Rollout,
+                    analysisLevel: AnalysisLevel.Unknown, unrecognizedLevelCode: 9999, rolloutTrials: 99999),
+                Candidate([new(8, 5), new(6, 5)], -0.42, AnalysisMode.BookRollout, AnalysisLevel.Unknown),
+            ],
+        };
+        return Solution([.. depthOf], firstMove == FirstMove.FourHits ? BlotsBoard : null) with { AnalysisPanelPosition = side };
+    }
+
+    private static IReadOnlyList<PlayCandidate> Plays(DiagramRequest request) =>
+        ((CheckerPlayDecision)request.Decision!).Decision.Plays;
 
     /// <summary>One rendered text element: its x attribute (as emitted),
     /// whether it is right-anchored, its font-size attribute, and its
@@ -307,7 +359,7 @@ public class RendererPlayPanelTests
     private static (double Px, double Pw) Panel(string svg, DiagramRequest request)
     {
         var m = Regex.Match(svg, """viewBox="0 0 ([0-9.]+) [0-9.]+" """);
-        double totalWidth = double.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+        double totalWidth = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
         var layout = BoardLayout.Default with { PanelWidthOverride = totalWidth - BoardLayout.Default.BoardWidth };
         return (layout.PanelX(request.PanelOnLeft), layout.PanelWidth);
     }
@@ -316,6 +368,16 @@ public class RendererPlayPanelTests
     /// emitted.</summary>
     private sealed record RenderedColumns(string FontSize, string MoveX, string EquityX, string LossX, string DepthX);
 
+    /// <summary>The losses the Eq Loss column shows: each error behind the best, formatted.</summary>
+    private static IEnumerable<string> LossCells(DiagramRequest request) =>
+        ((CheckerPlayDecision)request.Decision!).Decision.RankedBy(request.Ranking!.Value)
+            .Where(row => row.Error > 0)
+            .Select(row => row.Error!.Value.ToString("F4", CultureInfo.InvariantCulture));
+
+    /// <summary>The Depth column's texts: every play's abbreviation.</summary>
+    private static IEnumerable<string> DepthTexts(DiagramRequest request) =>
+        Plays(request).Select(p => p.DepthAbbreviation).OfType<string>();
+
     /// <summary>The panel's font size and column anchors as rendered, read off
     /// each column's header, after asserting every cell of the column shares
     /// its anchor, the numeric columns stay right-anchored while Depth stays
@@ -323,15 +385,15 @@ public class RendererPlayPanelTests
     /// set in one font size.</summary>
     private static RenderedColumns Anchors(string svg, DiagramRequest request)
     {
-        var plays = request.Decision.Plays;
-        var all = Cells(svg, plays.Select(p => p.MoveNotation)
+        var plays = Plays(request);
+        var all = Cells(svg, plays.Select(p => p.Notation)
             .Concat(EquityCells(request))
             .Append(DiagramRenderer.PlayPanelLossHeader)
-            .Concat(plays.Select(p => p.DepthAbbreviation))
+            .Concat(DepthTexts(request))
             .Append(DiagramRenderer.PlayPanelDepthHeader));
         string fontSize = Assert.Single(all.Select(c => c.FontSize).Distinct());
 
-        var move = Cells(svg, plays.Select(p => p.MoveNotation));
+        var move = Cells(svg, plays.Select(p => p.Notation));
         Assert.Equal(plays.Count, move.Count);
         Assert.Single(move.Select(c => c.X).Distinct());
         Assert.All(move, c => Assert.False(c.AnchorEnd));
@@ -341,15 +403,13 @@ public class RendererPlayPanelTests
         Assert.Single(equity.Select(c => c.X).Distinct());
         Assert.All(equity, c => Assert.True(c.AnchorEnd));
 
-        var loss = Cells(svg, plays.Where(p => p.EquityLoss > 0).Select(p => p.EquityLoss.ToString("F4", System.Globalization.CultureInfo.InvariantCulture))
-            .Append(DiagramRenderer.PlayPanelLossHeader));
-        Assert.Equal(plays.Count(p => p.EquityLoss > 0) + 1, loss.Count);
+        var loss = Cells(svg, LossCells(request).Append(DiagramRenderer.PlayPanelLossHeader));
+        Assert.Equal(LossCells(request).Count() + 1, loss.Count);
         Assert.Single(loss.Select(c => c.X).Distinct());
         Assert.All(loss, c => Assert.True(c.AnchorEnd));
 
-        var depth = Cells(svg, plays.Select(p => p.DepthAbbreviation)
-            .Append(DiagramRenderer.PlayPanelDepthHeader));
-        Assert.Equal(plays.Count + 1, depth.Count);
+        var depth = Cells(svg, DepthTexts(request).Append(DiagramRenderer.PlayPanelDepthHeader));
+        Assert.Equal(DepthTexts(request).Count() + 1, depth.Count);
         Assert.Single(depth.Select(c => c.X).Distinct());
         Assert.All(depth, c => Assert.False(c.AnchorEnd));
 
@@ -361,15 +421,14 @@ public class RendererPlayPanelTests
     /// before the reservation could yield.</summary>
     private static (string EquityX, string LossX, string DepthX) FullReservationAnchors(string moveX)
     {
-        double move = double.Parse(moveX, System.Globalization.CultureInfo.InvariantCulture);
+        double move = double.Parse(moveX, CultureInfo.InvariantCulture);
         double equityX = move + DiagramRenderer.PlayPanelFontSize * DiagramRenderer.PlayPanelMoveReserveEm;
         double lossX = equityX + DiagramRenderer.PlayPanelFontSize * DiagramRenderer.PlayPanelLossColumnEm;
         double depthX = lossX + DiagramRenderer.PlayPanelFontSize * DiagramRenderer.PlayPanelColumnGapEm;
         return (SvgFormat.Number(equityX), SvgFormat.Number(lossX), SvgFormat.Number(depthX));
     }
 
-    private static double Num(string x) =>
-        double.Parse(x, System.Globalization.CultureInfo.InvariantCulture);
+    private static double Num(string x) => double.Parse(x, CultureInfo.InvariantCulture);
 
     private const double FullSize = DiagramRenderer.PlayPanelFontSize;
     private const double GapEm = DiagramRenderer.PlayPanelColumnGapEm;
@@ -382,9 +441,8 @@ public class RendererPlayPanelTests
     /// <summary>The Equity column's texts: its header and every play's
     /// value, formatted as the renderer formats them.</summary>
     private static IEnumerable<string> EquityCells(DiagramRequest request) =>
-        request.Decision.Plays
-            .Select(p => (p.Equity >= 0 ? "+" : "")
-                         + p.Equity.ToString("F4", System.Globalization.CultureInfo.InvariantCulture))
+        Plays(request)
+            .Select(p => (p.Equity >= 0 ? "+" : "") + p.Equity.ToString("F4", CultureInfo.InvariantCulture))
             .Append(DiagramRenderer.PlayPanelEquityHeader);
 
     // Each cell at the weight it is emitted in: the header regular, the
@@ -396,12 +454,10 @@ public class RendererPlayPanelTests
                 : DiagramRenderer.TextWeight.Bold));
 
     private static double LongestMove(DiagramRequest request, double size) =>
-        request.Decision.Plays.Max(p => Width(p.MoveNotation, size));
+        Plays(request).Max(p => Width(p.Notation, size));
 
     private static double WidestDepthCell(DiagramRequest request, double size) =>
-        request.Decision.Plays.Select(p => p.DepthAbbreviation)
-            .Append(DiagramRenderer.PlayPanelDepthHeader)
-            .Max(t => Width(t, size));
+        DepthTexts(request).Append(DiagramRenderer.PlayPanelDepthHeader).Max(t => Width(t, size));
 
     /// <summary>The reservation's floor at <paramref name="size"/>: longest
     /// move text, the column gap, the widest Equity cell.</summary>
@@ -439,10 +495,10 @@ public class RendererPlayPanelTests
         return Math.Max(DiagramRenderer.PlayPanelMinimumFontSize, (limit - markerX) / perSize);
     }
 
-    private static DiagramRequest WidescreenRequest(bool longDepth, PanelPosition side, string firstMove,
+    private static DiagramRequest WidescreenRequest(Depths depths, PanelPosition side, FirstMove firstMove,
         out string svg, out double px, out double pw)
     {
-        var request = LayoutRequest(longDepth, side, firstMove);
+        var request = LayoutRequest(depths, side, firstMove);
         svg = DiagramRenderer.RenderSvg(request, new DiagramOptions { Aspect = AspectPreset.Widescreen16x9 });
         (px, pw) = Panel(svg, request);
         return request;
@@ -464,12 +520,24 @@ public class RendererPlayPanelTests
         Assert.Single(known, c => Width(c.ToString(), FullSize, weight) == widestKnown);
     }
 
+    [Fact]
+    public void Fixture_DepthsAreTheProducersAbbreviations()
+    {
+        // The layout fixture's premise, from the producer's derivation.
+        Assert.Equal(["R++p20736", "B3_20736", "Book"],
+            Plays(LayoutRequest(Depths.Long, PanelPosition.Left)).Select(p => p.DepthAbbreviation));
+        Assert.Equal("24/23* 23/22* 22/21* 21/20*",
+            Plays(LayoutRequest(Depths.Short, PanelPosition.Left, FirstMove.FourHits))[0].Notation);
+        Assert.Equal([NineCharDepth, "level-9999p99999", "Book"],
+            Plays(LayoutRequest(Depths.Extreme, PanelPosition.Left)).Select(p => p.DepthAbbreviation));
+    }
+
     [Theory]
     [InlineData(PanelPosition.Left)]
     [InlineData(PanelPosition.Right)]
     public void NineCharDepth_Widescreen_FitsAt14_DepthColumnEndsAtTheLimit(PanelPosition side)
     {
-        var request = WidescreenRequest(longDepth: true, side, "24/21 13/10", out var svg, out var px, out var pw);
+        var request = WidescreenRequest(Depths.Long, side, FirstMove.Short, out var svg, out var px, out var pw);
         var c = Anchors(svg, request);
         var (limit, _) = Bounds(px, pw);
 
@@ -492,15 +560,15 @@ public class RendererPlayPanelTests
     }
 
     [Theory]
-    [InlineData(false, UserMove,     PanelPosition.Left)]
-    [InlineData(false, UserMove,     PanelPosition.Right)]
-    [InlineData(true,  UserMove,     PanelPosition.Left)]
-    [InlineData(true,  UserMove,     PanelPosition.Right)]
-    [InlineData(true,  FourPartMove, PanelPosition.Left)]
-    [InlineData(true,  FourPartMove, PanelPosition.Right)]
-    public void TooWideAt14_Widescreen_ShrinksToTheClosedFormSizeAndFits(bool longDepth, string firstMove, PanelPosition side)
+    [InlineData(Depths.Short, FirstMove.FourHits, PanelPosition.Left)]
+    [InlineData(Depths.Short, FirstMove.FourHits, PanelPosition.Right)]
+    [InlineData(Depths.Long,  FirstMove.FourHits, PanelPosition.Left)]
+    [InlineData(Depths.Long,  FirstMove.FourHits, PanelPosition.Right)]
+    [InlineData(Depths.Long,  FirstMove.FourPart, PanelPosition.Left)]
+    [InlineData(Depths.Long,  FirstMove.FourPart, PanelPosition.Right)]
+    public void TooWideAt14_Widescreen_ShrinksToTheClosedFormSizeAndFits(Depths depths, FirstMove firstMove, PanelPosition side)
     {
-        var request = WidescreenRequest(longDepth, side, firstMove, out var svg, out var px, out var pw);
+        var request = WidescreenRequest(depths, side, firstMove, out var svg, out var px, out var pw);
         var c = Anchors(svg, request);
         var (limit, _) = Bounds(px, pw);
 
@@ -526,7 +594,7 @@ public class RendererPlayPanelTests
     [InlineData(PanelPosition.Right)]
     public void TooWideEvenAtMinimum_Widescreen_FloorWins_DepthOverrunsByFloorMinusRoom(PanelPosition side)
     {
-        var request = WidescreenRequest(longDepth: true, side, SyntheticMove, out var svg, out var px, out var pw);
+        var request = WidescreenRequest(Depths.Extreme, side, FirstMove.FourHits, out var svg, out var px, out var pw);
         var c = Anchors(svg, request);
         var (limit, _) = Bounds(px, pw);
         const double min = DiagramRenderer.PlayPanelMinimumFontSize;
@@ -545,24 +613,24 @@ public class RendererPlayPanelTests
     }
 
     [Theory]
-    [InlineData(false, "24/21 13/10", PanelPosition.Left)]
-    [InlineData(false, "24/21 13/10", PanelPosition.Right)]
-    [InlineData(true,  "24/21 13/10", PanelPosition.Left)]
-    [InlineData(true,  "24/21 13/10", PanelPosition.Right)]
-    [InlineData(false, FourPartMove,  PanelPosition.Left)]
-    [InlineData(false, FourPartMove,  PanelPosition.Right)]
-    [InlineData(true,  FourPartMove,  PanelPosition.Left)]
-    [InlineData(true,  FourPartMove,  PanelPosition.Right)]
-    [InlineData(false, UserMove,      PanelPosition.Left)]
-    [InlineData(false, UserMove,      PanelPosition.Right)]
-    [InlineData(true,  UserMove,      PanelPosition.Left)]
-    [InlineData(true,  UserMove,      PanelPosition.Right)]
-    [InlineData(true,  SyntheticMove, PanelPosition.Left)]
-    [InlineData(true,  SyntheticMove, PanelPosition.Right)]
-    public void Widescreen_EquityNeverPrecedesMoveTextPlusGap(bool longDepth, string firstMove, PanelPosition side)
+    [InlineData(Depths.Short,   FirstMove.Short,    PanelPosition.Left)]
+    [InlineData(Depths.Short,   FirstMove.Short,    PanelPosition.Right)]
+    [InlineData(Depths.Long,    FirstMove.Short,    PanelPosition.Left)]
+    [InlineData(Depths.Long,    FirstMove.Short,    PanelPosition.Right)]
+    [InlineData(Depths.Short,   FirstMove.FourPart, PanelPosition.Left)]
+    [InlineData(Depths.Short,   FirstMove.FourPart, PanelPosition.Right)]
+    [InlineData(Depths.Long,    FirstMove.FourPart, PanelPosition.Left)]
+    [InlineData(Depths.Long,    FirstMove.FourPart, PanelPosition.Right)]
+    [InlineData(Depths.Short,   FirstMove.FourHits, PanelPosition.Left)]
+    [InlineData(Depths.Short,   FirstMove.FourHits, PanelPosition.Right)]
+    [InlineData(Depths.Long,    FirstMove.FourHits, PanelPosition.Left)]
+    [InlineData(Depths.Long,    FirstMove.FourHits, PanelPosition.Right)]
+    [InlineData(Depths.Extreme, FirstMove.FourHits, PanelPosition.Left)]
+    [InlineData(Depths.Extreme, FirstMove.FourHits, PanelPosition.Right)]
+    public void Widescreen_EquityNeverPrecedesMoveTextPlusGap(Depths depths, FirstMove firstMove, PanelPosition side)
     {
         // At every size — full, shrunk, or clamped at the minimum.
-        var request = WidescreenRequest(longDepth, side, firstMove, out var svg, out var px, out var pw);
+        var request = WidescreenRequest(depths, side, firstMove, out var svg, out var px, out var pw);
         var c = Anchors(svg, request);
         double size = ExpectedSize(request, px, pw);
 
@@ -580,7 +648,7 @@ public class RendererPlayPanelTests
         // Behaviour-neutral pin: with room to spare nothing yields or shrinks,
         // so the size is 14 and every anchor is what the fixed reservation
         // always gave.
-        var request = WidescreenRequest(longDepth: false, side, "24/21 13/10", out var svg, out _, out _);
+        var request = WidescreenRequest(Depths.Short, side, FirstMove.Short, out var svg, out _, out _);
 
         var c = Anchors(svg, request);
         Assert.Equal(SvgFormat.Number(FullSize), c.FontSize);
@@ -588,18 +656,18 @@ public class RendererPlayPanelTests
     }
 
     [Theory]
-    [InlineData(AspectPreset.Natural, false)]
-    [InlineData(AspectPreset.Natural, true)]
-    [InlineData(AspectPreset.Standard4x3, false)]
-    [InlineData(AspectPreset.Standard4x3, true)]
-    public void NarrowPresets_KeepTheFullReservation(AspectPreset aspect, bool longDepth)
+    [InlineData(AspectPreset.Natural, Depths.Short)]
+    [InlineData(AspectPreset.Natural, Depths.Long)]
+    [InlineData(AspectPreset.Standard4x3, Depths.Short)]
+    [InlineData(AspectPreset.Standard4x3, Depths.Long)]
+    public void NarrowPresets_KeepTheFullReservation(AspectPreset aspect, Depths depths)
     {
         // The narrow presets cannot hold the play panel's columns at all — a
         // pre-existing overflow owned by halheinrich/backgammon#253. The
         // yielding reservation must leave their output exactly as it was;
         // this pins that it does, not that the geometry is right. Retire it
         // with halheinrich/backgammon#253's fix.
-        var request = LayoutRequest(longDepth, PanelPosition.Left);
+        var request = LayoutRequest(depths, PanelPosition.Left);
         var svg = DiagramRenderer.RenderSvg(request, new DiagramOptions { Aspect = aspect });
 
         var c = Anchors(svg, request);

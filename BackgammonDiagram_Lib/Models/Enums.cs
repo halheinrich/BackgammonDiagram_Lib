@@ -18,28 +18,21 @@ public enum DiagramMode
 }
 
 /// <summary>
-/// Row order of the Solution-mode play panel's candidate list — selected per
-/// request via <see cref="DiagramRequest.CandidateOrdering"/>
-/// (halheinrich/backgammon#150).
+/// The order a working board's two dice are drawn in, left to right — see
+/// <see cref="DiagramRequest.WithWorkingBoard"/>. Play entry lets its user
+/// swap the dice on screen to choose which one a click spends first; the
+/// swap is a matter of display, so the decision's roll is never restated to
+/// express it.
 /// </summary>
-public enum CandidateOrdering
+public enum DiceOrder
 {
-    /// <summary>Equity order — the caller's list order, rendered unchanged
-    /// (the default). The data contract assumes the caller supplies
-    /// <c>Decision.Plays</c> equity-sorted (XG's native order), so this is
-    /// the equity ordering without the renderer re-sorting anything.</summary>
-    Equity,
+    /// <summary>The order the decision records the roll in — its rolled
+    /// order, the order a decision's own diagram draws.</summary>
+    AsRolled,
 
-    /// <summary>Depth first — candidates ordered by analysis depth, deepest
-    /// first, using the producer-stamped
-    /// <see cref="BgDataTypes_Lib.PlayCandidate.DepthRank"/> (descending),
-    /// which the data layer names as the ordering surface for depth
-    /// comparisons. The sort is stable: within a depth tier (equal rank),
-    /// candidates keep their caller (equity) order. Exists for the reviewer
-    /// who rolls out the best candidate of each thematic category — the
-    /// deepest results scatter down the equity order, so the analysis they
-    /// most want to see first sinks under <see cref="Equity"/>.</summary>
-    DepthFirst
+    /// <summary>The recorded order reversed: the second die on the
+    /// left.</summary>
+    Reversed,
 }
 
 /// <summary>Which side of the board the analysis panel occupies.</summary>

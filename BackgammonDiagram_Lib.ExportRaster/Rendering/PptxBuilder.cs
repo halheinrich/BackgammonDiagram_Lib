@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
@@ -13,7 +13,7 @@ namespace BackgammonDiagram_Lib.ExportRaster;
 /// <summary>
 /// Builds a .pptx byte array from one or more PNG images.
 /// Each PNG becomes one slide. Title is baked into the PNG by the SVG renderer;
-/// the XGID (when non-empty) is added per slide as a real text box in the
+/// the XGID (a decision's) is added per slide as a real text box in the
 /// upper-right corner, layered over the picture.
 /// Internal — called only by DiagramRasterRenderer.
 /// </summary>
@@ -32,7 +32,7 @@ internal static class PptxBuilder
     private const long MarginH = 457200L;  // 0.5"
     private const long MarginV = 457200L;  // 0.5"
 
-    public static byte[] Build(IEnumerable<(byte[] Png, string Xgid)> slides)
+    public static byte[] Build(IEnumerable<(byte[] Png, string? Xgid)> slides)
     {
         var slideList = slides.ToList();
         if (slideList.Count == 0)
@@ -923,7 +923,7 @@ internal static class PptxBuilder
     //  Slide content
     // -----------------------------------------------------------------------
 
-    private static Slide BuildSlide(string imageRId, byte[] png, int slideWidth, string xgid)
+    private static Slide BuildSlide(string imageRId, byte[] png, int slideWidth, string? xgid)
     {
         long availW = slideWidth - MarginH * 2;
         long availH = SlideHeight - MarginV * 2;
@@ -961,9 +961,9 @@ internal static class PptxBuilder
             BuildPicture(imageRId, imgX, imgY, imgW, imgH));
 
         // XGID text box, appended after the picture so it layers on top.
-        // Skipped when empty so slides without an XGID stay shape-for-shape
+        // Skipped when absent so slides without an XGID stay shape-for-shape
         // identical to the pre-XGID output.
-        if (!string.IsNullOrEmpty(xgid))
+        if (xgid is not null)
             tree.AppendChild(BuildXgidTextBox(xgid, slideWidth));
 
         return new Slide(

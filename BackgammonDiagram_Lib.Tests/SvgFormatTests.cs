@@ -101,7 +101,7 @@ public class SvgFormatTests
         // Pins the documented contract: GetHitRegions().ViewBox formatted via
         // ToAttributeString is exactly the viewBox RenderSvg emits, so a
         // consumer overlay built from hit regions aligns with the drawn board.
-        var request = TestFixtures.MinimalBuilder().Build();
+        var request = TestFixtures.MinimalRequest();
         var options = new DiagramOptions();
 
         var svg = DiagramRenderer.RenderSvg(request, options);

@@ -31,8 +31,9 @@ public class BoardHitRegions
     public HitRect? OpponentTray { get; init; }
 
     /// <summary>
-    /// Bounding rectangle over the two dice, or <c>null</c> for cube decisions
-    /// (no dice are drawn). One rect covers the whole pair: a click anywhere on
+    /// Bounding rectangle over the two dice, or <c>null</c> when no dice are
+    /// drawn — a cube decision's diagram, or a board whose display facts show
+    /// none. One rect covers the whole pair: a click anywhere on
     /// the dice is a single action, leaving the submit-vs-swap choice to the
     /// consumer. Single-sourced with the dice renderer so the hit region tracks
     /// the drawn dice exactly.

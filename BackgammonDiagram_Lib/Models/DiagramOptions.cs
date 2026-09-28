@@ -43,7 +43,7 @@ public record DiagramOptions
     /// <summary>
     /// When <c>true</c>, the SVG renderer bakes the request's
     /// <see cref="DiagramRequest.Xgid"/> into the diagram as an upper-right
-    /// label (skipped when the XGID is empty). Defaults to <c>false</c> so
+    /// label (skipped when the request has none — a board's). Defaults to <c>false</c> so
     /// interactive consumers (BgDiag_Razor, BgQuiz) render unchanged. The
     /// export formats use this for PNG, where the label can only be pixels;
     /// PDF and PPTX instead overlay the XGID as real selectable text and

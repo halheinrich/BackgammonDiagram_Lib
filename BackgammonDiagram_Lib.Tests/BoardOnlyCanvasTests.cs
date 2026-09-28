@@ -27,7 +27,7 @@ public class BoardOnlyCanvasTests
     public void BoardOnly_ViewBoxIsBoardProperExactly()
     {
         // MinimalRequest is a checker decision, so a panel-bearing preset
-        // would compose a title strip ("3-1 to play"). Under BoardOnly the
+        // would compose a title strip ("3-1 to play", its source file). Under BoardOnly the
         // canvas is the board proper on both axes: no panel allocation in x,
         // no strip in y (halheinrich/backgammon#98).
         var layout = BoardLayout.Default;
@@ -61,10 +61,8 @@ public class BoardOnlyCanvasTests
         // The strip is dropped with the panel (halheinrich/backgammon#98): its
         // texts are deliberately absent while answering maximized, and its
         // height becomes board budget.
-        var b = TestFixtures.MinimalBuilder();
-        b.PositionNumber = 7;
-        b.SourceFile = "match.xg";
-        var request = b.Build();
+        // The default record is in match.xg.
+        var request = TestFixtures.MinimalRequest() with { PositionNumber = 7 };
 
         // A panel-bearing render of the same request composes all three cells,
         // so their absence below is the preset dropping the strip — not a
@@ -102,10 +100,11 @@ public class BoardOnlyCanvasTests
         // rendered SVG's viewBox attribute, and every point centre matches
         // ColumnCentreX on the board-only layout. With no panel allocated the
         // panel side must be a geometric no-op.
-        var b = TestFixtures.MinimalBuilder();
-        b.AnalysisPanelPosition = panelPosition;
-        b.HomeBoardOnRight = homeBoardOnRight;
-        var request = b.Build();
+        var request = TestFixtures.MinimalRequest() with
+        {
+            AnalysisPanelPosition = panelPosition,
+            HomeBoardOnRight = homeBoardOnRight,
+        };
 
         string svg = DiagramRenderer.RenderSvg(request, BoardOnlyOptions);
         var regions = DiagramRenderer.GetHitRegions(request, BoardOnlyOptions);
@@ -139,11 +138,7 @@ public class BoardOnlyCanvasTests
         // checker off (opponent tray renders per the [1,14] band). Every
         // region must lie inside the board-only viewBox — the whole point of
         // the preset is that clicks land on the board, not on cropped space.
-        var b = TestFixtures.MinimalBuilder();
-        var mop = TestFixtures.StartingMop();
-        mop[19] = -4;   // opponent: 14 on board → 1 borne off
-        b.Mop = mop;
-        var regions = DiagramRenderer.GetHitRegions(b.Build(), BoardOnlyOptions);
+        var regions = DiagramRenderer.GetHitRegions(OneOpponentCheckerOff(), BoardOnlyOptions);
 
         Assert.NotNull(regions.OnRollTray);
         Assert.NotNull(regions.OpponentTray);
@@ -187,12 +182,8 @@ public class BoardOnlyCanvasTests
         // for a left panel, zero for a right panel) and up by the title strip
         // Natural carries and board-only drops. Identical widths and heights
         // everywhere — checkers stay round.
-        var b = TestFixtures.MinimalBuilder();
-        b.AnalysisPanelPosition = panelPosition;
-        var mop = TestFixtures.StartingMop();
-        mop[19] = -4;   // render both trays (see BoardOnly_AllHitRegionsLandOnTheBoard)
-        b.Mop = mop;
-        var request = b.Build();
+        // Both trays render (see BoardOnly_AllHitRegionsLandOnTheBoard).
+        var request = OneOpponentCheckerOff() with { AnalysisPanelPosition = panelPosition };
 
         var natural = DiagramRenderer.GetHitRegions(request, NaturalOptions);
         var boardOnly = DiagramRenderer.GetHitRegions(request, BoardOnlyOptions);
@@ -238,9 +229,7 @@ public class BoardOnlyCanvasTests
     [Fact]
     public void BoardOnly_SolutionMode_RenderSvgThrows()
     {
-        var b = TestFixtures.MinimalBuilder();
-        b.Mode = DiagramMode.Solution;
-        var request = b.Build();
+        var request = TestFixtures.MinimalRequest() with { Mode = DiagramMode.Solution };
 
         var ex = Assert.Throws<ArgumentException>(
             () => DiagramRenderer.RenderSvg(request, BoardOnlyOptions));
@@ -250,9 +239,7 @@ public class BoardOnlyCanvasTests
     [Fact]
     public void BoardOnly_SolutionMode_GetHitRegionsThrows()
     {
-        var b = TestFixtures.MinimalBuilder();
-        b.Mode = DiagramMode.Solution;
-        var request = b.Build();
+        var request = TestFixtures.MinimalRequest() with { Mode = DiagramMode.Solution };
 
         var ex = Assert.Throws<ArgumentException>(
             () => DiagramRenderer.GetHitRegions(request, BoardOnlyOptions));
@@ -262,6 +249,15 @@ public class BoardOnlyCanvasTests
     // -----------------------------------------------------------------------
     //  Helpers
     // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// A checker play from the standard start with one of the opponent's
+    /// checkers off the 19-point (14 on the board, one borne off), so both
+    /// trays render: the on-roll player's empty one, per its [0,14] band, and
+    /// the opponent's, per its [1,14] band.
+    /// </summary>
+    private static DiagramRequest OneOpponentCheckerOff() => TestFixtures.RequestFor(TestFixtures.CheckerPlayOn(
+        TestFixtures.Board((1, -2), (12, -5), (17, -3), (19, -4), (24, 2), (13, 5), (8, 3), (6, 5))));
 
     private static (double Width, double Height) ParseSvgViewBox(string svg)
     {

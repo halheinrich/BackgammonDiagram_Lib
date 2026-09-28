@@ -8,7 +8,7 @@ namespace BackgammonDiagram_Lib.Tests;
 
 /// <summary>
 /// Parallel to <see cref="RealFileCheckerDecisionTests"/> but selecting
-/// cube decisions (IsCube == true) for visual smoke-testing the cube
+/// cube decisions for visual smoke-testing the cube
 /// analysis panel on realistic fixtures.
 /// </summary>
 [Trait("Category", "Visual")]
@@ -70,13 +70,11 @@ public class RealFileCubeDecisionTests
         int taken = 0;
         foreach (var data in XgDecisionIterator.IterateDiagramRequests(file, Path.GetFileName(path)))
         {
-            if (!data.Decision.IsCube) continue;
+            if (data is not CubeDecision) continue;
             taken++;
             counter++;
-            var req = DiagramRequest.FromDecisionData(data, mode: DiagramMode.Solution);
-            var b = DiagramRequest.Builder.From(req);
-            b.PositionNumber = counter;
-            results.Add(b.Build().ToProblemSolutionPair());
+            var req = DiagramRequest.ForDecision(data, PlayRanking.Equity) with { PositionNumber = counter };
+            results.Add(req.ToProblemSolutionPair());
             if (taken >= limit) break;
         }
         return results;

@@ -115,7 +115,7 @@ public static class DiagramRasterRenderer
     /// of what the caller passed) guarantees the baked pixels can't duplicate
     /// the text overlay — the PDF/PPTX label is always the real-text one.
     /// </summary>
-    private static (byte[] Png, string Xgid) RenderOverlayPage(DiagramRequest request,
+    private static (byte[] Png, string? Xgid) RenderOverlayPage(DiagramRequest request,
         DiagramOptions options, ISvgRasterizer? rasterizer)
     {
         var png = RenderPng(request, options with { ShowXgid = false }, rasterizer);

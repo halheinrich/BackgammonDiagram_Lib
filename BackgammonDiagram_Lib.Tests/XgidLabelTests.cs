@@ -4,13 +4,18 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using BackgammonDiagram_Lib.Rendering;
 using BackgammonDiagram_Lib.ExportRaster;
+using BgDataTypes_Lib;
+using BgDataTypes_Lib.TestSupport;
 using QuestPDF.Infrastructure;
 using Xunit;
 
 namespace BackgammonDiagram_Lib.Tests;
 
 /// <summary>
-/// Covers the XGID label across the three export layers:
+/// Covers the XGID label across the three export layers. The XGID is a
+/// decision's, derived by its record; a board has none, so a board request
+/// is the no-XGID case.
+///
 ///   * SVG  — baked <text>, gated on <see cref="DiagramOptions.ShowXgid"/>.
 ///   * PPTX — real text run in a slide shape (plain XML, asserted directly).
 ///   * PDF  — real selectable text. QuestPDF subsets fonts, so the content
@@ -25,7 +30,15 @@ public class XgidLabelTests
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
-    private const string SampleXgid = "XGID=-b----E-C---eE---c-e----B-:0:0:1:00:0:0:0:0:10";
+    /// <summary>The default record's XGID, derived by the record.</summary>
+    private static readonly string SampleXgid = TestRecords.CheckerPlay().Xgid;
+
+    /// <summary>The default record's request: it carries <see cref="SampleXgid"/>.</summary>
+    private static DiagramRequest WithXgid() => TestFixtures.MinimalRequest();
+
+    /// <summary>A board's request: no decision, so no XGID.</summary>
+    private static DiagramRequest WithoutXgid() =>
+        DiagramRequest.ForBoard(BoardPosition.Standard, new DisplayFacts { Dice = new DiceFaces(3, 1) });
 
     // -----------------------------------------------------------------------
     //  SVG — opt-in baked label
@@ -34,9 +47,8 @@ public class XgidLabelTests
     [Fact]
     public void Svg_ShowXgid_EmitsXgidText()
     {
-        var b = TestFixtures.MinimalBuilder();
-        b.Xgid = SampleXgid;
-        var svg = DiagramRenderer.RenderSvg(b.Build(),
+        Assert.Equal(SampleXgid, WithXgid().Xgid);
+        var svg = DiagramRenderer.RenderSvg(WithXgid(),
             TestFixtures.DefaultOptions() with { ShowXgid = true });
 
         Assert.Contains(SampleXgid, svg);
@@ -47,23 +59,20 @@ public class XgidLabelTests
     {
         // ShowXgid defaults off, so interactive consumers (BgDiag_Razor,
         // BgQuiz) render exactly as before even when an XGID is present.
-        var b = TestFixtures.MinimalBuilder();
-        b.Xgid = SampleXgid;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        var svg = DiagramRenderer.RenderSvg(WithXgid(), TestFixtures.DefaultOptions());
 
         Assert.DoesNotContain(SampleXgid, svg);
     }
 
     [Fact]
-    public void Svg_ShowXgid_EmptyXgid_EmitsNoLabel()
+    public void Svg_ShowXgid_NoXgid_EmitsNoLabel()
     {
-        // Empty XGID short-circuits the label, so ShowXgid=true with no XGID
-        // is byte-identical to the default render — nothing extra is drawn.
-        var b = TestFixtures.MinimalBuilder();
-        b.Xgid = string.Empty;
-        var withFlag = DiagramRenderer.RenderSvg(b.Build(),
+        // A board has no XGID (null), so ShowXgid=true is byte-identical to
+        // the default render — nothing extra is drawn.
+        Assert.Null(WithoutXgid().Xgid);
+        var withFlag = DiagramRenderer.RenderSvg(WithoutXgid(),
             TestFixtures.DefaultOptions() with { ShowXgid = true });
-        var without = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        var without = DiagramRenderer.RenderSvg(WithoutXgid(), TestFixtures.DefaultOptions());
 
         Assert.Equal(without, withFlag);
     }
@@ -75,9 +84,7 @@ public class XgidLabelTests
     [Fact]
     public void Pptx_CarriesXgidAsRealTextRun()
     {
-        var b = TestFixtures.MinimalBuilder();
-        b.Xgid = SampleXgid;
-        var pptx = DiagramRasterRenderer.RenderPptx(b.Build(), TestFixtures.DefaultOptions());
+        var pptx = DiagramRasterRenderer.RenderPptx(WithXgid(), TestFixtures.DefaultOptions());
 
         using var zip = new ZipArchive(new MemoryStream(pptx), ZipArchiveMode.Read);
         var a = XNamespace.Get("http://schemas.openxmlformats.org/drawingml/2006/main");
@@ -103,8 +110,7 @@ public class XgidLabelTests
     {
         // No XGID → no text shape, so a plain image-only slide is unchanged
         // and the conformance post-processors have nothing new to handle.
-        var pptx = DiagramRasterRenderer.RenderPptx(
-            TestFixtures.MinimalRequest(), TestFixtures.DefaultOptions());
+        var pptx = DiagramRasterRenderer.RenderPptx(WithoutXgid(), TestFixtures.DefaultOptions());
 
         using var zip = new ZipArchive(new MemoryStream(pptx), ZipArchiveMode.Read);
         var a = XNamespace.Get("http://schemas.openxmlformats.org/drawingml/2006/main");
@@ -130,9 +136,7 @@ public class XgidLabelTests
     [Fact]
     public void Pdf_CarriesXgidAsRealText()
     {
-        var b = TestFixtures.MinimalBuilder();
-        b.Xgid = SampleXgid;
-        var pdf = DiagramRasterRenderer.RenderPdf(b.Build(), TestFixtures.DefaultOptions());
+        var pdf = DiagramRasterRenderer.RenderPdf(WithXgid(), TestFixtures.DefaultOptions());
 
         var mappedUnicode = CollectToUnicodeChars(pdf);
 
@@ -149,8 +153,7 @@ public class XgidLabelTests
     {
         // Without an XGID the page carries no real text at all, so the PDF has
         // no ToUnicode mappings — proving the overlay is the only text source.
-        var pdf = DiagramRasterRenderer.RenderPdf(
-            TestFixtures.MinimalRequest(), TestFixtures.DefaultOptions());
+        var pdf = DiagramRasterRenderer.RenderPdf(WithoutXgid(), TestFixtures.DefaultOptions());
 
         Assert.Empty(CollectToUnicodeChars(pdf));
     }

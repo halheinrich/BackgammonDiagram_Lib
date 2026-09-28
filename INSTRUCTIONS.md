@@ -29,11 +29,16 @@ https://github.com/halheinrich/BackgammonDiagram_Lib — branch `main`.
 
 Core (`BackgammonDiagram_Lib`):
 
-- **BgDataTypes_Lib** — `PositionData`, `DecisionData` (incl. `CubeDepth` /
-  `CubeDepthAbbreviation` / `CubeDepthRank`), `DescriptiveData`, `CubeOwner`,
-  `PlayCandidate` (incl. per-play `Depth` / `DepthAbbreviation` / `DepthRank`),
-  `BgDecisionData`. The whole shared type layer this library renders from.
-  **This is core's only dependency** — no native packages.
+- **BgDataTypes_Lib** — the validated record a decision's diagram is built
+  from (`BgDecisionData`, its two kinds `CheckerPlayDecision` and
+  `CubeDecision`, their categories and the session kinds), the ranking of a
+  checker play's candidates (`PlayRanking`, `RankedPlays`), each cube
+  action's equity and error (`CubeDecisionData.ActionEquity` and the error
+  methods), a play's notation (`Play.ToNotation`, through
+  `PlayCandidate.Notation`), and the board value any diagram draws
+  (`BoardPosition`) with the one pip rule (`BoardState`). The whole shared
+  type layer this library renders from. **This is core's only dependency** —
+  no native packages.
 
 ExportRaster (`BackgammonDiagram_Lib.ExportRaster`), in addition to a project
 reference to core:
@@ -47,11 +52,14 @@ reference to core:
 
 Test-only:
 
+- **BgDataTypes_Lib.TestSupport** — `TestRecords`, the producer's record
+  builders: the one way the tests build decision records, so no test here
+  restates a record's construction.
 - **ConvertXgToJson_Lib** — referenced by `BackgammonDiagram_Lib.Tests` for
-  real-`.xg`-file fixtures used by visual and decision-data round-trip
-  tests. The library itself does not depend on it; standalone test builds
-  outside the umbrella checkout will not have the sibling submodule path
-  available.
+  real-`.xg`-file fixtures used by the visual tests (local-only; they read
+  `TestData/` and gate nothing). The library itself does not depend on it;
+  standalone test builds outside the umbrella checkout will not have the
+  sibling submodule path available.
 
 ## Layout
 
@@ -70,18 +78,22 @@ states why. Four areas:
 - **Rendering** — `Rendering/`: `DiagramRenderer`, the SVG entry points
   (`RenderSvg`, `GetHitRegions`) and every drawing rule behind them —
   board, checkers, dice, cube, watermark placement, title strip, rail text,
-  both analysis panels; and `BoardLayout`, the internal geometry, every
-  constant derived from `CheckerRadius`.
+  both analysis panels; the internal `DiagramPresentation`, what a request
+  presents beyond its checkers, worded once for both of its sources; and
+  `BoardLayout`, the internal geometry, every constant derived from
+  `CheckerRadius`.
 - **The request and options model** — `Models/`, whose types sit in the
   root `BackgammonDiagram_Lib` namespace rather than a `.Models` one:
-  `DiagramRequest` (immutable and validated, built through its nested
-  `Builder`) and `DiagramRequestExtensions` (`ToProblemSolutionPair`);
+  `DiagramRequest` (immutable and validated, from its three entry points)
+  and `DiagramRequestExtensions` (`ToProblemSolutionPair`); a board's
+  display facts, `DisplayFacts`, with the values they state — `DiceFaces`
+  and the closed pair `RailScore` (`MatchRailScore`, `MoneyRailScore`);
   `DiagramOptions` with the `AspectPreset` canvas enum beside it;
   `DiagramSize`; the remaining display enums in `Enums.cs`
-  (`DiagramMode`, `CandidateOrdering`, `PanelPosition`,
-  `DiagramSizePreset`); `BoardHitRegions` — the viewBox and the point,
-  bar, cube, tray and dice rectangles — with the `SvgViewBox` and
-  `HitRect` records it is expressed in; and the internal `MathUtils`.
+  (`DiagramMode`, `DiceOrder`, `PanelPosition`, `DiagramSizePreset`);
+  `BoardHitRegions` — the viewBox and the point, bar, cube, tray and dice
+  rectangles — with the `SvgViewBox` and `HitRect` records it is expressed
+  in.
 - **Themes** — `Themes/`: `ITheme`, the palette contract; `ThemeRegistry`,
   which exposes the two internal built-ins (`DefaultTheme`,
   `GreyscaleTheme`) only as `ITheme`; and `CustomTheme`, the public
@@ -102,17 +114,21 @@ internal default `SkiaSharpRasterizer`, and the internal packagers
 `BackgammonDiagram_Lib.ExportRaster` namespace, `Rendering/` included.
 
 **`BackgammonDiagram_Lib.Tests/`** — xUnit, not packable. References both
-shipped projects, `BgDataTypes_Lib`, and — test-only — `ConvertXgToJson_Lib`
-(see "Depends on"). One class per surface or behaviour area: the
-renderer's facets, the request builder and factory, hit regions, themes,
-labels and formatting, the export formats. Three guards enforce invariants
-this doc states: `CoreNativeFreeTests` (core references no native
-package), `BuilderFieldCarriageTests` (the Builder carries every record
-field and every renderer-specific field), and
-`WatermarksTests.Default_MatchesPreBakedBytes` (the watermark's exact
-bytes). `TestFixtures` holds the shared minimal builders; `TestPaths`
-resolves the umbrella's `TestData/`, which the real-file and visual tests
-read and write — see "TestData" below.
+shipped projects, `BgDataTypes_Lib` with its `TestSupport` project, and —
+test-only — `ConvertXgToJson_Lib` (see "Depends on"). One class per
+surface or behaviour area: the renderer's facets, the request and its
+display facts, the board path, the ranking, hit regions, themes, labels and
+formatting, the export formats. Every gating test synthesizes its input:
+records through `TestRecords`, boards as `BoardPosition` values. Guards
+enforce invariants this doc states: `CoreNativeFreeTests` (core references
+no native package), `WatermarksTests.Default_MatchesPreBakedBytes` (the
+watermark's exact bytes), and two surveys of the renderer's source, which a
+rendered SVG cannot show — `RailLabels_BoldIsSpeltOnce_InTheOneRailTextEmitter`
+and `CubePanel_StatesNoPassValueAndNoDoublingRuleOfItsOwn`. `TestFixtures`
+holds the shared requests and boards, `PlayPanelReader` reads a rendered
+play panel back into rows, and `RendererSource` reaches the renderer's
+source; `TestPaths` resolves the umbrella's `TestData/`, which the
+real-file and visual tests read and write — see "TestData" below.
 
 ## Architecture
 
@@ -138,78 +154,120 @@ reference (see Pitfalls).
 
 ### DiagramRequest
 
-Immutable class with a nested `Builder`. Callers set flat fields on the
-Builder; `Build()` constructs the nested `PositionData` / `DecisionData` /
-`DescriptiveData` internally, then validates:
+What a diagram draws, and the diagram's own options for drawing it: a
+`sealed record`, validated where each part is set, with no public
+constructor. Three entry points (the umbrella's determination, approved by
+Hal 2026-09-28 on halheinrich/backgammon#273):
 
-- `Mop` must be length 26.
-- `Dice` must be length 2.
-- `IsCube == true` → `Dice` must be `[0, 0]`.
-- `IsCube == false` → each die in `1..6`.
-- `CubeSize` must be a power of 2 in `1..4096`.
-- `CandidateOrdering` and a non-null `MaximumHiddenCandidateAnalysisLevel`
-  must be defined enum values, and the ceiling must not be
-  `AnalysisLevel.Unknown` — Unknown means "level not recorded", not a depth,
-  so hiding "through not-recorded" is nonsense; null is the hide-nothing
-  state. The display options are caller configuration, so they get the
-  validate-don't-tolerate register (unlike producer-stamped data facts).
+- **`ForDecision(BgDecisionData decision, PlayRanking ranking)`** — a
+  decision's diagram, built from the validated record, either kind. The
+  request holds the record and **no copy of anything it states or
+  derives**: the board, the presentation, the analysis and the XGID are read
+  from the record when the diagram is drawn. The Builder that re-spelled the
+  three records field by field is gone, with the test that enforced its
+  full copy: holding the record leaves nothing to carry, so a field the
+  records gain reaches the diagram with no edit here.
+- **`ForBoard(BoardPosition board, DisplayFacts facts)`** — any other
+  board: a game's final position (a side borne off, so no decision
+  position), a replayed turn with no analysis. Drawn from the board and the
+  display facts its caller states (below). Never a `PositionData`, a
+  `Session` or a stand-in record: a match won 0-away is no valid
+  `MatchSession`, and it need not be one.
+- **`WithWorkingBoard(BoardPosition board, DiceOrder diceOrder)`** — on a
+  request presenting a checker play: the working board of its entry
+  (BgDiag_Razor's board mid-play), drawn with **its decision's
+  presentation**, which this library derives from the record exactly as for
+  the decision's own diagram — so an entry component never copies the
+  record's facts into display facts. The checkers and pip counts are the
+  working board's; the names, source, roll (in `diceOrder`, since entry lets
+  its user swap the dice on screen), cube and score are the decision's. It
+  keeps every option but `Mode`, which is `Problem`: a working board has no
+  analysis, and no XGID (an XGID states the decision's position). A cube
+  decision's request, or a board's, has none (`InvalidOperationException`).
+  It applies to a working board's request again, for the next click.
 
-Exposed properties:
+Read-back: `Board` (always), `Decision` (a decision's diagram; null for a
+board, a working board included), `Display` (a board request's stated facts;
+null otherwise), `Xgid` (a decision's, the record's derivation; null
+otherwise).
 
-- `Position` (PositionData), `Decision` (DecisionData),
-  `Descriptive` (DescriptiveData) — the three nested data records.
-- `Mode` (DiagramMode) — Problem vs Solution.
-- `HomeBoardOnRight` (bool, default `true`) — geometric reflection.
-- `OnRollAtBottom` (bool, default `true`) — vertical orientation of the
-  on-roll half.
-- `AnalysisPanelPosition` (PanelPosition) — Left or Right of the board.
-- `PanelOnLeft` (bool, derived) — true ⇔
-  `AnalysisPanelPosition == PanelPosition.Left`. Single declaration site
-  for this derivation; both `RenderSvg` and `GetHitRegions` read it to
-  share one coordinate-system rule.
-- `PositionNumber` (int?, default `null`) — optional counter rendered
-  right-justified in the title strip as `"Position {N}"`. Callers
-  emitting a deck typically set this to a 1-based running counter so
-  readers can cross-reference back to the source list.
-- `CandidateOrdering` (CandidateOrdering, default `Equity`) — row order of
-  the Solution-mode play panel's candidate list. `Equity` renders the
-  caller's (assumed equity-sorted) order unchanged; `DepthFirst` orders by
-  analysis depth, deepest first (halheinrich/backgammon#150). See the
-  Analysis panel section for the ordering rule.
-- `MaximumHiddenCandidateAnalysisLevel` (AnalysisLevel?, default `null`) —
-  optional display ceiling for the play panel: hides candidates analysed at
-  or below this level (halheinrich/backgammon#66); null hides nothing. The
-  ceiling is inclusive on the hide side, which is what lets the top level
-  stand as a selection — naming `XgRollerPlusPlus` means "show only
-  rollouts", the user's ruling of 2026-08-29. See the Analysis panel section
-  for the hiding rule and the never-hidden contract.
-  Both depth-treatment options are consumer-set display options on the
-  `SecondaryPlayIndex` model: the data-sourcing factories leave them at
-  their defaults, so every export path renders unchanged.
+**Display facts** (`DisplayFacts`; Hal, 2026-09-28: "presentation-owned
+facts rather than copied domain-decision facts"). What the diagram draws
+and prints for a board beyond its checkers, each validated only for what
+drawing it needs:
 
-`Mop`, `Dice`, and `Plays` live on the nested `BgDataTypes_Lib` records
-(`Position.Mop`, `Decision.Dice`, `Decision.Plays`) — they are not
-top-level `DiagramRequest` properties. `Builder.Build()` defensively
-copies them when constructing the nested records, so external mutation
-of caller-owned arrays/lists after `Build()` cannot affect a built
-`DiagramRequest`. `BoardHitRegions.Points` is exposed as
-`IReadOnlyDictionary`.
+| Fact | Type (default) | Validated | Drawn as |
+|---|---|---|---|
+| `OnRollName`, `OpponentName` | `string?` | text or null; empty refused (null is the one spelling of none) | each rail's player label |
+| `Title` | `string?` | text or null | the title strip's middle cell, verbatim |
+| `Dice` | `DiceFaces?` | each face 1–6, the faces a die is drawn with | the dice, left first, and the strip's `"{left}-{right} to play"` |
+| `CubeValue` | `int` (1) | nothing | the cube's face; 1 reads `64` |
+| `CubeOwner` | `CubeOwner` (`Centered`) | a defined value, a place to draw it | where the cube sits |
+| `Score` | `RailScore?` | nothing | `MatchRailScore` → `"{name} needs {n}"`; `MoneyRailScore` → `"{name} (Money Game)"`; null → names alone |
 
-`DiagramRequest` is constructed by clients from `BgDecisionData` plus
-rendering options — it is intentionally *not* produced by `ConvertXgToJson_Lib`.
+No session, standing, Crawford or Jacoby fact, cube legality, decision
+kind, analysis, candidate, error or ranking is re-spelled in them, and the
+diagram enforces no rule of the game on them: a cube limit, a legal
+standing or a legal roll is the domain's rule, so the cube shows the value
+it is given and the rails the score they are given, `needs 0` included. The
+consequence, deliberately: a board cannot mark the Crawford game (`Cr`,
+` Crawford`), double match point (`Dmp`) or a money session's Jacoby rule —
+those are a session's facts, which a decision's diagram and a working board
+draw from the record. The diagram keeps owning how it words what it shows:
+a caller states values, never drawn text. Not display facts: the board (the
+request's); the orientation, panel side and position number (the request's
+options, the same for every entry point); and the pip counts, read off the
+drawn board by `BgDataTypes_Lib`'s one pip rule through `BoardState`'s
+public counts — never supplied, never computed by a rule of this library's.
+
+**Options.** Each is init-only and validated on every set, so a request is
+varied with `with` — `request with { Mode = DiagramMode.Solution }` — and a
+variation the request cannot draw is refused where it is made, by an
+`ArgumentException` (or its null / out-of-range kinds) naming the member:
+
+- `Mode` (`DiagramMode`, default `Problem`) — `Solution` is a decision's
+  diagram's alone.
+- `HomeBoardOnRight`, `OnRollAtBottom` (default `true`) — the orientation.
+- `AnalysisPanelPosition` (a defined value) and the derived `PanelOnLeft`,
+  the single declaration site `RenderSvg` and `GetHitRegions` both read.
+- `PositionNumber` (`int?`) — "Position {N}" in the strip.
+- `Ranking` (`PlayRanking?`) — the ranking a checker play's candidates are
+  drawn by (see "Analysis panel"). Stated for every request presenting a
+  decision — `ForDecision` takes it, and unsetting it is refused: none is
+  assumed, so an app with a play-sorting setting cannot draw a best play it
+  did not score with, and an app without one states the default,
+  `Equity`. A cube decision states one too, so a caller holding either kind
+  states it the same way. Null for a board.
+- `MaximumHiddenCandidateAnalysisLevel` (`AnalysisLevel?`) — the ceiling
+  (see "Analysis panel"): a defined level, never `Unknown`, which means "not
+  recorded" and bounds nothing; null hides nothing. Accepted on any request
+  presenting a decision (an app applies its setting to every solution it
+  draws), refused on a board.
+- `SecondaryPlayIndex` (`int?`, default null) — the † mark: a candidate of
+  a checker play, refused elsewhere and out of range. It was -1 for none;
+  none is null now (the arc's rule).
+
+**Equality.** Value equality: the same record instance (records compare by
+reference) or equal boards and display facts, with equal options.
+
+`DiagramRequest` is constructed by clients from a record or a board — it is
+intentionally *not* produced by `ConvertXgToJson_Lib`.
 
 ### Diagram types
 
-Selected by `Decision.IsCube`:
+What a request draws:
 
-- **Checker decision** — board with dice; play list panel in Solution mode.
-- **Cube decision** — board with cube indicator (no dice); cube analysis
-  panel in Solution mode.
+- **Checker decision** — board with the roll's dice; play list panel in
+  Solution mode.
+- **Cube decision** — board with no dice and the cube prompt; cube
+  analysis panel in Solution mode.
+- **Board** (`ForBoard`, `WithWorkingBoard`) — board only; the panel region
+  blank.
 
 ### DiagramMode
 
 - `Problem` — board only.
-- `Solution` — board plus analysis panel.
+- `Solution` — board plus analysis panel; a decision's diagram only.
 
 Problem and Solution diagrams have **identical overall dimensions**: the
 analysis panel region is always allocated, so swapping modes never reflows
@@ -226,29 +284,39 @@ geometric reflection applied in `ColumnCentreX` — no data is flipped. Hot-path
 formatting uses `InvariantCulture` throughout `DiagramRenderer` to stay
 locale-safe, single-sourced in the public `SvgFormat.Number`.
 
-### Title and analysis panel
+### Presentation
+
+What a diagram draws beyond its checkers and its analysis — the title
+strip's texts, the dice, the cube's face and place, the rail labels — is
+resolved once per render by the internal `DiagramPresentation`, from one of
+two sources: a decision's record (for a decision's diagram and a working
+board) or a board's display facts. Both go through the same wording helpers
+there, so a thing is worded one way whichever source states it. The pip
+counts are not presentation: the rails read them off the drawn board.
+
+### Title strip
 
 The diagram title is rendered into the SVG itself as a title strip — a
 single source of truth. Neither `PdfBuilder` nor `PptxBuilder` stamps a
 title on top of the rendered page; they consume the SVG/PNG as-is.
 
-The strip has three cells, composed from context (not from
-`Descriptive.Title`):
+The strip has three cells:
 
-- **Col 1** (left edge, left-anchored): action text —
-  `"{d1}-{d2} to play"` for checker decisions, `"Cube Action?"` for cube
-  decisions. Empty for malformed inputs.
-- **Col 2** (left-anchored at a fixed offset just right of col 1's
-  reserved action column): `Descriptive.SourceFile`
-  stem — the filename minus its final dot-extension
-  (`mochy-falafel.xg` → `mochy-falafel`,
-  `abc.weird.xg` → `abc.weird`). Null / empty SourceFile emits no text.
-- **Col 3** (right edge, right-anchored): `"Position {N}"` when
-  `DiagramRequest.PositionNumber` is set.
+- **Col 1** (left edge, left-anchored): the action — `"{left}-{right} to
+  play"` wherever dice are drawn (a checker play's roll in its rolled order,
+  reversed on a working board whose user swapped them; a board's stated
+  dice), `"Cube Action?"` for a cube decision, nothing otherwise.
+- **Col 2** (left-anchored at a fixed offset just right of col 1's reserved
+  action column): a decision's source file stem — the record's `SourceFile`
+  minus its final dot-extension (`mochy-falafel.xg` → `mochy-falafel`,
+  `abc.weird.xg` → `abc.weird`) — or a board's stated `Title`, verbatim.
+- **Col 3** (right edge, right-anchored): `"Position {N}"` when the
+  request's `PositionNumber` is set.
 
-Strip visibility is keyed off cols 1 and 3: col 2 alone never forces the
-strip on, preserving the pre-SourceFile contract for synthetic-test
-requests that set only SourceFile.
+The strip shows when any cell has content. (It used to key off cols 1 and
+3 alone, so that a synthetic request stating only a source file stayed
+stripless; every record has a source file now, and a board's stated title
+must be drawn.) A decision's diagram always has cols 1 and 2.
 
 `AspectPreset.BoardOnly` renders **no strip at all** — no cells are
 composed for it, so the canvas is the board proper alone and its viewBox
@@ -260,52 +328,53 @@ preset.
 
 `PanelBackgroundColor` is part of `ITheme`; `DefaultTheme` uses white.
 
-### Rail text
+### Rail text and the cube's face
 
-`DiagramRenderer.FormatPlayerLabel` composes each side's rail label — away
-scores, the Crawford indicator, or the money-game label. Both players' labels
-are composed the same way: the Jacoby rule is a per-session fact, so both
-rails say the same thing even though the label itself is per-player.
-Both rail labels — the player label and `Pip: N` — are bold on every
-surface, emitted by the one helper `DiagramRenderer.AppendRailLabel`.
+Each rail carries a player label and `Pip: N`. Both are bold on every
+surface, emitted by the one helper `DiagramRenderer.AppendRailLabel`. The
+pip count is the drawn board's, by `BoardState`'s count. The player label is
+`"{name} {score}"`, each part drawn only where stated (a record may state no
+name). The score:
 
-- **Match play** (`Descriptive.MatchLength != 0`) — `{name} needs {n}`, plus
-  ` Crawford` when `Position.IsCrawford`. A match record carrying a non-null
-  `Position.IsJacoby` is tolerated, not rejected: Jacoby is a money-game fact
-  and never reaches a match label.
-- **Money play** (`MatchLength == 0`, the money-game sentinel) — three
-  states, tracking `Position.IsJacoby`'s three states:
+- **A decision's**, from its session (the producer's; see
+  `BgDataTypes_Lib`'s "Money and match: the session kinds"): a match reads
+  `needs {n}` on each side, with ` Crawford` in the Crawford game; money
+  reads `(Money Game, Jacoby)` or `(Money Game, No Jacoby)` on both rails —
+  the rule is the session's, so both rails say the same thing.
+- **A board's**, from its `RailScore`: `needs {n}`, or the bare
+  `(Money Game)` — display facts state no rule of a session.
 
-  | `Position.IsJacoby` | Label                            |
-  | ------------------- | -------------------------------- |
-  | `true`              | `{name} (Money Game, Jacoby)`    |
-  | `false`             | `{name} (Money Game, No Jacoby)` |
-  | `null`              | `{name} (Money Game)`            |
-
-  `null` means **the source did not stamp the fact**, never "off" — this
-  renderer serves surfaces whose producers may legitimately not carry it, so
-  an unstamped money position keeps the bare label from before
-  halheinrich/backgammon#143. It degrades; it never guesses
-  (halheinrich/backgammon#143), mirroring the tolerate-don't-reject register
-  of `PositionData.IsJacoby` itself.
-
-The fact only reaches the renderer because the Builder carries it — see the
-full-copy invariant under `DiagramRequest.Builder`.
+The cube's face, likewise: a decision's reads `Dmp` at double match point
+(a match with both players 1-away, where the cube is dead), `Cr` in the
+Crawford game (played without the cube), and otherwise the cube's value —
+`64` for 1. A board's reads its stated value, 1 reading `64`.
 
 ### Analysis panel
 
-Rendered in Solution mode only. Two shapes:
+Rendered in Solution mode only — a decision's diagram. Two shapes:
 
-- **Play panel** (`Decision.IsCube == false`). One row per visible
-  `PlayCandidate`; display order and visibility are the request's
-  depth-treatment options (`CandidateOrdering` /
-  `MaximumHiddenCandidateAnalysisLevel`), whose defaults render every
-  candidate in caller order, assumed equity-sorted — byte-identical to the
-  rendering that preceded halheinrich/backgammon#150. Columns: user's play marker, rank, move notation, equity,
-  equity loss, depth. Invariants:
-  - The Depth column renders `PlayCandidate.DepthAbbreviation`, not
-    `PlayCandidate.Depth`. Rows with empty `DepthAbbreviation` omit the
-    Depth cell entirely (the column header still renders).
+- **Play panel** (a checker play). One row per visible candidate. The
+  candidates arrive in the analyser's stored order; the request's ranking
+  orders them. **The ranking is `BgDataTypes_Lib`'s** (SPEC-scoring §2a;
+  `CheckerPlayDecisionData.RankedBy`, stated once in that library's "The
+  ranking"): it decides the order, the rank numbers, the best play and
+  every error, and the renderer ranks nothing itself. The candidates are
+  drawn in the ranking's order, each numbered with its rank; the best play
+  is the ranking's first. Columns: user's play marker, rank, move notation,
+  equity, equity loss, depth. Invariants:
+  - The move notation is the candidate's play's
+    (`PlayCandidate.Notation`, which is `Play.ToNotation()`); a record
+    stores none.
+  - The Eq Loss cell is the ranking's error: blank at 0 — the best play, and
+    any play tying it — the error where it is positive, and the not-scored
+    mark `—` (`DiagramRenderer.PlayPanelNotScoredMark`) for a candidate the
+    ranking does not score. Such a candidate (under depth first, one at
+    another depth from the best that rates higher) has no error, so its row
+    never shows one and never reads like the best play, whose cell is blank.
+    It keeps its rank number and its place in the ranking.
+  - The Depth column renders the candidate's derived
+    `DepthAbbreviation`; a candidate with no depth recorded (null) omits
+    the cell (the column header still renders).
   - Column placement and size (halheinrich/backgammon#252). The numeric
     block (Equity, Eq Loss, Depth) hangs off a move-text reservation of
     15 em rather than the panel's right edge. *Room* is the reservation that
@@ -344,129 +413,91 @@ Rendered in Solution mode only. Two shapes:
     through the normal pipeline rather than re-encoding the style. Bold and
     the rank-inversion italic are independent attributes: an inverted row
     reads bold-italic.
-  - Italic `font-style` flags a rank inversion: for row `i > 0`, italic
-    is applied to the row's Equity, Eq Loss, and Depth cells when
-    `plays[i].DepthRank > plays[i-1].DepthRank` — a deeper analysis sits
-    below a shallower one in the equity-sorted list. The marker, rank,
-    and move-notation cells stay upright. Row 0 never italic (no
-    predecessor). Check is keyed off source-list position, not display
-    slot — a user's play rescued into the last displayed row carries the
-    italic state from its original index.
-  - `CandidateOrdering.DepthFirst` (halheinrich/backgammon#150) orders rows
-    by the producer-stamped `PlayCandidate.DepthRank`, descending — the data
-    layer's designated ordering surface for depth comparisons, and the same
-    field the rank-inversion italic compares; the renderer ranks nothing
-    itself. The sort is stable, so candidates within a depth tier (equal
-    rank) keep their caller (equity) order.
+  - Italic `font-style` flags a rank inversion: a row's Equity, Eq Loss and
+    Depth cells are italic when its candidate's depth rank is higher than
+    that of the candidate the ranking places immediately before it — a
+    deeper analysis ranked below a shallower one. The marker, rank, and
+    move-notation cells stay upright. The ranking's first is never italic
+    (no predecessor), and under depth first no row is (it orders by depth);
+    an unrecorded depth (a null rank) compares with nothing, being
+    unrecorded rather than shallow. The check is keyed off the candidate's
+    place in the ranking, not its display slot — a user's play rescued into
+    the last displayed row, or a row after hidden ones, compares with its
+    neighbour in the ranking.
   - `MaximumHiddenCandidateAnalysisLevel` (halheinrich/backgammon#66) hides
     a candidate iff its numbers came from a direct evaluation
-    (`AnalysisMode.Evaluation`) whose stamped `AnalysisLevel` sits at or
-    below the ceiling on the level axis's declared ascending-rigor order (the
-    ceiling is inclusive on the hide side: "4-ply and lower hidden" is
-    `Ply4`). Inclusive-hide rather than an inclusive-show floor because the
-    ruled consumer selection — "show only rollouts", the user's ruling of
-    2026-08-29 on halheinrich/backgammon#66 — needs the top level to be a
-    legal threshold, and a show-floor would have needed a member *above*
-    `XgRollerPlusPlus` that the level axis does not have. The consumer's
-    dropdown value is passed here verbatim. That order *interleaves* the ply
-    family and the XG Roller family rather than stacking them as two blocks —
-    1-ply, 2-ply, 3-ply Red, 3-ply, XG Roller, 4-ply, XG Roller+, 5-ply,
-    6-ply, 7-ply, XG Roller++ (halheinrich/backgammon#159) — so a ply ceiling
-    also sweeps out the Roller levels beneath it: a `Ply5` ceiling hides
-    `XgRoller` and `XgRollerPlus` along with 5-ply and the shallow plies, and
-    `XgRollerPlusPlus` is the one Roller level no ply ceiling reaches — only
-    naming it does. Rollout-family
-    rows are never hidden — their `AnalysisLevel` is the rollout's *inner*
-    level, not the analysis's own depth — and unstamped rows (`Unknown`
-    mode or level) are never hidden: Unknown means "not recorded", never
-    "shallow". That last is clause (a) of the `AnalysisLevel` contract
-    (Unknown sits outside the rigor scale), and it is enforced by an explicit
-    guard rather than falling out of the comparison — `Unknown = 0` would
-    otherwise rank at or below every ceiling. **The best-play row and both
-    marked rows are never hidden, whatever their depth** — review must always
-    show what was best and what was played, and at the `XgRollerPlusPlus`
-    ceiling those rows plus the rollout family are all that remains.
+    (`AnalysisMode.Evaluation`) whose `AnalysisLevel` sits at or below the
+    ceiling in `AnalysisLevel`'s declared order — the producer's contract,
+    which states the order (the ply and XG Roller families interleave, so a
+    ply ceiling also hides the Roller levels beneath it, and only naming
+    `XgRollerPlusPlus` reaches that level). Inclusive on the hide side, so
+    the ruled consumer selection — "show only rollouts", the user's ruling
+    of 2026-08-29 — is the top level named, and a consumer passes its
+    dropdown value verbatim. Rollout-family rows are never hidden (their
+    level is the rollout's inner level), and neither are rows whose level is
+    not recorded: `Unknown` sits outside the order, and since `Unknown = 0`
+    would otherwise rank at or below every ceiling, an explicit guard keeps
+    them. **The ranking's best play and both marked rows are never hidden,
+    whatever their depth** — review must always show what was best and what
+    was played.
   - Every per-row treatment — rank number, the * / † marks, the
-    rank-inversion italics — is keyed to the play's **source index**, so
-    marks follow candidates, not row positions, under reordering, and each
-    row shows its true equity rank wherever it lands.
-  - When the panel runs out of vertical space, marked plays are "rescued"
-    into the last visible slots with their real rank numbers, displacing
-    the rows that would otherwise have been last. When a depth-treatment
-    option is active, the best play is rescue-eligible too — the options
-    must never push what was best out of view; under default options the
-    legacy marked-rows-only window is preserved byte-for-byte.
+    rank-inversion italics — follows the candidate, not the row, so marks
+    land on the same candidates whatever order the ranking draws them in.
+  - When the panel runs out of vertical space, the marked plays are
+    "rescued" into the last visible slots with their real rank numbers,
+    displacing the rows that would otherwise have been last. The best play
+    needs no rescue: it heads the ranking.
 
-- **Cube panel** (`Decision.IsCube == true`). Best/Actual banner,
-  Equity/Loss table (No double / Double / Take / Pass), two percentage
-  tables (No double and Take played-out stats), footer lines. Every word
-  of every cube label comes from `CubeLabels` (see Public API); the
-  renderer holds no cube wording of its own. Invariants:
+- **Cube panel** (a cube decision). Best/Actual banner, Equity/Loss table
+  (No double / Double / Take / Pass), two percentage tables (No double and
+  Take played-out stats), and an Analysis Level footer. Every word of every
+  cube label comes from `CubeLabels` (see Public API); the renderer holds
+  no cube wording of its own. Invariants:
+  - **Each row's equity and loss are the producer's**, from its one
+    calculation: `CubeDecisionData.ActionEquity(action)` — each action's
+    equity in the doubler's perspective, doubling's the taker's best
+    response's — and the half's error method. The renderer states neither
+    the pass's value nor the rule for doubling's equity (Hal's ruling of
+    2026-09-27 on halheinrich/backgammon#273), so the numbers shown are the
+    ones the scoring used; `CubePanel_StatesNoPassValueAndNoDoublingRuleOfItsOwn`
+    pins that no copy returns. The loss shows for every row, `0.0000` for
+    the correct option.
   - **The Best line is claim-level; the Actual line is action-level.**
-    Best is the analysis verdict, and a verdict is a claim: the line
-    labels `DecisionData.BestClaimPair` whole — the producer's one
-    derivation site — and never composes itself from the two board
-    actions. Composing it was the defect
-    (`halheinrich/backgammon#185`): Too good and No double share a board
-    action, so at the action level the claim has nowhere to live and a
-    too-good position printed `"No double / Take"`. At the one boundary
-    where the two levels could still have parted — `NoDoubleEquity == 1`
-    exactly with a pass, where the halves' ruled tie-breaks compose the
-    incoherent `NoDoublePass` — they agree, and by ruling rather than by
-    accident: SPEC-scoring §3 buckets that cell with Too good / Pass as
-    the posture's degenerate point, so `CubeLabels` labels it `Too good`
-    and the banner reads `"Best:   Too good"`. What the banner must never
-    print there is `"No double"`, which is a different verdict.
-  - Actual reports what was played, so it stays action-level: the stamped
-    `DecisionData.UserDoublerAction` / `UserTakerAction`, assembled by
-    `CubeDecisionLine`. Actual is **not** inferred from `UserDoubleError`
-    / `UserTakeError`, and there is no legacy fallback to that inference:
-    a zero error does not identify the action when the two cube equities
-    tie, which used to misreport an equity-tie double as "No double". A
-    null half means the producer recorded no action for it — that half is
-    omitted, and a cube decision with neither half stamped (a
-    resignation-terminal record, or JSON written before the fields
-    existed) drops the Actual line entirely.
-    When both halves are present they form a complete decision and are
-    classified as a `BgDataTypes_Lib.CubeDecisionPair`: the too-good pair
-    (NoDouble, Pass) is named rather than rendered as its two halves.
-    That rule lives in `CubeDecisionPair.IsTooGood`, not here — the
-    renderer must not re-encode "NoDouble + Pass means too good" — and
-    the resulting word is `CubeLabels.Label(CubeClaimPair.TooGoodPass)`,
-    the same spelling the Best banner reaches for, so the two lines
-    cannot spell the claim two ways.
-    Otherwise `CubeDecisionLine` renders every half that is present and
-    suppresses none: presence is the only thing that decides whether a
-    half appears, and no half is dropped on account of the other's value.
-    A stamped (NoDouble, Take) therefore renders `"No double / Take"` in
-    full.
+    Best labels `CubeDecisionData.BestClaimPair` whole — the producer's one
+    derivation of the verdict — through `CubeLabels`, and never composes
+    itself from the two board actions: Too good and No double share a board
+    action, so a composed line printed a too-good position as
+    `"No double / Take"` (`halheinrich/backgammon#185`). At the producer's
+    tie boundary where the pair is the incoherent `NoDoublePass`,
+    `CubeLabels` reads it `Too good` (SPEC-scoring §3), never `No double`.
+  - Actual reports what was played: the stamped `UserDoublerAction` /
+    `UserTakerAction`, assembled by `CubeDecisionLine`, never inferred from
+    an error (a zero error does not identify the action when the equities
+    tie). A null half is omitted, and a decision with neither half stamped
+    drops the line. Both halves present are classified as a
+    `CubeDecisionPair`, whose `IsTooGood` names the too-good pair — the
+    renderer does not re-encode that rule — spelled
+    `CubeLabels.Label(CubeClaimPair.TooGoodPass)`, the Best banner's
+    spelling. Otherwise every present half renders, and no half is dropped
+    on account of the other's value.
   - The **stale-taker rule belongs to the Actual line's stamped-data
     boundary**, not to `CubeDecisionLine`: `DiagramRenderer
     .StampedTakerAction` drops the taker half of a stamped
-    `CubeDecisionPair.NoDoubleTake` before the line is built. This is
-    defence-in-depth against a producer contract violation — `DecisionData`
-    validates each played half only against its own action domain and
-    leaves cross-half consistency (a recorded taker response implies the
-    doubler doubled) to the producer — so an opponent cannot appear to
-    have taken a cube that was never offered. Only that one pair is
-    filtered; (NoDouble, Pass) passes through to the too-good
-    classification. The Best line gets no such pass, because it labels a
-    producer-derived claim pair, never a stamped one.
-  - `"Actual: Too good"` is unreachable from real data **by design** — the
-    Actual line reports the game's actions, and on a too-good decline the
-    action played was No double with no taker decision in existence, so
-    the too-good pair never gets stamped. Too good is a Best-line verdict.
-    Don't "fix" this by stamping a fabricated Pass: it would violate the
-    producer's cross-half contract (a recorded taker response implies a
-    double) to make the renderer print a decision nobody made.
-  - The Analysis Level footer renders `Decision.CubeDepth` (the full
-    string, e.g. `"Rollout: 1296 trials. 3-ply"`), not
-    `Decision.CubeDepthAbbreviation`. The cube panel has one analysis
-    depth and column space to spare, so the long form fits and is more
-    informative; the play panel still uses `DepthAbbreviation` per row
-    because per-play column space is tight. An empty `CubeDepth`
-    suppresses the entire footer line — a non-empty abbreviation alone
-    does not force the line on.
+    `CubeDecisionPair.NoDoubleTake` before the line is built — defence in
+    depth, since the record leaves cross-half consistency to its producer
+    (`BgDataTypes_Lib`'s "Played cube actions on CubeDecisionData"). Only
+    that pair is filtered; (NoDouble, Pass) passes through to the too-good
+    classification.
+  - `"Actual: Too good"` is unreachable from real data **by design**: on a
+    too-good decline no taker decision exists, so the too-good pair is
+    never stamped. Don't "fix" this by stamping a fabricated Pass.
+  - The Analysis Level footer renders the cube analysis's derived `Depth`
+    label (e.g. `"Rollout: 1296 trials. 3-ply"`), not its abbreviation: the
+    cube panel has one analysis depth and column space to spare. No depth
+    recorded (null) draws no footer. There is no "Pass Justifying Dbl"
+    line: it read a stored field XG never stored, gone from the record
+    (halheinrich/backgammon#273); deriving the figure is
+    halheinrich/backgammon#288's.
   - No italic treatment — a single analysis depth value has no adjacent
     rank to compare against.
 
@@ -562,7 +593,9 @@ These three sections (PNG / PDF / PPTX) all live in the
 `DiagramRenderer.GetHitRegions(DiagramRequest, DiagramOptions)` returns a
 `BoardHitRegions` with point, bar, cube, tray, and dice rectangles. The
 `DiagramRequest` is required (not just `DiagramOptions`) because
-`HomeBoardOnRight` controls the orientation mapping.
+`HomeBoardOnRight` controls the orientation mapping, the drawn board decides
+which trays show, and the presentation whether dice are drawn (the dice
+region is null where none are: a cube decision, a board showing none).
 
 Consumers rendering overlays from these rectangles must format the
 coordinates with `SvgFormat.Number` (and the viewBox with
@@ -670,77 +703,62 @@ static byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions op
 PDF and PPTX accept `IEnumerable<DiagramRequest>` for multi-page / multi-slide
 output; a single request is handled by the scalar overload.
 
-### `DiagramRequest` factory methods
+### `DiagramRequest` (core — `BackgammonDiagram_Lib`)
 
 ```csharp
-static DiagramRequest FromDecisionData(
-    BgDecisionData data,
-    DiagramMode    mode                  = DiagramMode.Solution,
-    bool           homeBoardOnRight      = true,
-    bool           onRollAtBottom        = true,
-    PanelPosition  analysisPanelPosition = PanelPosition.Left);
+sealed record DiagramRequest
+{
+    static DiagramRequest ForDecision(BgDecisionData decision, PlayRanking ranking);
+    static DiagramRequest ForBoard(BoardPosition board, DisplayFacts facts);
+    DiagramRequest WithWorkingBoard(BoardPosition board, DiceOrder diceOrder = DiceOrder.AsRolled);
+
+    BoardPosition   Board    { get; }   // the board drawn
+    BgDecisionData? Decision { get; }   // a decision's diagram's record
+    DisplayFacts?   Display  { get; }   // a board request's stated facts
+    string?         Xgid     { get; }   // the record's, derived
+
+    DiagramMode    Mode                  { get; init; }   // Problem
+    bool           HomeBoardOnRight      { get; init; }   // true
+    bool           OnRollAtBottom        { get; init; }   // true
+    PanelPosition  AnalysisPanelPosition { get; init; }   // Left
+    bool           PanelOnLeft           { get; }
+    int?           PositionNumber        { get; init; }
+    PlayRanking?   Ranking               { get; init; }
+    AnalysisLevel? MaximumHiddenCandidateAnalysisLevel { get; init; }
+    int?           SecondaryPlayIndex    { get; init; }
+}
+
+static (DiagramRequest Problem, DiagramRequest Solution)
+    ToProblemSolutionPair(this DiagramRequest request);   // DiagramRequestExtensions
 ```
 
-Convenience entry point for the `BgDecisionData` → `DiagramRequest`
-mapping. Takes the renderer-specific parameters (display mode, board
-orientation, panel side) that aren't carried by the data layer. Delegates
-to `Builder.From(...)` which holds the field-by-field copy logic;
-callers (tests, Blazor apps, PPTX exporters) should use this entry point
-rather than open-code the mapping.
+What each entry point draws, the options' rules and the equality are under
+Architecture, "DiagramRequest". `ToProblemSolutionPair` is the request
+`with` each mode, every other option riding both; a board has no solution.
 
-`Builder.From(...)` is itself public for advanced "tweak an existing
-request" scenarios — both a three-record overload
-(`From(PositionData, DecisionData, DescriptiveData, …)`) and a
-request-cloning overload (`From(DiagramRequest existing)`) are
-available. `DiagramRequestExtensions.ToProblemSolutionPair` is the
-canonical consumer of the latter.
+### `DisplayFacts` and its values (core — `BackgammonDiagram_Lib`)
 
-### `DiagramRequest.Builder`
+```csharp
+sealed record DisplayFacts
+{
+    string?    OnRollName   { get; init; }
+    string?    OpponentName { get; init; }
+    string?    Title        { get; init; }
+    DiceFaces? Dice         { get; init; }
+    int        CubeValue    { get; init; }   // 1
+    CubeOwner  CubeOwner    { get; init; }   // Centered
+    RailScore? Score        { get; init; }
+}
 
-Flat property setters for position, dice, cube, scores, plays, `CubeDepth`
-/ `CubeDepthAbbreviation` / `CubeDepthRank`, plus `HomeBoardOnRight`,
-`OnRollAtBottom`, `Mode`, `AnalysisPanelPosition`, `PositionNumber`,
-`CandidateOrdering`, and `MaximumHiddenCandidateAnalysisLevel`.
-`Build()` constructs the nested `BgDataTypes_Lib` records and validates.
-Throws on validation failure. `CubeOwner` defaults to `CubeOwner.Centered`.
+sealed record DiceFaces(int left, int right) { int Left { get; } int Right { get; } }   // each 1–6
+abstract class RailScore : IEquatable<RailScore>                                        // closed
+sealed class MatchRailScore(int onRollNeeds, int opponentNeeds) : RailScore
+sealed class MoneyRailScore() : RailScore
+enum DiceOrder { AsRolled, Reversed }
+```
 
-`PlayCandidate` values flow through unchanged (Builder stores them as
-`List<PlayCandidate>`, so `DepthAbbreviation` / `DepthRank` survive the
-round-trip without per-field plumbing). The cube equivalents need
-explicit Builder fields because the Builder models `DecisionData`
-field-for-field, not as a held record.
-
-**Full-copy invariant.** The Builder carries **every** carriable member of
-`PositionData`, `DecisionData`, and `DescriptiveData`; a new field added to
-any of those records joins the copy — `Builder.From` *and* `Builder.Build` —
-in the same change. Because the Builder re-spells each record field-by-field
-instead of holding the instance, it is a second enumeration of the data
-layer's facts, and a stale one fails silently: the field simply arrives
-default-valued at the renderer. That is what
-`halheinrich/backgammon#122` existed to demand.
-
-The rule is **enforced, not merely stated**: `BuilderFieldCarriageTests`
-reflects over the three record types and asserts that every carriable member
-survives both `Builder.From` overloads, so a new field fails the build's
-tests until it is carried. Do not restate the rule as prose elsewhere —
-point at that test. "Carriable" is drawn at `PropertyInfo.CanWrite == true`:
-init-only accessors report `true` (reflection ignores the `init` modreq) and
-are included as producer-supplied state; computed get-only properties report
-`false` and are excluded, since carrying their inputs carries them.
-
-The test needs two fixtures — a checker decision and a cube decision —
-because `IsCube` and `Dice` cannot both be held away from their defaults at
-once: `Build()` requires a cube decision to carry `[0, 0]` dice, which is
-`Dice`'s own default.
-
-The renderer-specific members of `DiagramRequest` itself (`Mode`,
-orientation flags, `PositionNumber`, `Xgid`, `SecondaryPlayIndex`, the
-depth-treatment options — everything outside the three records) are
-hand-carried by `Builder.From(DiagramRequest)` only; the three-record
-overload deliberately leaves them at their defaults. They get the same
-reflection net in `Builder_CarriesEveryRendererSpecificField`: a new
-top-level field fails that test until it is set away from default in the
-fixture and survives the `From(DiagramRequest).Build()` round-trip.
+What each fact means and validates is the table under Architecture,
+"DiagramRequest".
 
 ### `DiagramOptions`
 
@@ -755,9 +773,10 @@ record DiagramOptions
 }
 ```
 
-`ShowXgid` bakes the request's `Xgid` into the SVG as an upper-right label
-(off by default; the export path forces it off and overlays the XGID as
-real selectable text instead — see `DiagramRasterRenderer`).
+`ShowXgid` bakes the request's `Xgid` — a decision's; a board has none — into
+the SVG as an upper-right label (off by default; the export path forces it
+off and overlays the XGID as real selectable text instead — see
+`DiagramRasterRenderer`).
 
 ### `Watermarks`
 
@@ -804,20 +823,22 @@ to supply their own palette.
 - **Locale-dependent `ToString`.** All numeric formatting in the renderer
   must go through `InvariantCulture` — commas for decimals in some locales
   would produce broken SVG.
-- **Play-panel Eq Loss column renders blank for best plays.** The cell is
-  emitted only when `PlayCandidate.EquityLoss > 0`. `EquityLoss == 0.0`
-  marks membership in the best-equity equivalence class (per
-  `BgDataTypes_Lib`'s `PlayCandidate` XML doc); when multiple candidates tie
-  at zero loss they all render with a blank Eq Loss cell uniformly. This
-  keys off the equivalence class, not `DecisionData.BestPlayIndex` (which
-  names a single canonical best). The cube panel's Equity/Loss table is
-  governed independently — it always renders its loss values, including
-  `0.0000` for the correct option.
+- **The play panel's best play, errors and order are a ranking's.** Draw
+  a checker play's candidates only through `RankedBy(request.Ranking)`:
+  the Eq Loss cell is blank exactly where the ranking's error is 0 (the
+  best play and any tie with it), and a candidate the ranking does not
+  score shows the not-scored mark, never a number and never the blank.
+  Nothing here answers "best" without the request's ranking, and the
+  stored order is not the drawn order. The cube panel's Equity/Loss table
+  is governed independently — it always renders its loss values,
+  including `0.0000` for the correct option.
 
 ## Subproject-internal next steps
 
 - Additional themes beyond `Default` and `Greyscale`.
-- `FromBoard` / `FromXgid` factory methods on `DiagramRequest`.
+- A request from an XGID string. The record derives its XGID and parses
+  none, so this needs a producer-side reader first; `ForBoard` already
+  covers any board.
 - Animation support.
 - Single-source the per-checker stacking-Y formula. `AppendCheckerStack`
   computes each checker's centre Y inline (`base ± i·2·CheckerRadius`), and
@@ -830,7 +851,3 @@ to supply their own palette.
   `CheckerCentreY(stackIndex, bottomHalf, baseY)`) that both
   `AppendCheckerStack` and the test call. Small encapsulation cleanup; do at
   the next touch. Surfaced in the finding-4 hit-region fix review.
-- Defensive-copy paragraph polish in this doc: after the Pass C edit that
-  relocated the CubeOwner-default sentence, the paragraph's remaining tail
-  (the `BoardHitRegions.Points` exposure sentence) is topically
-  off-paragraph. Future polish candidate.

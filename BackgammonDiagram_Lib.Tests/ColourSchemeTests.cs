@@ -1,4 +1,4 @@
-﻿using BackgammonDiagram_Lib.Themes;
+using BackgammonDiagram_Lib.Themes;
 using Xunit;
 
 namespace BackgammonDiagram_Lib.Tests;
@@ -7,13 +7,9 @@ public class ColourSchemeTests
 {
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    /// Render with checkers on both sides so all fill colours appear.
-    private static string RenderWithCheckers(ITheme theme)
-    {
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = TestFixtures.StartingMop();
-        return TestFixtures.Render(b.Build(), new DiagramOptions { Theme = theme });
-    }
+    /// Render the standard start, checkers on both sides, so all fill colours appear.
+    private static string RenderWithCheckers(ITheme theme) =>
+        TestFixtures.Render(TestFixtures.MinimalRequest(), new DiagramOptions { Theme = theme });
 
     private static void AssertColour(string svg, string colour, string propertyName)
         => Assert.True(svg.Contains(colour, StringComparison.OrdinalIgnoreCase),
@@ -163,9 +159,7 @@ public class ColourSchemeTests
             panelBackgroundColor: "#FFFFFF",
             name: "TestPalette");
 
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = TestFixtures.StartingMop();
-        var svg = TestFixtures.Render(b.Build(), new DiagramOptions { Theme = theme });
+        var svg = TestFixtures.Render(TestFixtures.MinimalRequest(), new DiagramOptions { Theme = theme });
 
         File.WriteAllText(TestPaths.SvgOutputPath("custom_theme.svg"), svg);
     }

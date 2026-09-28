@@ -5,9 +5,12 @@ using Xunit;
 namespace BackgammonDiagram_Lib.Tests;
 
 /// <summary>
-/// Tests the bear-off tray rendering: off-count derivation from Mop, the
-/// [1,14] trigger rule, hit-region population, and the turned-cube vertical
-/// shift to the rail edge (which makes room for the tray).
+/// Tests the bear-off tray rendering: off-count derivation from the drawn
+/// board, the trigger bands, hit-region population, and the turned-cube
+/// vertical shift to the rail edge (which makes room for the tray). A board
+/// on which both sides still have checkers is drawn as a decision's (a
+/// checker play with the pass); one where a side has borne off every
+/// checker is no decision position, so it is drawn through the board path.
 /// </summary>
 public class BearOffTests
 {
@@ -21,10 +24,8 @@ public class BearOffTests
     [Fact]
     public void StartingPosition_HasNoBearOffBars()
     {
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = TestFixtures.StartingMop();  // 15 on-board each → 0 off each
-
-        int strokedRects = CountStroke05Rects(TestFixtures.Render(b.Build()));
+        // 15 on-board each → 0 off each.
+        int strokedRects = CountStroke05Rects(TestFixtures.Render(TestFixtures.MinimalRequest()));
 
         // Only the cube rect uses stroke-width="0.5" under a zero-off position.
         Assert.Equal(1, strokedRects);
@@ -34,20 +35,14 @@ public class BearOffTests
     public void AllCheckersOff_DoesNotRenderBars()
     {
         // Upper edge of the trigger band — 15 off is outside [1,14].
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = new int[26];
-
-        int strokedRects = CountStroke05Rects(TestFixtures.Render(b.Build()));
+        int strokedRects = CountStroke05Rects(TestFixtures.Render(RequestFor(onRollOff: 15, opponentOff: 15)));
         Assert.Equal(1, strokedRects);  // cube only
     }
 
     [Fact]
     public void OneOnRollOff_RendersOneBar()
     {
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = MopFor(onRollOff: 1, opponentOff: 0);
-
-        int strokedRects = CountStroke05Rects(TestFixtures.Render(b.Build()));
+        int strokedRects = CountStroke05Rects(TestFixtures.Render(RequestFor(onRollOff: 1, opponentOff: 0)));
         Assert.Equal(2, strokedRects);  // cube + 1 on-roll bar
     }
 
@@ -55,20 +50,14 @@ public class BearOffTests
     public void SevenOnRollOff_RendersSevenBars()
     {
         // Corresponds to the user's ||||| || sketch.
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = MopFor(onRollOff: 7, opponentOff: 0);
-
-        int strokedRects = CountStroke05Rects(TestFixtures.Render(b.Build()));
+        int strokedRects = CountStroke05Rects(TestFixtures.Render(RequestFor(onRollOff: 7, opponentOff: 0)));
         Assert.Equal(8, strokedRects);  // cube + 7 bars
     }
 
     [Fact]
     public void BothPlayersBearingOff_RendersBothStacks()
     {
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = MopFor(onRollOff: 3, opponentOff: 5);
-
-        int strokedRects = CountStroke05Rects(TestFixtures.Render(b.Build()));
+        int strokedRects = CountStroke05Rects(TestFixtures.Render(RequestFor(onRollOff: 3, opponentOff: 5)));
         Assert.Equal(9, strokedRects);  // cube + 3 + 5
     }
 
@@ -76,10 +65,7 @@ public class BearOffTests
     public void FourteenOnRollOff_RendersFourteenBars()
     {
         // Top of the trigger band — 14 off is the largest count that still renders.
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = MopFor(onRollOff: 14, opponentOff: 0);
-
-        int strokedRects = CountStroke05Rects(TestFixtures.Render(b.Build()));
+        int strokedRects = CountStroke05Rects(TestFixtures.Render(RequestFor(onRollOff: 14, opponentOff: 0)));
         Assert.Equal(15, strokedRects);  // cube + 14 bars
     }
 
@@ -94,9 +80,7 @@ public class BearOffTests
         // renders from 0 (so the first checker can be borne off by clicking an
         // empty tray); the opponent tray is display-only and stays hidden until
         // it has something to show.
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = TestFixtures.StartingMop();
-        var regions = DiagramRenderer.GetHitRegions(b.Build(), new DiagramOptions());
+        var regions = DiagramRenderer.GetHitRegions(TestFixtures.MinimalRequest(), new DiagramOptions());
 
         Assert.NotNull(regions.OnRollTray);
         Assert.Null(regions.OpponentTray);
@@ -113,9 +97,7 @@ public class BearOffTests
         // hit-region was gated out at the old [1,14] floor, so the first
         // checker couldn't be borne off by clicking the tray. It must now be
         // present at 0.
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = MopFor(onRollOff: 0, opponentOff: 0);  // 15 on board each
-        var regions = DiagramRenderer.GetHitRegions(b.Build(), new DiagramOptions());
+        var regions = DiagramRenderer.GetHitRegions(RequestFor(onRollOff: 0, opponentOff: 0), new DiagramOptions());
 
         Assert.NotNull(regions.OnRollTray);
     }
@@ -126,9 +108,7 @@ public class BearOffTests
         // The opponent tray keeps its [1,14] floor (display-only, nothing to
         // click), so 0 opponent-off leaves it null even though the on-roll
         // tray now shows at 0.
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = MopFor(onRollOff: 0, opponentOff: 0);
-        var regions = DiagramRenderer.GetHitRegions(b.Build(), new DiagramOptions());
+        var regions = DiagramRenderer.GetHitRegions(RequestFor(onRollOff: 0, opponentOff: 0), new DiagramOptions());
 
         Assert.Null(regions.OpponentTray);
     }
@@ -138,9 +118,7 @@ public class BearOffTests
     {
         // Upper edge of the band: 15 off is all checkers borne off (game over),
         // which is outside [0,14] — no tray.
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = MopFor(onRollOff: 15, opponentOff: 0);
-        var regions = DiagramRenderer.GetHitRegions(b.Build(), new DiagramOptions());
+        var regions = DiagramRenderer.GetHitRegions(RequestFor(onRollOff: 15, opponentOff: 0), new DiagramOptions());
 
         Assert.Null(regions.OnRollTray);
     }
@@ -153,10 +131,7 @@ public class BearOffTests
         // pins the on-roll contribution exactly: total stroked rects must equal
         // cube (1) + the opponent's bars, with nothing added by the on-roll
         // tray. If the count-0 stack glitched into drawing anything, this trips.
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = MopFor(onRollOff: 0, opponentOff: 7);
-
-        int strokedRects = CountStroke05Rects(TestFixtures.Render(b.Build()));
+        int strokedRects = CountStroke05Rects(TestFixtures.Render(RequestFor(onRollOff: 0, opponentOff: 7)));
         Assert.Equal(8, strokedRects);  // cube + 7 opponent bars + 0 on-roll
     }
 
@@ -170,10 +145,8 @@ public class BearOffTests
         // sits inside the full-rail Cube hit-region, which is a deliberate
         // catch-all column, so the guard is against the cube *slots*, derived
         // from the same geometry the renderer uses.)
-        var b = TestFixtures.MinimalBuilder();
-        b.OnRollAtBottom = true;
-        b.Mop = MopFor(onRollOff: 0, opponentOff: 0);
-        var request = b.Build();
+        var request = RequestFor(onRollOff: 0, opponentOff: 0);
+        Assert.True(request.OnRollAtBottom);
         var regions = DiagramRenderer.GetHitRegions(request, new DiagramOptions());
 
         var tray = regions.OnRollTray;
@@ -213,9 +186,7 @@ public class BearOffTests
     [Fact]
     public void GetHitRegions_OnlyOnRollBearingOff_OnRollTrayPopulatedOpponentNull()
     {
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = MopFor(onRollOff: 2, opponentOff: 0);
-        var regions = DiagramRenderer.GetHitRegions(b.Build(), new DiagramOptions());
+        var regions = DiagramRenderer.GetHitRegions(RequestFor(onRollOff: 2, opponentOff: 0), new DiagramOptions());
 
         Assert.NotNull(regions.OnRollTray);
         Assert.Null(regions.OpponentTray);
@@ -227,9 +198,7 @@ public class BearOffTests
         // Opponent has borne off, on-roll has not (0 off). The opponent tray is
         // populated as before; the on-roll tray is now also present (empty) so
         // the on-roll player can start bearing off by clicking it.
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = MopFor(onRollOff: 0, opponentOff: 4);
-        var regions = DiagramRenderer.GetHitRegions(b.Build(), new DiagramOptions());
+        var regions = DiagramRenderer.GetHitRegions(RequestFor(onRollOff: 0, opponentOff: 4), new DiagramOptions());
 
         Assert.NotNull(regions.OnRollTray);
         Assert.NotNull(regions.OpponentTray);
@@ -238,9 +207,7 @@ public class BearOffTests
     [Fact]
     public void GetHitRegions_Trays_OccupyLeftRailXSpan()
     {
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = MopFor(onRollOff: 4, opponentOff: 6);
-        var request = b.Build();
+        var request = RequestFor(onRollOff: 4, opponentOff: 6);
         var regions = DiagramRenderer.GetHitRegions(request, new DiagramOptions());
 
         Assert.NotNull(regions.OnRollTray);
@@ -264,9 +231,7 @@ public class BearOffTests
     [Fact]
     public void GetHitRegions_Trays_DontOverlapVertically()
     {
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = MopFor(onRollOff: 5, opponentOff: 5);
-        var regions = DiagramRenderer.GetHitRegions(b.Build(), new DiagramOptions());
+        var regions = DiagramRenderer.GetHitRegions(RequestFor(onRollOff: 5, opponentOff: 5), new DiagramOptions());
 
         var onRoll = regions.OnRollTray!;
         var opp = regions.OpponentTray!;
@@ -285,10 +250,9 @@ public class BearOffTests
     {
         var layout = BoardLayout.Default;
         double cubeSize = layout.LeftRailWidth * 0.7;
-        var b = TestFixtures.MinimalBuilder();
-        b.CubeOwner = CubeOwner.OnRoll;
-        b.OnRollAtBottom = true;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        var request = TestFixtures.RequestFor(TestFixtures.CheckerPlayOn(BoardPosition.Standard, cubeSize: 2, cubeOwner: CubeOwner.OnRoll));
+        Assert.True(request.OnRollAtBottom);
+        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
 
         // Turned cube y = BoardHeight − margin(8) − cubeSize.
         double expectedY = layout.BoardHeight - 8 - cubeSize;
@@ -298,10 +262,9 @@ public class BearOffTests
     [Fact]
     public void OpponentOwnedCube_AtTopEdgeOfLeftRail()
     {
-        var b = TestFixtures.MinimalBuilder();
-        b.CubeOwner = CubeOwner.Opponent;
-        b.OnRollAtBottom = true;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        var request = TestFixtures.RequestFor(TestFixtures.CheckerPlayOn(BoardPosition.Standard, cubeSize: 2, cubeOwner: CubeOwner.Opponent));
+        Assert.True(request.OnRollAtBottom);
+        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
 
         // Opponent-owned with on-roll at bottom → opp is at top → y = 8.
         Assert.Contains("y=\"8\"", svg);
@@ -312,9 +275,7 @@ public class BearOffTests
     {
         var layout = BoardLayout.Default;
         double cubeSize = layout.LeftRailWidth * 0.7;
-        var b = TestFixtures.MinimalBuilder();
-        b.CubeOwner = CubeOwner.Centered;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        var svg = DiagramRenderer.RenderSvg(TestFixtures.MinimalRequest(), TestFixtures.DefaultOptions());
 
         double expectedY = layout.BoardHeight / 2 - cubeSize / 2;
         Assert.Contains($"y=\"{expectedY:0.##}\"", svg);
@@ -333,19 +294,24 @@ public class BearOffTests
         TestFixtures.CountOccurrences(svg, BarSignature);
 
     /// <summary>
-    /// Builds a valid Mop with the given target off-counts by placing all
-    /// on-board checkers on a single home-board point (or leaving the board
-    /// empty for that player when all are off). Off-count is computed as
-    /// 15 − (checkers on board), so stacking N on one point is enough.
+    /// A board with the given off-counts, all on-board checkers of each side
+    /// on its home board's one point (the on-roll player's 1, the opponent's
+    /// 24): off-count is 15 − (checkers on board), so stacking the rest on
+    /// one point is enough.
     /// </summary>
-    private static int[] MopFor(int onRollOff, int opponentOff)
-    {
-        var mop = new int[26];
-        int onRollOn = 15 - onRollOff;
-        int opponentOn = 15 - opponentOff;
+    private static BoardPosition BoardFor(int onRollOff, int opponentOff) =>
+        TestFixtures.Board((1, 15 - onRollOff), (24, -(15 - opponentOff)));
 
-        if (onRollOn > 0)   mop[1]  =  onRollOn;     // on-roll home point
-        if (opponentOn > 0) mop[24] = -opponentOn;   // opp home point
-        return mop;
+    /// <summary>
+    /// The request drawing <see cref="BoardFor"/>'s board: a decision's while
+    /// both sides have a checker on it, a board's once a side has borne off
+    /// every checker — no decision is made on that board.
+    /// </summary>
+    private static DiagramRequest RequestFor(int onRollOff, int opponentOff)
+    {
+        var board = BoardFor(onRollOff, opponentOff);
+        return PositionData.IsDecisionPosition(board)
+            ? TestFixtures.RequestFor(TestFixtures.CheckerPlayOn(board))
+            : DiagramRequest.ForBoard(board, new DisplayFacts());
     }
 }

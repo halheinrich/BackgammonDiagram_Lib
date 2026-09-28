@@ -1,4 +1,4 @@
-﻿using System.IO.Compression;
+using System.IO.Compression;
 using System.Text;
 using System.Xml.Linq;
 using BackgammonDiagram_Lib;
@@ -27,21 +27,12 @@ public class PptxConformanceTests
 {
     private static byte[] GenerateSingleSlidePptx()
     {
-        var request = new DiagramRequest.Builder
-        {
-            Mop = new int[26],
-            OnRollName = "Player",
-            OpponentName = "Opponent",
-            IsCube = false,
-            Dice = [3, 1],
-            CubeSize = 1,
-            Mode = DiagramMode.Problem,
-            Title = "Conformance Test",
-            // Carry an XGID so the conformance assertions run against a slide
-            // that includes the upper-right text-box shape — guarding that the
-            // post-process fixers keep the XGID-bearing slide repair-free.
-            Xgid = "XGID=-b----E-C---eE---c-e----B-:0:0:1:00:0:0:0:0:10",
-        }.Build();
+        // A decision's request carries its XGID, so the conformance assertions
+        // run against a slide that includes the upper-right text-box shape —
+        // guarding that the post-process fixers keep the XGID-bearing slide
+        // repair-free.
+        var request = TestFixtures.MinimalRequest();
+        Assert.NotNull(request.Xgid);
 
         var options = new DiagramOptions
         {

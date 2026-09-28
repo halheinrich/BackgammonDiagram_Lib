@@ -150,8 +150,8 @@ public class DecisionDataDiagramTests
         Assert.NotNull(decisions);
         Assert.NotEmpty(decisions);
 
-        var play = decisions.First(d => !d.Decision.IsCube);
-        var cube = decisions.First(d => d.Decision.IsCube);
+        var play = decisions.OfType<CheckerPlayDecision>().First();
+        var cube = decisions.OfType<CubeDecision>().First();
 
         // Base name derived from the fixture file, not the hard-coded "ajhh".
         var baseName = Path.GetFileNameWithoutExtension(filename).ToLowerInvariant();
@@ -182,16 +182,12 @@ public class DecisionDataDiagramTests
     }
 
     // -----------------------------------------------------------------------
-    //  BgDecisionData → DiagramRequest — thin wrapper that just delegates
-    //  to the library factory. Kept for call-site readability; could be
-    //  inlined if preferred.
+    //  BgDecisionData → DiagramRequest — the library's entry point, under
+    //  the default ranking, with the panel side this fixture varies.
     // -----------------------------------------------------------------------
 
     private static DiagramRequest FromDecisionData(
         BgDecisionData data,
-        PanelPosition analysisPanelPosition = PanelPosition.Left)
-    {
-        return DiagramRequest.FromDecisionData(data,
-            analysisPanelPosition: analysisPanelPosition);
-    }
+        PanelPosition analysisPanelPosition = PanelPosition.Left) =>
+        DiagramRequest.ForDecision(data, PlayRanking.Equity) with { AnalysisPanelPosition = analysisPanelPosition };
 }

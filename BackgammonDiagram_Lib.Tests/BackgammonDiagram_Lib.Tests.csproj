@@ -24,6 +24,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\BgDataTypes_Lib\BgDataTypes_Lib\BgDataTypes_Lib.csproj" />
+    <!-- The producer's record builders (TestRecords): the one way tests build
+         decision records, here as in every consumer, so no test here restates
+         a record's construction. -->
+    <ProjectReference Include="..\..\BgDataTypes_Lib\BgDataTypes_Lib.TestSupport\BgDataTypes_Lib.TestSupport.csproj" />
     <ProjectReference Include="..\BackgammonDiagram_Lib\BackgammonDiagram_Lib.csproj" />
     <ProjectReference Include="..\BackgammonDiagram_Lib.ExportRaster\BackgammonDiagram_Lib.ExportRaster.csproj" />
     <!-- Test-only dependency: real .xg / .xgp parsing for visual fixtures.

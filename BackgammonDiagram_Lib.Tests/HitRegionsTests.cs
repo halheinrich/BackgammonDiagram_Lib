@@ -2,18 +2,15 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using BackgammonDiagram_Lib;
 using BackgammonDiagram_Lib.Rendering;
+using BgDataTypes_Lib;
+using BgDataTypes_Lib.TestSupport;
 
 namespace BackgammonDiagram_Lib.Tests;
 
 public class HitRegionsTests
 {
     private readonly DiagramOptions _defaultOptions = new();
-    private static DiagramRequest MinimalRequest()
-    {
-        var b = TestFixtures.MinimalBuilder();
-        b.HomeBoardOnRight = true;
-        return b.Build();
-    }
+    private static DiagramRequest MinimalRequest() => TestFixtures.MinimalRequest() with { HomeBoardOnRight = true };
 
     [Fact]
     public void GetHitRegions_Returns24Points()
@@ -28,8 +25,8 @@ public class HitRegionsTests
     [Fact]
     public void GetHitRegions_ViewBoxIncludesPanelAndTitleStrip()
     {
-        // MinimalRequest has valid dice, so the title strip is always composed
-        // ("X-Y to play") and the ViewBox must include that vertical offset.
+        // A checker play's title strip is always composed ("X-Y to play"), so
+        // the ViewBox must include that vertical offset.
         // Per the "identical overall dimensions" invariant, the panel region
         // is always allocated horizontally regardless of Mode.
         var layout = BoardLayout.Default;
@@ -111,13 +108,10 @@ public class HitRegionsTests
         double r = layout.CheckerRadius;
         int n = BoardLayout.MaxStackCheckers;
 
-        var b = TestFixtures.MinimalBuilder();
-        b.HomeBoardOnRight = true;
-        var mop = new int[26];
-        mop[6] = n;     // bottom point, on-roll: 6-high stack
-        mop[19] = -n;   // top point, opponent: 6-high stack
-        b.Mop = mop;
-        var request = b.Build();
+        // Point 6, bottom, on roll: a 6-high stack; point 19, top, opponent:
+        // a 6-high stack.
+        var request = TestFixtures.RequestFor(TestFixtures.CheckerPlayOn(TestFixtures.Board((6, n), (19, -n))))
+            with { HomeBoardOnRight = true };
 
         var regions = DiagramRenderer.GetHitRegions(request, _defaultOptions);
         double titleOffset = regions.ViewBox.Height - layout.BoardHeight;
@@ -182,9 +176,12 @@ public class HitRegionsTests
     }
 
     [Fact]
-    public void GetHitRegions_OnRollTrayIsNull()
+    public void GetHitRegions_OnRollTrayIsNull_WhenAllItsCheckersAreOff()
     {
-        var regions = DiagramRenderer.GetHitRegions(MinimalRequest(), _defaultOptions);
+        // Every on-roll checker borne off — a game's final position, drawn
+        // through the board path — is past the tray's band.
+        var request = DiagramRequest.ForBoard(TestFixtures.Board((24, -2)), new DisplayFacts());
+        var regions = DiagramRenderer.GetHitRegions(request, _defaultOptions);
         Assert.Null(regions.OnRollTray);
     }
 
@@ -210,10 +207,11 @@ public class HitRegionsTests
     public void GetHitRegions_AlignsWithRenderSvgCoordinateSystem(
         PanelPosition panelPosition, bool homeBoardOnRight)
     {
-        var b = TestFixtures.MinimalBuilder();
-        b.AnalysisPanelPosition = panelPosition;
-        b.HomeBoardOnRight = homeBoardOnRight;
-        var request = b.Build();
+        var request = TestFixtures.MinimalRequest() with
+        {
+            AnalysisPanelPosition = panelPosition,
+            HomeBoardOnRight = homeBoardOnRight,
+        };
 
         string svg = DiagramRenderer.RenderSvg(request, _defaultOptions);
         var regions = DiagramRenderer.GetHitRegions(request, _defaultOptions);
@@ -301,11 +299,7 @@ public class HitRegionsTests
     {
         // Cube decisions draw no dice (mirrors the AppendDice call-site gate),
         // so the hit-region must be absent rather than sitting over empty board.
-        var b = TestFixtures.MinimalBuilder();
-        b.IsCube = true;
-        b.Dice = [0, 0];
-
-        var regions = DiagramRenderer.GetHitRegions(b.Build(), _defaultOptions);
+        var regions = DiagramRenderer.GetHitRegions(TestFixtures.RequestFor(TestRecords.Cube()), _defaultOptions);
 
         Assert.Null(regions.Dice);
     }

@@ -1,4 +1,4 @@
-﻿using QuestPDF.Fluent;
+using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
@@ -7,7 +7,7 @@ namespace BackgammonDiagram_Lib.ExportRaster;
 /// <summary>
 /// Builds a PDF byte array from one or more PNG images.
 /// Each PNG becomes one page, rendered full-bleed.
-/// Title is baked into the PNG by the SVG renderer; the XGID (when non-empty)
+/// Title is baked into the PNG by the SVG renderer; the XGID (a decision's)
 /// is overlaid per page as real, selectable text in the upper-right corner.
 /// Internal — called only by DiagramRasterRenderer.
 /// </summary>
@@ -24,7 +24,7 @@ internal static class PdfBuilder
     private const float XgidFontSizePt = 9;
     private const float XgidInsetPt = 8;
 
-    public static byte[] Build(IEnumerable<(byte[] Png, string Xgid)> pages)
+    public static byte[] Build(IEnumerable<(byte[] Png, string? Xgid)> pages)
     {
         var pageList = pages.ToList();
 
@@ -46,7 +46,7 @@ internal static class PdfBuilder
                     // Real, selectable XGID text in the upper-right. Drawn on
                     // the foreground layer so it sits over the image; skipped
                     // when the request carries no XGID.
-                    if (!string.IsNullOrEmpty(xgid))
+                    if (xgid is not null)
                     {
                         page.Foreground()
                             .AlignTop()

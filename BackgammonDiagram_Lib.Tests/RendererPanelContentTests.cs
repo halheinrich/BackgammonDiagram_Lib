@@ -1,22 +1,34 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using BackgammonDiagram_Lib.Rendering;
 using BackgammonDiagram_Lib.Themes;
 using BgDataTypes_Lib;
+using BgDataTypes_Lib.TestSupport;
 using Xunit;
 
 namespace BackgammonDiagram_Lib.Tests;
 
 /// <summary>
-/// Tests the cube-panel contents rendered into SVG:
-/// the Best Decision banner, the four-row Equity/Loss table, the two
-/// percentages tables (No double, Take), the footer lines, plus equity
-/// formatting, percentage scale, and PanelBackgroundColor wiring.
+/// Tests the cube-panel contents rendered into SVG: the Best / Actual banner,
+/// the four-row Equity/Loss table — each action's equity and error, the
+/// producer's, from its one calculation — the two percentages tables (No
+/// double, Take), the Analysis Level footer, plus equity formatting,
+/// percentage scale, and PanelBackgroundColor wiring.
 ///
 /// Every cube word pinned here is CubeLabels' spelling; CubeLabelsTests owns
 /// the labels themselves, and these tests own which label each line carries.
 /// </summary>
 public class RendererPanelContentTests
 {
+    /// <summary>A cube decision's solution with the given equities and played actions.</summary>
+    private static string RenderCube(double noDoubleEquity, double doubleTakeEquity,
+        CubeAction? userDoublerAction = CubeAction.Double, CubeAction? userTakerAction = CubeAction.Take) =>
+        DiagramRenderer.RenderSvg(
+            TestFixtures.RequestFor(
+                TestFixtures.CubeWith(noDoubleEquity, doubleTakeEquity, userDoublerAction, userTakerAction),
+                DiagramMode.Solution),
+            TestFixtures.DefaultOptions());
+
     // -----------------------------------------------------------------------
     //  Best / Actual banner
     // -----------------------------------------------------------------------
@@ -25,10 +37,7 @@ public class RendererPanelContentTests
     public void CubePanel_BestLine_CompoundActionPresent()
     {
         // nd=0.40, dt=0.60 → Double is correct for doubler; Take is correct for opp.
-        var request = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60).Build();
-        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
-
-        Assert.Contains("Best:   Double / Take", svg);
+        Assert.Contains("Best:   Double / Take", RenderCube(0.40, 0.60));
     }
 
     [Fact]
@@ -39,9 +48,7 @@ public class RendererPanelContentTests
         // NoDoubleTake — NOT the too-good pair: the position is not good
         // enough to double, not too good to. No double reaches only the take,
         // so the banner reads the claim alone (halheinrich/backgammon#185).
-        // Guards the boundary of the Too good rule from the low side.
-        var request = MinimalCubeBuilder(noDoubleEquity: 1.20, doubleTakeEquity: 0.50).Build();
-        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
+        var svg = RenderCube(1.20, 0.50);
 
         Assert.Contains("Best:   No double", svg);
         Assert.DoesNotContain("Best:   No double /", svg);
@@ -51,40 +58,25 @@ public class RendererPanelContentTests
     [Fact]
     public void CubePanel_BestLine_TooGoodRendersTooGood()
     {
-        // nd=1.50, dt=1.20 → BestDoublerClaim = TooGood (no double, and the
-        // no-double equity beats the cash) with BestTakerAction = Pass
-        // (dt >= 1), so BestClaimPair is TooGoodPass. This is defect 1 of
-        // halheinrich/backgammon#185: composed from the two board actions the
-        // banner read "No double / Take", because Too good and No double
-        // share a board action and the claim had nowhere to live. Read whole,
-        // the claim pair says Too good — and Too good reaches only the pass,
-        // so the response is implied and not printed.
-        var request = MinimalCubeBuilder(noDoubleEquity: 1.50, doubleTakeEquity: 1.20).Build();
-        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
+        // nd=1.50, dt=1.20 → BestClaimPair is TooGoodPass. Composed from the
+        // two board actions the banner read "No double / Take" (defect 1 of
+        // halheinrich/backgammon#185); read whole, the claim pair says Too
+        // good, which reaches only the pass, so the response is not printed.
+        var svg = RenderCube(1.50, 1.20, CubeAction.NoDouble, userTakerAction: null);
 
         Assert.Contains("Best:   Too good", svg);
         Assert.DoesNotContain("Best:   No double", svg);
-        // The claim reads alone — no " / Pass" tail.
         Assert.DoesNotContain("Too good /", svg);
     }
 
     [Fact]
     public void CubePanel_BestLine_TieBoundaryIncoherentPairReadsTooGood()
     {
-        // nd=1.00, dt=1.20 — the measure-zero boundary DecisionData names.
-        // Both halves tie and their ruled tie-breaks compose the incoherent
-        // cell: the claim comparison is strict (nd > 1 is false) so the claim
-        // stays NoDouble, while dt >= 1 makes the response Pass, giving
-        // BestClaimPair = NoDoublePass.
-        //
-        // The banner reads "Too good" — SPEC-scoring §3's sixth-cell ruling
-        // buckets that cell with Too good / Pass as the posture's degenerate
-        // point, and a banner must not print a verdict the model itself calls
-        // incoherent. What it must NOT read is "No double", which is the
-        // NoDoubleTake verdict and a different answer; the claim-alone
-        // compression does not reach this cell.
-        var request = MinimalCubeBuilder(noDoubleEquity: 1.00, doubleTakeEquity: 1.20).Build();
-        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
+        // nd=1.00, dt=1.20 — the measure-zero boundary where the producer's
+        // tie-breaks compose BestClaimPair = NoDoublePass. The banner reads
+        // "Too good" (SPEC-scoring §3's sixth-cell ruling), never "No double",
+        // which is the NoDoubleTake verdict and a different answer.
+        var svg = RenderCube(1.00, 1.20);
 
         Assert.Contains("Best:   Too good", svg);
         Assert.DoesNotContain("Best:   No double", svg);
@@ -93,15 +85,10 @@ public class RendererPanelContentTests
     [Fact]
     public void CubePanel_BestLine_NoDoubleClaimHoldsWhenDoublingIsActivelyBad()
     {
-        // nd=0.25, dt=-0.10 → doubleEquity=min(dt,1)=-0.10 < nd, so the claim
-        // is No double, and dt < 1 makes the best response Take. The same
-        // NoDoubleTake pair as above but reached from a negative double/take
-        // equity, where doubling loses ground rather than merely gaining
-        // none. How far short the double falls does not change the claim, and
-        // the nd <= 1.0 arm of the Too good predicate keeps it a no-double
-        // rather than a too-good.
-        var request = MinimalCubeBuilder(noDoubleEquity: 0.25, doubleTakeEquity: -0.10).Build();
-        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
+        // nd=0.25, dt=-0.10 → the same NoDoubleTake pair, reached from a
+        // negative double/take equity: how far short the double falls does
+        // not change the claim.
+        var svg = RenderCube(0.25, -0.10);
 
         Assert.Contains("Best:   No double", svg);
         Assert.DoesNotContain("Best:   No double /", svg);
@@ -111,41 +98,25 @@ public class RendererPanelContentTests
     public void CubePanel_BestLine_PassWhenDoubleTakeEquityExceedsOne()
     {
         // nd=0.30, dt=1.20 → Double is correct; opp should pass (dt > 1).
-        var request = MinimalCubeBuilder(noDoubleEquity: 0.30, doubleTakeEquity: 1.20).Build();
-        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
-
-        Assert.Contains("Best:   Double / Pass", svg);
+        Assert.Contains("Best:   Double / Pass", RenderCube(0.30, 1.20, CubeAction.Double, CubeAction.Pass));
     }
 
     [Fact]
     public void CubePanel_ActualLine_ReadsStampedPlayedActions()
     {
-        // nd=0.40, dt=0.60 → Best = (Double, Take). The doubled game was
-        // passed, so both halves are stamped, in contract, and both render.
-        var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
-        b.UserDoublerAction = CubeAction.Double;
-        b.UserTakerAction = CubeAction.Pass;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
-
-        Assert.Contains("Actual: Double / Pass", svg);
+        // The doubled game was passed, so both halves are stamped and render.
+        Assert.Contains("Actual: Double / Pass", RenderCube(0.40, 0.60, CubeAction.Double, CubeAction.Pass));
     }
 
     [Fact]
     public void CubePanel_ActualLine_EquityTieDoubleStillRendersDouble()
     {
-        // Regression — the bug the stamped fields exist to fix. nd == dt ==
-        // 0.50: doubling gains nothing, so the tie-break picks NoDouble as
-        // BestDoublerAction and UserDoubleError is 0 because the double cost
-        // nothing. The old derivation read that zero as "played the best
-        // action" and printed "No double" for a game that was doubled and
-        // taken. Both errors are set here to exactly the values that used to
-        // mislead the line; only the stamped actions decide it now.
-        var b = MinimalCubeBuilder(noDoubleEquity: 0.50, doubleTakeEquity: 0.50);
-        b.UserDoubleError = 0;
-        b.UserTakeError = 0;
-        b.UserDoublerAction = CubeAction.Double;
-        b.UserTakerAction = CubeAction.Take;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        // Regression — the bug the stamped actions exist to fix. nd == dt ==
+        // 0.50: doubling gains nothing, so the tie-break picks NoDouble as the
+        // best doubler action and the double's error is 0. Read from that
+        // zero, the line printed "No double" for a game that was doubled and
+        // taken; only the stamped actions decide it.
+        var svg = RenderCube(0.50, 0.50, CubeAction.Double, CubeAction.Take);
 
         Assert.Contains("Actual: Double / Take", svg);
         Assert.DoesNotContain("Actual: No double", svg);
@@ -154,14 +125,9 @@ public class RendererPanelContentTests
     [Fact]
     public void CubePanel_ActualLine_UndoubledGameShowsDoublerHalfAlone()
     {
-        // An undoubled game: the producer stamps the doubler half and leaves
-        // the taker half null, because the opponent never faced the cube.
-        // This is the in-contract one-sided record, and the null half alone
-        // — no suppression involved — carries the doubler label by itself.
-        var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
-        b.UserDoublerAction = CubeAction.NoDouble;
-        b.UserTakerAction = null;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        // An undoubled game: the doubler half stamped, the taker half null,
+        // because the opponent never faced the cube.
+        var svg = RenderCube(0.40, 0.60, CubeAction.NoDouble, userTakerAction: null);
 
         Assert.Contains("Actual: No double", svg);
         Assert.DoesNotContain("Actual: No double /", svg);
@@ -170,19 +136,11 @@ public class RendererPanelContentTests
     [Fact]
     public void CubePanel_ActualLine_StaleTakerOnNoDoubleIsSuppressed()
     {
-        // Defence against an out-of-contract stamp, not a property of the
-        // line. DecisionData validates each played half only against its own
-        // action domain and leaves cross-half consistency (a recorded taker
-        // response implies the doubler doubled) to the producer, so a stamped
-        // (NoDouble, Take) can reach the renderer even though the opponent
-        // cannot have taken a cube that was never offered. The Actual line
-        // drops that stale taker at its stamped-data boundary. The Best line
-        // has no such rule — it labels a producer-derived claim pair, never a
-        // stamped one.
-        var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
-        b.UserDoublerAction = CubeAction.NoDouble;
-        b.UserTakerAction = CubeAction.Take;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        // Defence against an out-of-contract stamp: the record holds each
+        // played half to its own domain and leaves cross-half consistency to
+        // the producer, so a stamped (NoDouble, Take) can reach the renderer.
+        // The Actual line drops that stale taker at its stamped-data boundary.
+        var svg = RenderCube(0.40, 0.60, CubeAction.NoDouble, CubeAction.Take);
 
         Assert.Contains("Actual: No double", svg);
         Assert.DoesNotContain("Actual: No double /", svg);
@@ -191,17 +149,11 @@ public class RendererPanelContentTests
     [Fact]
     public void CubePanel_ActualLine_StampedTooGoodPairRendersTooGood()
     {
-        // The Actual line stays action-level, but a stamped (NoDouble, Pass)
-        // is still the too-good pair and names itself — and it names itself
-        // through CubeLabels.Label(CubeClaimPair.TooGoodPass), the same
-        // spelling the Best banner reaches for, so the two lines cannot spell
-        // the claim two ways. Guards the reach of the stale-taker filter,
-        // which drops only (NoDouble, Take) and must leave this
-        // NoDouble-doubler pair intact to be classified.
-        var b = MinimalCubeBuilder(noDoubleEquity: 1.50, doubleTakeEquity: 1.20);
-        b.UserDoublerAction = CubeAction.NoDouble;
-        b.UserTakerAction = CubeAction.Pass;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        // A stamped (NoDouble, Pass) is the too-good pair and names itself
+        // through CubeLabels.Label(CubeClaimPair.TooGoodPass), the Best
+        // banner's spelling. Guards the reach of the stale-taker filter,
+        // which drops only (NoDouble, Take).
+        var svg = RenderCube(1.50, 1.20, CubeAction.NoDouble, CubeAction.Pass);
 
         Assert.Contains("Actual: Too good", svg);
         Assert.DoesNotContain("Actual: No double", svg);
@@ -210,14 +162,9 @@ public class RendererPanelContentTests
     [Fact]
     public void CubePanel_ActualLine_StampedActionsIgnoreTheBestPair()
     {
-        // nd=1.50, dt=1.20 → BestClaimPair = TooGoodPass. The player
-        // doubled anyway and was passed, so Actual is (Double, Pass). Guards
-        // that the line reads its own halves rather than leaking the Best
-        // pair's classification onto them.
-        var b = MinimalCubeBuilder(noDoubleEquity: 1.50, doubleTakeEquity: 1.20);
-        b.UserDoublerAction = CubeAction.Double;
-        b.UserTakerAction = CubeAction.Pass;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        // BestClaimPair = TooGoodPass; the player doubled anyway and was
+        // passed: the line reads its own halves.
+        var svg = RenderCube(1.50, 1.20, CubeAction.Double, CubeAction.Pass);
 
         Assert.Contains("Best:   Too good", svg);
         Assert.Contains("Actual: Double / Pass", svg);
@@ -227,45 +174,84 @@ public class RendererPanelContentTests
     [Fact]
     public void CubePanel_ActualLine_TakerHalfAloneRendersUnknownDoubler()
     {
-        // A taker half with no doubler half violates the producer contract (a
-        // recorded response implies a double), but the line still has to
-        // render something: the unknown doubler half prints "?" rather than
-        // being silently dropped.
-        var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
-        b.UserDoublerAction = null;
-        b.UserTakerAction = CubeAction.Take;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
-
-        Assert.Contains("Actual: ? / Take", svg);
+        // A taker half with no doubler half violates the producer's contract,
+        // but the line still renders it: the unknown doubler half prints "?".
+        Assert.Contains("Actual: ? / Take", RenderCube(0.40, 0.60, userDoublerAction: null, CubeAction.Take));
     }
 
     [Fact]
     public void CubePanel_ActualLine_SuppressedWhenNoActionStamped()
     {
-        // Null means "not recorded" — a resignation-terminal cube record, or
-        // JSON written before the played-action fields existed. The error
-        // fields are set and deliberately ignored: there is no inference
-        // fallback, so an unrecorded decision drops the line entirely rather
-        // than guessing an action from a zero error.
-        var b = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
-        b.UserDoubleError = 0;
-        b.UserTakeError = 0.1;
-        b.UserDoublerAction = null;
-        b.UserTakerAction = null;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        // No action stated, only the analyser's errors: there is no inference
+        // from an error, so an unrecorded decision drops the line entirely.
+        var record = TestRecords.Cube(decision: TestRecords.CubeData(
+            noDoubleEquity: 0.40, doubleTakeEquity: 0.60,
+            userDoublerAction: null, userTakerAction: null,
+            unstatedDoublerActionError: 0, unstatedTakerActionError: 0.1));
+        var svg = DiagramRenderer.RenderSvg(TestFixtures.RequestFor(record, DiagramMode.Solution), TestFixtures.DefaultOptions());
 
         Assert.DoesNotContain("Actual:", svg);
     }
 
     // -----------------------------------------------------------------------
-    //  Equity/Loss table — all four rows, fixed order, losses always shown
+    //  Equity/Loss table — each action's equity and error, the producer's
     // -----------------------------------------------------------------------
+
+    /// <summary>The Equity/Loss table's four rows: each label with its equity and loss cells.</summary>
+    private static List<(string Label, string Equity, string Loss)> CubeRows(string svg) =>
+        Regex.Matches(svg,
+                """font-weight="bold" fill="[^"]*">([^<]+)</text>\s*<text [^>]*text-anchor="end"[^>]*>([+-][0-9]+\.[0-9]{4})</text>\s*<text [^>]*text-anchor="end"[^>]*>([0-9]+\.[0-9]{4})</text>""")
+            .Select(m => (m.Groups[1].Value, m.Groups[2].Value, m.Groups[3].Value))
+            .ToList();
+
+    [Theory]
+    [InlineData(0.40, 0.60)]    // double / take
+    [InlineData(0.30, 1.20)]    // double / pass: doubling is worth the cash
+    [InlineData(1.50, 1.20)]    // too good
+    [InlineData(0.25, -0.10)]   // no double
+    [InlineData(0.50, 0.50)]    // the doubler's tie
+    [InlineData(0.80, 1.00)]    // the taker's tie
+    public void CubePanel_EachRowIsItsActionsEquityAndError_FromTheRecord(double noDouble, double doubleTake)
+    {
+        var decision = TestFixtures.CubeWith(noDouble, doubleTake).Decision;
+        var rows = CubeRows(RenderCube(noDouble, doubleTake));
+
+        string Equity(CubeAction action) => (decision.ActionEquity(action) >= 0 ? "+" : "")
+            + decision.ActionEquity(action).ToString("F4", CultureInfo.InvariantCulture);
+        static string Loss(double error) => error.ToString("F4", CultureInfo.InvariantCulture);
+
+        Assert.Equal(
+        [
+            (CubeLabels.Label(CubeAction.NoDouble), Equity(CubeAction.NoDouble), Loss(decision.DoublerActionError(CubeAction.NoDouble))),
+            (CubeLabels.Label(CubeAction.Double), Equity(CubeAction.Double), Loss(decision.DoublerActionError(CubeAction.Double))),
+            (CubeLabels.Label(CubeAction.Take), Equity(CubeAction.Take), Loss(decision.TakerActionError(CubeAction.Take))),
+            (CubeLabels.Label(CubeAction.Pass), Equity(CubeAction.Pass), Loss(decision.TakerActionError(CubeAction.Pass))),
+        ], rows);
+    }
+
+    [Fact]
+    public void CubePanel_StatesNoPassValueAndNoDoublingRuleOfItsOwn()
+    {
+        // The pass's value and the rule for doubling's equity are the
+        // producer's, stated once in CubeDecisionData.ActionEquity. The
+        // renderer reads each row's equity there and restates neither: no
+        // pass constant, no min of the take and the cash. A rendered panel
+        // cannot show this — a copy computes the same numbers — so the
+        // source is surveyed.
+        string source = RendererSource.Read();
+        string panel = RendererSource.MethodBody(source, "AppendCubePanel");
+
+        Assert.DoesNotContain("PassEquity", source);
+        Assert.DoesNotContain("Math.Min", panel);
+        Assert.DoesNotContain("1.0", panel);
+        foreach (var action in Enum.GetValues<CubeAction>())
+            Assert.Contains($"ActionEquity(CubeAction.{action})", panel);
+    }
 
     [Fact]
     public void CubePanel_Rows_AllFourOptionsPresent()
     {
-        var request = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60).Build();
-        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
+        var svg = RenderCube(0.40, 0.60);
 
         Assert.Contains(">No double<", svg);
         Assert.Contains(">Double<", svg);
@@ -276,17 +262,13 @@ public class RendererPanelContentTests
     [Fact]
     public void CubePanel_EquityLoss_ShownForAllRows_IncludingZero()
     {
-        // nd=0.40, dt=0.60.
-        //   No double loss = 0.60 - 0.40 = 0.2000
-        //   Double    loss = 0          = 0.0000
-        //   Take      loss = 0          = 0.0000
-        //   Pass      loss = 1.00 - 0.60 = 0.4000
-        var request = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60).Build();
-        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
+        // nd=0.40, dt=0.60: No double 0.2000 behind, Double and Take 0.0000,
+        // Pass 0.4000 behind.
+        var svg = RenderCube(0.40, 0.60);
 
-        Assert.Contains(">0.0000<", svg);   // correct-option rows
-        Assert.Contains(">0.2000<", svg);   // No double mistake
-        Assert.Contains(">0.4000<", svg);   // Pass mistake
+        Assert.Contains(">0.0000<", svg);
+        Assert.Contains(">0.2000<", svg);
+        Assert.Contains(">0.4000<", svg);
         Assert.DoesNotContain(">-0.2000<", svg);
         Assert.DoesNotContain(">-0.4000<", svg);
     }
@@ -298,12 +280,11 @@ public class RendererPanelContentTests
     [Fact]
     public void CubePanel_Percentages_ScaledFromFractionToPercent()
     {
-        var b = MinimalCubeBuilder(0.40, 0.60);
-        b.WinPctAfterNoDouble = 0.702;
-        b.LosePctAfterNoDouble = 0.298;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        var record = TestRecords.Cube(decision: TestRecords.CubeData(winPctAfterNoDouble: 0.702));
+        var svg = DiagramRenderer.RenderSvg(TestFixtures.RequestFor(record, DiagramMode.Solution), TestFixtures.DefaultOptions());
 
-        // 0.702 must render as "70.2%", not "0.7%".
+        // 0.702 must render as "70.2%", not "0.7%"; the loss, 1 − the win,
+        // is the record's derivation.
         Assert.Contains(">70.2%<", svg);
         Assert.Contains(">29.8%<", svg);
     }
@@ -311,8 +292,7 @@ public class RendererPanelContentTests
     [Fact]
     public void CubePanel_Percentages_TablesHaveColumnHeaders()
     {
-        var request = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60).Build();
-        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
+        var svg = RenderCube(0.40, 0.60);
 
         Assert.Contains(">Win<", svg);
         Assert.Contains(">Gammon<", svg);
@@ -326,10 +306,8 @@ public class RendererPanelContentTests
     {
         // textX = PanelMargin(6) + 4 = 10; NumericBlockWidth = 215;
         // numericRightX = 225. Right-anchored offsets in AppendPctTable:
-        // BG at 0, Gammon at 47, Win at 120. Win offset chosen so the
-        // Win→Gammon header gap visually matches Gammon→BG (~33px).
-        var request = MinimalCubeBuilder(noDoubleEquity: 0.40, doubleTakeEquity: 0.60).Build();
-        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
+        // BG at 0, Gammon at 47, Win at 120.
+        var svg = RenderCube(0.40, 0.60);
 
         Assert.Matches(@"<text x=""105""[^>]*>Win<",    svg);
         Assert.Matches(@"<text x=""178""[^>]*>Gammon<", svg);
@@ -343,27 +321,22 @@ public class RendererPanelContentTests
     [Fact]
     public void CubePanel_EquityFormat_UsesFourDecimalsWithSign()
     {
-        var request = MinimalCubeBuilder(noDoubleEquity: 0.25, doubleTakeEquity: -0.125).Build();
-        var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
+        var svg = RenderCube(0.25, -0.125);
 
-        // Positive — explicit + sign.
-        Assert.Contains(">+0.2500<", svg);
-        // Negative — intrinsic minus sign.
-        Assert.Contains(">-0.1250<", svg);
+        Assert.Contains(">+0.2500<", svg);    // positive — explicit + sign
+        Assert.Contains(">-0.1250<", svg);    // negative — intrinsic minus sign
     }
 
     [Fact]
     public void CubePanel_EquityFormat_AlwaysUsesInvariantDecimalSeparator()
     {
-        // Switch the thread culture to one that formats doubles with a comma
-        // (e.g. fr-FR). Invariant-culture formatting in the renderer must be
-        // unaffected — the SVG should still contain "0.2500", not "0,2500".
+        // Under a culture that formats doubles with a comma (fr-FR), the SVG
+        // still carries "0.2500", not "0,2500".
         var prior = CultureInfo.CurrentCulture;
         try
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
-            var request = MinimalCubeBuilder(0.25, 0.10).Build();
-            var svg = DiagramRenderer.RenderSvg(request, TestFixtures.DefaultOptions());
+            var svg = RenderCube(0.25, 0.10);
 
             Assert.Contains(">+0.2500<", svg);
             Assert.DoesNotContain(">+0,2500<", svg);
@@ -375,48 +348,41 @@ public class RendererPanelContentTests
     }
 
     // -----------------------------------------------------------------------
-    //  Footer — Pass Justifying Dbl label
+    //  Footer — Analysis Level; no Pass Justifying Dbl line
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void CubePanel_PassJustifyingDbl_UsesOneDecimal()
+    public void CubePanel_AnalysisLevel_RendersTheFullDepthLabel()
     {
-        var b = MinimalCubeBuilder(0.4, 0.8);
-        b.ProbOfOpponentErrorJustifyingDouble = 0.42;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        // One analysis depth and column space to spare: the full label, never
+        // the abbreviation. Both are the record's, derived from its facts.
+        var record = TestFixtures.CubeWith(0.4, 0.8, analysisMode: AnalysisMode.Rollout, rolloutTrials: 1296);
+        Assert.Equal("3p1296", record.Decision.DepthAbbreviation);
 
-        Assert.Contains("Pass Justifying Dbl: 42.0%", svg);
-    }
-
-    // -----------------------------------------------------------------------
-    //  Footer — Analysis Level label (sourced from DecisionData.CubeDepth)
-    // -----------------------------------------------------------------------
-
-    [Fact]
-    public void CubePanel_AnalysisLevel_RendersFullCubeDepthWhenSet()
-    {
-        var b = MinimalCubeBuilder(0.4, 0.8);
-        // The cube panel has only one analysis depth and column space to
-        // spare, so it renders the full CubeDepth string. The abbreviation
-        // does not appear in the panel.
-        b.CubeDepth = "Rollout: 1296 trials. 3-ply";
-        b.CubeDepthAbbreviation = "3p1296";
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        var svg = DiagramRenderer.RenderSvg(TestFixtures.RequestFor(record, DiagramMode.Solution), TestFixtures.DefaultOptions());
 
         Assert.Contains("Analysis Level: Rollout: 1296 trials. 3-ply", svg);
         Assert.DoesNotContain("3p1296", svg);
     }
 
     [Fact]
-    public void CubePanel_AnalysisLevel_OmittedWhenCubeDepthEmpty()
+    public void CubePanel_AnalysisLevel_OmittedWhenNoDepthIsRecorded()
     {
-        var b = MinimalCubeBuilder(0.4, 0.8);
-        // CubeDepth is what the panel reads; a non-empty abbreviation alone
-        // does not force the Analysis Level line on.
-        b.CubeDepthAbbreviation = "3p1296";
-        var svg = DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        var record = TestFixtures.CubeWith(0.4, 0.8, analysisMode: AnalysisMode.Unknown, analysisLevel: AnalysisLevel.Unknown);
+        Assert.Null(record.Decision.Depth);
+
+        var svg = DiagramRenderer.RenderSvg(TestFixtures.RequestFor(record, DiagramMode.Solution), TestFixtures.DefaultOptions());
 
         Assert.DoesNotContain("Analysis Level:", svg);
+    }
+
+    [Fact]
+    public void CubePanel_HasNoPassJustifyingDoubleLine()
+    {
+        // The line went with the stored field it read, which XG never stored
+        // (halheinrich/backgammon#273). Deriving the figure is
+        // halheinrich/backgammon#288's.
+        Assert.DoesNotContain("Pass Justifying", RenderCube(0.4, 0.8));
     }
 
     // -----------------------------------------------------------------------
@@ -437,11 +403,10 @@ public class RendererPanelContentTests
             textColor: "#000000",
             panelBackgroundColor: distinctive,
             name: "PanelBgTest");
-        var options = new DiagramOptions { Theme = theme };
 
-        var b = TestFixtures.MinimalBuilder();
-        b.Mode = DiagramMode.Solution;
-        var svg = DiagramRenderer.RenderSvg(b.Build(), options);
+        var svg = DiagramRenderer.RenderSvg(
+            TestFixtures.MinimalRequest() with { Mode = DiagramMode.Solution },
+            new DiagramOptions { Theme = theme });
 
         Assert.Contains($"fill=\"{distinctive}\"", svg);
     }
@@ -498,14 +463,7 @@ public class RendererPanelContentTests
             TestFixtures.MinimalRequest(),
             new DiagramOptions { Aspect = AspectPreset.Widescreen16x9 });
 
-        // The inner <rect> painted immediately after the dark outer rect is
-        // the board-proper rect with width="<BoardWidth>". It must be
-        // identical across aspect presets.
-        var boardNatural = ExtractInnerBoardRectWidth(natural);
-        var boardWide = ExtractInnerBoardRectWidth(wide);
-        Assert.Equal(boardNatural, boardWide, precision: 4);
-
-        // But the viewBox total width must differ.
+        Assert.Equal(ExtractInnerBoardRectWidth(natural), ExtractInnerBoardRectWidth(wide), precision: 4);
         Assert.NotEqual(ExtractViewBoxWidth(natural), ExtractViewBoxWidth(wide));
     }
 
@@ -523,13 +481,10 @@ public class RendererPanelContentTests
 
     private static (double w, double h) ExtractViewBox(string svg)
     {
-        // viewBox="0 0 W H"
-        var m = System.Text.RegularExpressions.Regex.Match(svg,
-            "viewBox=\"0 0 ([0-9.]+) ([0-9.]+)\"");
+        var m = Regex.Match(svg, "viewBox=\"0 0 ([0-9.]+) ([0-9.]+)\"");
         Assert.True(m.Success, "viewBox not found in SVG");
-        double w = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
-        double h = double.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture);
-        return (w, h);
+        return (double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture),
+                double.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture));
     }
 
     private static double ExtractInnerBoardRectWidth(string svg)
@@ -537,23 +492,8 @@ public class RendererPanelContentTests
         // Rect order in the SVG: title-strip bg, full-canvas dark, board-proper.
         // The board-proper rect carries the intrinsic BoardWidth and must not
         // depend on Aspect preset.
-        var matches = System.Text.RegularExpressions.Regex.Matches(svg,
-            "<rect x=\"[0-9.]+\" y=\"0\" width=\"([0-9.]+)\" height=\"[0-9.]+\"");
+        var matches = Regex.Matches(svg, "<rect x=\"[0-9.]+\" y=\"0\" width=\"([0-9.]+)\" height=\"[0-9.]+\"");
         Assert.True(matches.Count >= 3, "expected at least three root-level rects (title + canvas + board)");
         return double.Parse(matches[2].Groups[1].Value, CultureInfo.InvariantCulture);
-    }
-
-
-    /// <summary>Builds a Solution-mode cube decision with the given equities.</summary>
-    private static DiagramRequest.Builder MinimalCubeBuilder(
-        double noDoubleEquity, double doubleTakeEquity)
-    {
-        var b = TestFixtures.MinimalBuilder();
-        b.IsCube = true;
-        b.Dice = [0, 0];
-        b.Mode = DiagramMode.Solution;
-        b.NoDoubleEquity = noDoubleEquity;
-        b.DoubleTakeEquity = doubleTakeEquity;
-        return b;
     }
 }

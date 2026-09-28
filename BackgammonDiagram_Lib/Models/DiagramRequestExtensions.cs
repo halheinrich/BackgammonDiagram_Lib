@@ -4,20 +4,26 @@ namespace BackgammonDiagram_Lib;
 public static class DiagramRequestExtensions
 {
     /// <summary>
-    /// Expands a single request into a matched Problem/Solution pair by
-    /// flipping the Mode. Title is no longer touched — the renderer composes
-    /// the title strip from context (dice-to-play / Cube Action? + optional
-    /// Position counter) rather than from Descriptive.Title.
+    /// Expands a decision's request into a matched Problem/Solution pair: the
+    /// same request twice, with <see cref="DiagramRequest.Mode"/> set to
+    /// <see cref="DiagramMode.Problem"/> and to
+    /// <see cref="DiagramMode.Solution"/>. Every other option — the ranking,
+    /// the ceiling, the marks, the orientation, the position number — rides
+    /// both, since each side is <paramref name="request"/> <c>with</c> its
+    /// mode. The title strip is composed by the renderer from context, so
+    /// nothing else changes.
     /// </summary>
+    /// <param name="request">A decision's request; it is not changed.</param>
+    /// <returns>The problem and the solution.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="request"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="request"/> draws a board — a working board included —
+    /// which has no analysis, so no solution.
+    /// </exception>
     public static (DiagramRequest Problem, DiagramRequest Solution)
         ToProblemSolutionPair(this DiagramRequest request)
     {
-        var problemBuilder = DiagramRequest.Builder.From(request);
-        problemBuilder.Mode = DiagramMode.Problem;
-
-        var solutionBuilder = DiagramRequest.Builder.From(request);
-        solutionBuilder.Mode = DiagramMode.Solution;
-
-        return (problemBuilder.Build(), solutionBuilder.Build());
+        ArgumentNullException.ThrowIfNull(request);
+        return (request with { Mode = DiagramMode.Problem }, request with { Mode = DiagramMode.Solution });
     }
 }

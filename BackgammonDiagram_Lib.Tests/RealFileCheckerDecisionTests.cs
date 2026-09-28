@@ -9,8 +9,7 @@ namespace BackgammonDiagram_Lib.Tests;
 /// <summary>
 /// Integration-style visual test: parses real .xg / .xgp files via
 /// ConvertXgToJson_Lib and renders checker-play decisions to a PPTX so the
-/// play panel can be eyeballed on realistic fixtures (the synthetic
-/// MinimalBuilder has an empty Plays list).
+/// play panel can be eyeballed on realistic fixtures.
 ///
 /// Cross-submodule dependency — this file is the only reason
 /// BackgammonDiagram_Lib.Tests references ConvertXgToJson_Lib.
@@ -78,13 +77,11 @@ public class RealFileCheckerDecisionTests
         int taken = 0;
         foreach (var data in XgDecisionIterator.IterateDiagramRequests(file, Path.GetFileName(path)))
         {
-            if (data.Decision.IsCube) continue;
+            if (data is not CheckerPlayDecision) continue;
             taken++;
             counter++;
-            var req = DiagramRequest.FromDecisionData(data, mode: DiagramMode.Solution);
-            var b = DiagramRequest.Builder.From(req);
-            b.PositionNumber = counter;
-            results.Add(b.Build().ToProblemSolutionPair());
+            var req = DiagramRequest.ForDecision(data, PlayRanking.Equity) with { PositionNumber = counter };
+            results.Add(req.ToProblemSolutionPair());
             if (taken >= limit) break;
         }
         return results;

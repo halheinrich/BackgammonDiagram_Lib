@@ -1,0 +1,172 @@
+using System.Globalization;
+using BgDataTypes_Lib;
+
+namespace BackgammonDiagram_Lib.Rendering;
+
+/// <summary>
+/// What a diagram draws beyond its checkers and its analysis panel, worded:
+/// the title strip's action and source cells, the dice, the cube's face and
+/// place, and the player label on each rail. Resolved once per render from a
+/// request (<see cref="Of"/>), and read by <see cref="DiagramRenderer.RenderSvg"/>
+/// and <see cref="DiagramRenderer.GetHitRegions"/> alike.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Two sources, one wording. A decision's presentation is derived from its
+/// record — the session's kind decides the rail wording and the cube's face,
+/// the decision's kind the title — and a board's from the display facts its
+/// request states. Both go through the same wording helpers here, so the
+/// diagram words a thing one way whichever source states it; a caller never
+/// supplies drawn text.
+/// </para>
+/// <para>
+/// The pip counts are not here: the rails read them off the drawn board,
+/// whichever source presents it (see <see cref="DiagramRenderer.RenderSvg"/>).
+/// </para>
+/// </remarks>
+/// <param name="TitleAction">The title strip's first cell — <c>"3-1 to play"</c>, <c>"Cube Action?"</c> — or empty.</param>
+/// <param name="TitleSource">The title strip's middle cell — a decision's source file stem, or a board's title — or empty.</param>
+/// <param name="Dice">The dice drawn, in order, or <see langword="null"/> for none.</param>
+/// <param name="CubeFace">The text on the cube's face.</param>
+/// <param name="CubeOwner">Where the cube sits.</param>
+/// <param name="OnRollLabel">The player label on the rail of the side positive in the board's frame.</param>
+/// <param name="OpponentLabel">The player label on the other side's rail.</param>
+internal sealed record DiagramPresentation(
+    string TitleAction,
+    string TitleSource,
+    DiceFaces? Dice,
+    string CubeFace,
+    CubeOwner CubeOwner,
+    string OnRollLabel,
+    string OpponentLabel)
+{
+    /// <summary>The title's action cell for a cube decision.</summary>
+    internal const string CubeActionPrompt = "Cube Action?";
+
+    /// <summary>The cube's face at double match point, where the cube is dead.</summary>
+    internal const string DoubleMatchPointFace = "Dmp";
+
+    /// <summary>The cube's face in the Crawford game, played without the cube.</summary>
+    internal const string CrawfordFace = "Cr";
+
+    /// <summary>The presentation <paramref name="request"/> draws.</summary>
+    internal static DiagramPresentation Of(DiagramRequest request) =>
+        request.Present(OfDecision, OfFacts);
+
+    /// <summary>
+    /// A decision's presentation, from its record: the names and the source
+    /// file, the roll (a checker play's, in <paramref name="diceOrder"/>) or
+    /// the cube prompt, the cube's face and place, and the rails' score from
+    /// the session.
+    /// </summary>
+    private static DiagramPresentation OfDecision(BgDecisionData decision, DiceOrder diceOrder)
+    {
+        var dice = decision.Match<DiceFaces?>(
+            play => diceOrder == DiceOrder.Reversed
+                ? new DiceFaces(play.Decision.Dice[1], play.Decision.Dice[0])
+                : new DiceFaces(play.Decision.Dice[0], play.Decision.Dice[1]),
+            _ => null);
+        string action = dice is null ? CubeActionPrompt : RollPrompt(dice);
+
+        int cubeSize = decision.Position.CubeSize;
+        var (cubeFace, onRollScore, opponentScore) = decision.Session.Match(
+            money => (CubeValueFace(cubeSize), MoneyText(money.Terms.IsJacoby), MoneyText(money.Terms.IsJacoby)),
+            match => (MatchCubeFace(match, cubeSize),
+                NeedsText(match.OnRollNeeds, match.IsCrawford),
+                NeedsText(match.OpponentNeeds, match.IsCrawford)));
+
+        return new DiagramPresentation(
+            action,
+            StripLastExtension(decision.SourceFile),
+            dice,
+            cubeFace,
+            decision.Position.CubeOwner,
+            PlayerLabel(decision.Descriptive.OnRollName, onRollScore),
+            PlayerLabel(decision.Descriptive.OpponentName, opponentScore));
+    }
+
+    /// <summary>
+    /// A board's presentation, from the display facts its request states:
+    /// each drawn as stated, through the same wording a decision's goes
+    /// through.
+    /// </summary>
+    private static DiagramPresentation OfFacts(DisplayFacts facts)
+    {
+        var (onRollScore, opponentScore) = facts.Score switch
+        {
+            null => ((string?)null, (string?)null),
+            MatchRailScore match => (NeedsText(match.OnRollNeeds, crawford: false), NeedsText(match.OpponentNeeds, crawford: false)),
+            MoneyRailScore => (MoneyText(isJacoby: null), MoneyText(isJacoby: null)),
+            _ => throw new ArgumentOutOfRangeException(nameof(facts), facts.Score, "Not a rail score this library defines."),
+        };
+
+        return new DiagramPresentation(
+            facts.Dice is { } dice ? RollPrompt(dice) : string.Empty,
+            facts.Title ?? string.Empty,
+            facts.Dice,
+            CubeValueFace(facts.CubeValue),
+            facts.CubeOwner,
+            PlayerLabel(facts.OnRollName, onRollScore),
+            PlayerLabel(facts.OpponentName, opponentScore));
+    }
+
+    // -----------------------------------------------------------------------
+    //  The wording — one statement each, for both sources
+    // -----------------------------------------------------------------------
+
+    /// <summary>The title's action cell for dice shown: <c>"3-1 to play"</c>, left die first.</summary>
+    private static string RollPrompt(DiceFaces dice) =>
+        string.Create(CultureInfo.InvariantCulture, $"{dice.Left}-{dice.Right} to play");
+
+    /// <summary>
+    /// The face of a cube of <paramref name="value"/>: its value, except the
+    /// starting value 1, which reads <c>64</c> as on a real cube.
+    /// </summary>
+    private static string CubeValueFace(int value) =>
+        value == 1 ? "64" : value.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// A match's cube face. At double match point — both players 1-away —
+    /// the cube is dead, so the face reads <c>Dmp</c> rather than a value
+    /// that could mislead; that takes precedence over the Crawford game's
+    /// <c>Cr</c>, which marks a game played without the cube.
+    /// </summary>
+    private static string MatchCubeFace(MatchSession match, int cubeSize) =>
+        match.OnRollNeeds == 1 && match.OpponentNeeds == 1 ? DoubleMatchPointFace
+        : match.IsCrawford ? CrawfordFace
+        : CubeValueFace(cubeSize);
+
+    /// <summary>A match score on one rail: <c>"needs 3"</c>, with <c>" Crawford"</c> in the Crawford game.</summary>
+    private static string NeedsText(int needs, bool crawford) =>
+        string.Create(CultureInfo.InvariantCulture, $"needs {needs}{(crawford ? " Crawford" : string.Empty)}");
+
+    /// <summary>
+    /// The money-game label: <c>"(Money Game, Jacoby)"</c> or <c>"(Money Game,
+    /// No Jacoby)"</c> with the rule stated, and the bare <c>"(Money Game)"</c>
+    /// when none is (a board's display facts state no rule).
+    /// </summary>
+    private static string MoneyText(bool? isJacoby) => isJacoby switch
+    {
+        true => "(Money Game, Jacoby)",
+        false => "(Money Game, No Jacoby)",
+        null => "(Money Game)",
+    };
+
+    /// <summary>A rail's player label: the name and the score, each where stated.</summary>
+    private static string PlayerLabel(string? name, string? score) =>
+        name is null ? score ?? string.Empty
+        : score is null ? name
+        : $"{name} {score}";
+
+    /// <summary>
+    /// Drops the last dot-extension from a file name, preserving any earlier
+    /// dots: <c>"abc.xg"</c> → <c>"abc"</c>, <c>"abc.weird.xg"</c> →
+    /// <c>"abc.weird"</c>; a leading-dot-only name passes through rather than
+    /// degenerating to empty.
+    /// </summary>
+    private static string StripLastExtension(string filename)
+    {
+        int dot = filename.LastIndexOf('.');
+        return dot > 0 ? filename[..dot] : filename;
+    }
+}

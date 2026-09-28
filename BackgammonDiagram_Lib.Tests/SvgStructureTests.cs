@@ -1,4 +1,6 @@
-﻿using BackgammonDiagram_Lib.Rendering;
+using BackgammonDiagram_Lib.Rendering;
+using BgDataTypes_Lib;
+using BgDataTypes_Lib.TestSupport;
 using Xunit;
 
 namespace BackgammonDiagram_Lib.Tests;
@@ -46,44 +48,40 @@ public class SvgStructureTests
     [Fact]
     public void ContainsPlayerNames()
     {
+        // The default record's players.
         var svg = TestFixtures.Render();
-        Assert.Contains("Hal", svg);
-        Assert.Contains("Opponent", svg);
+        Assert.Contains("Alice", svg);
+        Assert.Contains("Bob", svg);
     }
 
     [Fact]
     public void ContainsPipCounts()
     {
+        // The standard start's, the board's own: 167 each.
         var svg = TestFixtures.Render();
-        Assert.Contains("133", svg);
-        Assert.Contains("131", svg);
+        Assert.Equal(2, TestFixtures.CountOccurrences(svg, ">Pip: 167</text>"));
     }
 
     [Fact]
     public void HomeBoardLeftAndRight_ProduceDifferentSvg()
     {
         var svgRight = TestFixtures.Render(TestFixtures.MinimalRequest());
-        var b = TestFixtures.MinimalBuilder();
-        b.HomeBoardOnRight = false;
-        var svgLeft = TestFixtures.Render(b.Build());
+        var svgLeft = TestFixtures.Render(TestFixtures.MinimalRequest() with { HomeBoardOnRight = false });
         Assert.NotEqual(svgRight, svgLeft);
     }
 
     [Fact]
     public void IsCube_NoDiceRendered()
     {
-        var b = TestFixtures.MinimalBuilder();
-        b.IsCube = true;
-        b.Dice = [0, 0];
-        var svg = TestFixtures.Render(b.Build());
+        var svg = TestFixtures.Render(TestFixtures.RequestFor(TestRecords.Cube()));
         Assert.DoesNotContain("fill=\"#FFFFFF\" stroke=\"#888\" stroke-width=\"0.75\"", svg);
     }
 
     [Fact]
     public void CubeOwnerDefault_IsCentered()
     {
-        var b = new DiagramRequest.Builder { HomeBoardOnRight = true, Dice = [1, 1] };
-        var svg =  DiagramRenderer.RenderSvg(b.Build(), TestFixtures.DefaultOptions());
+        var svg = DiagramRenderer.RenderSvg(
+            DiagramRequest.ForBoard(BoardPosition.Standard, new DisplayFacts()), TestFixtures.DefaultOptions());
         var layout = BoardLayout.Default;
         double cubeSize = layout.LeftRailWidth * 0.7;
         double expectedY = layout.BoardHeight / 2 - cubeSize / 2;
@@ -93,11 +91,8 @@ public class SvgStructureTests
     [Fact]
     public void BarAndOverflow_LabelsPresent()
     {
-        var mop = new int[26];
-        mop[25] = 3; mop[0] = -2; mop[6] = 8; mop[19] = -7;
-        var b = TestFixtures.MinimalBuilder();
-        b.Mop = mop;
-        var svg = TestFixtures.Render(b.Build());
+        var board = TestFixtures.Board((25, 3), (0, -2), (6, 8), (19, -7));
+        var svg = TestFixtures.Render(TestFixtures.RequestFor(TestFixtures.CheckerPlayOn(board)));
         Assert.Contains(">8<", svg);
         Assert.Contains(">7<", svg);
     }
