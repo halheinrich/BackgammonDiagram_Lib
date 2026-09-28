@@ -1,3 +1,6 @@
+using System.Collections.Immutable;
+using System.Runtime.InteropServices;
+
 namespace BackgammonDiagram_Lib;
 
 /// <summary>
@@ -7,14 +10,14 @@ namespace BackgammonDiagram_Lib;
 /// </summary>
 public static class Watermarks
 {
-    private static readonly byte[] _default = LoadEmbedded("Assets.board-watermark.png");
+    private static readonly ImmutableArray<byte> _default = LoadEmbedded("Assets.board-watermark.png");
 
     /// <summary>
     /// Project default board watermark — a transparent PNG whose dark logo
     /// silhouette carries per-pixel alpha, so the renderer composites it onto
     /// the board colour without a light background wash. Loaded once from the
     /// embedded resource at class init and cached thereafter; every call
-    /// returns the same array.
+    /// returns the same immutable bytes, which no caller can change.
     /// <para>
     /// The asset is <b>pre-baked</b> and is the single source of truth: it was
     /// produced once from the original <c>board-watermark.jpg</c> by a SkiaSharp
@@ -24,12 +27,10 @@ public static class Watermarks
     /// removed; the JPG and the transform remain recoverable from git history if
     /// the silhouette ever needs regenerating.
     /// </para>
-    /// Callers must treat the returned <see cref="byte"/> array as immutable;
-    /// mutating it corrupts the cached copy for every subsequent render.
     /// </summary>
-    public static byte[] Default => _default;
+    public static ImmutableArray<byte> Default => _default;
 
-    private static byte[] LoadEmbedded(string relativeName)
+    private static ImmutableArray<byte> LoadEmbedded(string relativeName)
     {
         var asm = typeof(Watermarks).Assembly;
         var fullName = $"{typeof(Watermarks).Namespace}.{relativeName}";
@@ -37,6 +38,8 @@ public static class Watermarks
             ?? throw new InvalidOperationException($"Embedded resource not found: {fullName}");
         using var ms = new MemoryStream();
         stream.CopyTo(ms);
-        return ms.ToArray();
+        // The array is this loader's own and is never handed out, so it is
+        // wrapped rather than copied.
+        return ImmutableCollectionsMarshal.AsImmutableArray(ms.ToArray());
     }
 }

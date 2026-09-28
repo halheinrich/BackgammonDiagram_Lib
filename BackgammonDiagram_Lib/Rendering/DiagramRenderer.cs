@@ -2,6 +2,7 @@ using BgDataTypes_Lib;
 using System.Diagnostics;
 using BackgammonDiagram_Lib.Themes;
 using System.Collections.Frozen;
+using System.Collections.Immutable;
 using System.Numerics;
 using System.Text;
 
@@ -434,7 +435,7 @@ public static class DiagramRenderer
     // -----------------------------------------------------------------------
 
     private static void AppendBoard(StringBuilder sb, BoardLayout layout, ITheme theme,
-        DiagramRequest request, DiagramPresentation presentation, bool panelOnLeft, byte[]? watermarkImage)
+        DiagramRequest request, DiagramPresentation presentation, bool panelOnLeft, ImmutableArray<byte>? watermarkImage)
     {
         bool effectivePanelOnLeft = panelOnLeft;
         bool homeBoardOnRight = request.HomeBoardOnRight;
@@ -457,8 +458,8 @@ public static class DiagramRenderer
         AppendLeftRail(sb, layout, theme, bx);
         AppendBar(sb, layout, theme, bx);
         AppendPoints(sb, layout, theme, effectivePanelOnLeft, homeBoardOnRight);
-        if (watermarkImage is not null)
-            AppendWatermark(sb, layout, effectivePanelOnLeft, watermarkImage);
+        if (watermarkImage is { } image)
+            AppendWatermark(sb, layout, effectivePanelOnLeft, image);
         AppendCheckers(sb, layout, theme, request, effectivePanelOnLeft);
         if (presentation.Dice is { } dice)
             AppendDice(sb, layout, theme, request, dice, effectivePanelOnLeft);
@@ -834,13 +835,13 @@ public static class DiagramRenderer
     /// with a width=height box and would shift aspect after rotation.
     /// </summary>
     private static void AppendWatermark(StringBuilder sb, BoardLayout layout,
-        bool panelOnLeft, byte[] imageBytes)
+        bool panelOnLeft, ImmutableArray<byte> imageBytes)
     {
-        string mime = GuessImageMime(imageBytes);
+        string mime = GuessImageMime(imageBytes.AsSpan());
         // Base64-encode once per render; both halves reference the same
         // string literal in the emitted SVG (SVG size-dedup via <defs>/<use>
         // would save bytes but complicate the emission — skipped YAGNI).
-        string dataUri = $"data:{mime};base64,{Convert.ToBase64String(imageBytes)}";
+        string dataUri = $"data:{mime};base64,{Convert.ToBase64String(imageBytes.AsSpan())}";
 
         // Horizontal strip available between the bar and the inner edge of
         // the dice pair in the on-roll half. Mirrors the dice sizing in
@@ -879,7 +880,7 @@ public static class DiagramRenderer
     /// PNG is explicitly detected; anything else falls back to JPEG, which
     /// is the format of the built-in asset.
     /// </summary>
-    private static string GuessImageMime(byte[] bytes)
+    private static string GuessImageMime(ReadOnlySpan<byte> bytes)
     {
         if (bytes.Length >= 4
             && bytes[0] == 0x89 && bytes[1] == 0x50

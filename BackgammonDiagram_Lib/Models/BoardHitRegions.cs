@@ -1,4 +1,6 @@
-﻿namespace BackgammonDiagram_Lib;
+using System.Collections.Frozen;
+
+namespace BackgammonDiagram_Lib;
 
 /// <summary>
 /// Axis-aligned hit rectangles for all clickable board regions.
@@ -6,14 +8,23 @@
 /// </summary>
 public class BoardHitRegions
 {
+    private readonly FrozenDictionary<int, HitRect> _points = FrozenDictionary<int, HitRect>.Empty;
+
     /// <summary>The rendered diagram's viewBox — the coordinate space every
     /// rectangle below is expressed in.</summary>
     public required SvgViewBox ViewBox { get; init; }
 
     /// <summary>Hit rectangle per board point, keyed by point number 1–24 in
     /// the on-roll player's numbering (unaffected by <c>HomeBoardOnRight</c>,
-    /// which mirrors geometry only).</summary>
-    public required IReadOnlyDictionary<int, HitRect> Points { get; init; }
+    /// which mirrors geometry only). An immutable copy, taken on init: no
+    /// caller can change it, and a change to the dictionary it was built from
+    /// does not reach it.</summary>
+    /// <exception cref="ArgumentNullException">Thrown on init when the value is <see langword="null"/>.</exception>
+    public required IReadOnlyDictionary<int, HitRect> Points
+    {
+        get => _points;
+        init => _points = (value ?? throw new ArgumentNullException(nameof(Points))).ToFrozenDictionary();
+    }
 
     /// <summary>Hit rectangle for the bar.</summary>
     public required HitRect Bar { get; init; }

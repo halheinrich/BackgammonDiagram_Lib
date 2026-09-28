@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using BackgammonDiagram_Lib.Themes;
 
 namespace BackgammonDiagram_Lib;
@@ -13,15 +14,30 @@ public record DiagramOptions
     /// <summary>Target diagram size. Defaults to <see cref="DiagramSize.Medium"/>.</summary>
     public DiagramSize Size { get; init; } = DiagramSize.Medium;
 
+    private readonly ImmutableArray<byte>? _watermarkImage = Watermarks.Default;
+
     /// <summary>
     /// Board watermark image bytes (typically PNG or JPG). Rendered twice —
     /// once bar-adjacent in each half of the board, rotated 90° so both tops
     /// face the bar — at low opacity. Defaults to
     /// <see cref="Watermarks.Default"/> so every rendered diagram carries
     /// the built-in mark; set explicitly to <c>null</c> to opt out, or
-    /// assign a caller-supplied byte array to substitute a different image.
+    /// assign caller-supplied bytes to substitute a different image. The
+    /// bytes are immutable, so the options hand out nothing a caller could
+    /// change under a later render.
     /// </summary>
-    public byte[]? WatermarkImage { get; init; } = Watermarks.Default;
+    /// <exception cref="ArgumentException">
+    /// Thrown on init when the value is a default (uninitialized)
+    /// <see cref="ImmutableArray{T}"/>: it holds no bytes, not even none; opt
+    /// out with <c>null</c>.
+    /// </exception>
+    public ImmutableArray<byte>? WatermarkImage
+    {
+        get => _watermarkImage;
+        init => _watermarkImage = value is { IsDefault: true }
+            ? throw new ArgumentException("A watermark is image bytes, or null for none; not a default array.", nameof(WatermarkImage))
+            : value;
+    }
 
     /// <summary>
     /// Theme used for rendering. Defaults to ThemeRegistry.Default.

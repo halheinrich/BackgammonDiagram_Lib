@@ -16,7 +16,7 @@ public class WatermarksTests
     public void Default_ReturnsNonEmptyPngBytes()
     {
         var bytes = Watermarks.Default;
-        Assert.NotNull(bytes);
+        Assert.False(bytes.IsDefault);
         Assert.True(bytes.Length > 1000, $"Watermark too small: {bytes.Length} bytes");
         // PNG magic bytes: 89 50 4E 47 0D 0A 1A 0A.
         // (The source asset is a JPG, but Watermarks post-processes it into
@@ -31,12 +31,12 @@ public class WatermarksTests
     [Fact]
     public void Default_IsCachedAcrossCalls()
     {
-        // Same reference on every call — the static initializer loads once.
+        // The same bytes on every call — the static initializer loads once.
         // Prevents a future refactor from re-reading the embedded resource
         // on every render, which would measurably slow down large decks.
         var a = Watermarks.Default;
         var b = Watermarks.Default;
-        Assert.Same(a, b);
+        Assert.True(a == b, "Every call hands out the one cached array.");
     }
 
     // Exact byte content of the pre-baked watermark PNG, captured from the
@@ -56,6 +56,6 @@ public class WatermarksTests
     {
         var bytes = Watermarks.Default;
         Assert.Equal(ExpectedLength, bytes.Length);
-        Assert.Equal(ExpectedSha256, Convert.ToHexString(SHA256.HashData(bytes)));
+        Assert.Equal(ExpectedSha256, Convert.ToHexString(SHA256.HashData(bytes.AsSpan())));
     }
 }

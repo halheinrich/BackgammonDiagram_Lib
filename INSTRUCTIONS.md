@@ -122,9 +122,11 @@ formatting, the export formats. Every gating test synthesizes its input:
 records through `TestRecords`, boards as `BoardPosition` values. Guards
 enforce invariants this doc states: `CoreNativeFreeTests` (core references
 no native package), `WatermarksTests.Default_MatchesPreBakedBytes` (the
-watermark's exact bytes), and two surveys of the renderer's source, which a
-rendered SVG cannot show — `RailLabels_BoldIsSpeltOnce_InTheOneRailTextEmitter`
-and `CubePanel_StatesNoPassValueAndNoDoublingRuleOfItsOwn`. `TestFixtures`
+watermark's exact bytes), `CollectionRiderTests` (no public member hands
+out a live mutable collection or array), and two surveys of the renderer's
+source, which a rendered SVG cannot show —
+`RailLabels_BoldIsSpeltOnce_InTheOneRailTextEmitter` and
+`CubePanel_StatesNoPassValueAndNoDoublingRuleOfItsOwn`. `TestFixtures`
 holds the shared requests and boards, `PlayPanelReader` reads a rendered
 play panel back into rows, and `RendererSource` reaches the renderer's
 source; `TestPaths` resolves the umbrella's `TestData/`, which the
@@ -532,8 +534,8 @@ across the bar — with:
 Emitted between points and checkers in `AppendBoard`, so checkers, dice,
 cube, and analysis panel all paint cleanly on top.
 
-`Watermarks.Default` exposes the built-in asset via a cached `byte[]`
-accessor. The asset is a **pre-baked transparent PNG** shipped as an
+`Watermarks.Default` exposes the built-in asset as cached immutable bytes
+(`ImmutableArray<byte>`). The asset is a **pre-baked transparent PNG** shipped as an
 `EmbeddedResource` (`Assets/board-watermark.png`) and is the single source
 of truth — `Watermarks` is a pure embedded-resource loader with no native
 code, which is what keeps core WASM-clean.
@@ -596,11 +598,26 @@ These three sections (PNG / PDF / PPTX) all live in the
 `HomeBoardOnRight` controls the orientation mapping, the drawn board decides
 which trays show, and the presentation whether dice are drawn (the dice
 region is null where none are: a cube decision, a board showing none).
+`Points` is an immutable copy (see "The collection rider").
 
 Consumers rendering overlays from these rectangles must format the
 coordinates with `SvgFormat.Number` (and the viewBox with
 `SvgViewBox.ToAttributeString()`) — never culture-sensitive interpolation.
 See `SvgFormat` under Public API.
+
+### The collection rider
+
+No public member hands out a live mutable collection or array, behind a
+read-only interface or as a raw array (Hal, 2026-09-26, on
+halheinrich/backgammon#273). This repository's sweep found three sites,
+each fixed: `Watermarks.Default` and `DiagramOptions.WatermarkImage`
+(immutable bytes, above), and `BoardHitRegions.Points`, which handed out
+the renderer's live `Dictionary` behind `IReadOnlyDictionary` and now holds
+an immutable copy taken on init. The renderers' `byte[]` results
+(`RenderPng`, `RenderPdf`, `RenderPptx`, `ISvgRasterizer.Rasterize`) are
+fresh arrays each call, owned by the caller, so they hand out nothing
+shared. `CollectionRiderTests` pins each site, and sweeps the shipped
+assemblies' public properties for an array type.
 
 ### TestData
 
@@ -765,13 +782,16 @@ What each fact means and validates is the table under Architecture,
 ```csharp
 record DiagramOptions
 {
-    DiagramSize  Size             { get; init; } = DiagramSize.Medium;
-    byte[]?      WatermarkImage   { get; init; } = Watermarks.Default;
-    ITheme       Theme            { get; init; } = ThemeRegistry.Default;
-    AspectPreset Aspect           { get; init; } = AspectPreset.Widescreen16x9;
-    bool         ShowXgid         { get; init; } = false;
+    DiagramSize           Size           { get; init; } = DiagramSize.Medium;
+    ImmutableArray<byte>? WatermarkImage { get; init; } = Watermarks.Default;
+    ITheme                Theme          { get; init; } = ThemeRegistry.Default;
+    AspectPreset          Aspect         { get; init; } = AspectPreset.Widescreen16x9;
+    bool                  ShowXgid       { get; init; } = false;
 }
 ```
+
+`WatermarkImage` is immutable bytes, or null to opt out; a default
+(uninitialized) array is refused, since it holds no bytes at all.
 
 `ShowXgid` bakes the request's `Xgid` — a decision's; a board has none — into
 the SVG as an upper-right label (off by default; the export path forces it
@@ -780,13 +800,15 @@ off and overlays the XGID as real selectable text instead — see
 
 ### `Watermarks`
 
-`Watermarks.Default` returns the built-in watermark as a cached `byte[]` —
-a pre-baked transparent PNG shipped as an `EmbeddedResource` under `Assets/`
-and the single source of truth (the loader is pure managed code, no native
-deps). It's the default value of `DiagramOptions.WatermarkImage`, so every
-rendered diagram carries the mark unless the caller sets `WatermarkImage =
-null` to opt out. The returned array is shared across calls; callers must not
-mutate it.
+`Watermarks.Default` returns the built-in watermark as cached
+`ImmutableArray<byte>` — a pre-baked transparent PNG shipped as an
+`EmbeddedResource` under `Assets/` and the single source of truth (the
+loader is pure managed code, no native deps). It's the default value of
+`DiagramOptions.WatermarkImage`, so every rendered diagram carries the mark
+unless the caller sets `WatermarkImage = null` to opt out. The same
+immutable bytes are handed out on every call, and no caller can change them
+(it used to hand out its cached `byte[]`, which a caller could corrupt for
+every later render — see "The collection rider").
 
 ### `ITheme` and `ThemeRegistry`
 
