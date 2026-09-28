@@ -242,6 +242,42 @@ public class BearOffTests
     }
 
     // -----------------------------------------------------------------------
+    //  Band edges — each side, drawn and hit-tested alike
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Each side's tray at every edge of its band, with the other side
+    /// holding a count that draws nothing (0 off for the opponent, 0 bars for
+    /// the on-roll player), so the bars counted are this side's alone. The
+    /// on-roll band is [0, one short of all off]; the opponent's is
+    /// [1, one short of all off]; all off draws no tray for either.
+    /// </summary>
+    public static TheoryData<bool, int, bool> BandEdges => new()
+    {
+        { true, 0, true },
+        { true, 1, true },
+        { true, BoardPosition.CheckersPerSide - 1, true },
+        { true, BoardPosition.CheckersPerSide, false },
+        { false, 0, false },
+        { false, 1, true },
+        { false, BoardPosition.CheckersPerSide - 1, true },
+        { false, BoardPosition.CheckersPerSide, false },
+    };
+
+    [Theory]
+    [MemberData(nameof(BandEdges))]
+    public void Tray_AtEachBandEdge_IsDrawnAndHitTestedTogether(bool onRoll, int off, bool trayShown)
+    {
+        var request = onRoll ? RequestFor(onRollOff: off, opponentOff: 0) : RequestFor(onRollOff: 0, opponentOff: off);
+        var svg = TestFixtures.Render(request);
+        var regions = DiagramRenderer.GetHitRegions(request, new DiagramOptions());
+
+        int expectedBars = trayShown ? off : 0;
+        Assert.Equal(1 + expectedBars, CountStroke05Rects(svg));  // cube + this side's bars
+        Assert.Equal(trayShown, (onRoll ? regions.OnRollTray : regions.OpponentTray) is not null);
+    }
+
+    // -----------------------------------------------------------------------
     //  Turned-cube position — pinned to rail edge
     // -----------------------------------------------------------------------
 
