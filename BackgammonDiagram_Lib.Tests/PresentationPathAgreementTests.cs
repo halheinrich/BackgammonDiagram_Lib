@@ -26,9 +26,9 @@ public class PresentationPathAgreementTests
     public static TheoryData<Case> Scores() => new()
     {
         new Case("ordinary match", TestRecords.MatchSession(length: 7, onRollNeeds: 3, opponentNeeds: 5),
-            new MatchRailScore(3, 5)),
+            new MatchRailScore(3, 5, isCrawford: false)),
         new Case("double match point", TestRecords.MatchSession(length: 7, onRollNeeds: 1, opponentNeeds: 1),
-            new MatchRailScore(1, 1)),
+            new MatchRailScore(1, 1, isCrawford: false)),
         new Case("Crawford game", TestRecords.MatchSession(length: 7, onRollNeeds: 1, opponentNeeds: 4, isCrawford: true),
             new MatchRailScore(1, 4, isCrawford: true)),
         new Case("money, Jacoby", TestRecords.MoneySession(isJacoby: true), new MoneyRailScore(isJacoby: true)),
@@ -73,7 +73,7 @@ public class PresentationPathAgreementTests
     {
         // 1-away/1-away, stated as a score and nothing more: the cube reads
         // Dmp, as a decision's does — derived, never a flag.
-        var svg = RenderBoard(new MatchRailScore(1, 1));
+        var svg = RenderBoard(new MatchRailScore(1, 1, isCrawford: false));
 
         Assert.Equal(DiagramPresentation.DoubleMatchPointFace, TestFixtures.CubeFace(svg));
         Assert.Equal(["Bob needs 1", "Alice needs 1"], PlayerLabels(svg));
@@ -137,8 +137,8 @@ public class PresentationPathAgreementTests
 
     private static RailScore? BoardScore(string name) => name switch
     {
-        "match" => new MatchRailScore(3, 5),
-        "double match point" => new MatchRailScore(1, 1),
+        "match" => new MatchRailScore(3, 5, isCrawford: false),
+        "double match point" => new MatchRailScore(1, 1, isCrawford: false),
         "Crawford" => new MatchRailScore(1, 4, isCrawford: true),
         "money" => new MoneyRailScore(isJacoby: true),
         _ => null,

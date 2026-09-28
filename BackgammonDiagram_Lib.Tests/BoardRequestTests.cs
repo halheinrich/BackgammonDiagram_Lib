@@ -34,7 +34,7 @@ public class BoardRequestTests
         Title = "Game 5, final position",
         CubeValue = 2,
         CubeOwner = CubeOwner.Opponent,
-        Score = new MatchRailScore(onRollNeeds: 0, opponentNeeds: 3),
+        Score = new MatchRailScore(onRollNeeds: 0, opponentNeeds: 3, isCrawford: false),
     };
 
     private static string RenderFinal(DiagramOptions? options = null) =>
@@ -146,7 +146,7 @@ public class BoardRequestTests
         {
             OnRollName = "One",
             OpponentName = "Two",
-            Score = new MoneyRailScore(),
+            Score = new MoneyRailScore(isJacoby: null),
         }));
 
         Assert.Contains(">One (Money Game)</text>", svg);
@@ -168,7 +168,7 @@ public class BoardRequestTests
         Assert.Contains(">One</text>", svg);
         var scoreOnly = TestFixtures.Render(DiagramRequest.ForBoard(BoardPosition.Standard, new DisplayFacts
         {
-            Score = new MatchRailScore(2, 4),
+            Score = new MatchRailScore(2, 4, isCrawford: false),
         }));
         Assert.Contains(">needs 2</text>", scoreOnly);
         Assert.Contains(">needs 4</text>", scoreOnly);

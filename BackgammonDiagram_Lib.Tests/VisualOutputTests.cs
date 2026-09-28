@@ -216,7 +216,7 @@ public class VisualOutputTests
             Title = "Game 5, final position",
             CubeValue = 2,
             CubeOwner = CubeOwner.Opponent,
-            Score = new MatchRailScore(onRollNeeds: 0, opponentNeeds: 3),
+            Score = new MatchRailScore(onRollNeeds: 0, opponentNeeds: 3, isCrawford: false),
         });
 
         File.WriteAllText(TestPaths.SvgOutputPath("board_final_position.svg"), TestFixtures.Render(request));

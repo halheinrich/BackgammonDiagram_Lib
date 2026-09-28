@@ -392,11 +392,11 @@ public class DiagramRequestTests
     [Fact]
     public void Equality_BoardRequests_CompareBoardAndFacts()
     {
-        var facts = new DisplayFacts { Score = new MatchRailScore(3, 5) };
+        var facts = new DisplayFacts { Score = new MatchRailScore(3, 5, isCrawford: false) };
 
         Assert.Equal(DiagramRequest.ForBoard(BoardPosition.Standard, facts),
                      DiagramRequest.ForBoard(BoardPosition.Standard, facts with { }));
         Assert.NotEqual(DiagramRequest.ForBoard(BoardPosition.Standard, facts),
-                        DiagramRequest.ForBoard(BoardPosition.Standard, facts with { Score = new MatchRailScore(3, 4) }));
+                        DiagramRequest.ForBoard(BoardPosition.Standard, facts with { Score = new MatchRailScore(3, 4, isCrawford: false) }));
     }
 }

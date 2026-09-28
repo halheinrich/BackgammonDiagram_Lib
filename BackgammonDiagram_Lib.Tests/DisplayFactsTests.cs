@@ -96,7 +96,7 @@ public class DisplayFactsTests
         {
             OnRollName = "One",
             OpponentName = "Two",
-            Score = new MatchRailScore(onRollNeeds: 0, opponentNeeds: 2),
+            Score = new MatchRailScore(onRollNeeds: 0, opponentNeeds: 2, isCrawford: false),
         });
 
         var svg = TestFixtures.Render(request);
@@ -111,16 +111,16 @@ public class DisplayFactsTests
     [Fact]
     public void RailScore_EqualWithinAKind()
     {
-        Assert.Equal(new MatchRailScore(3, 5), new MatchRailScore(3, 5));
-        Assert.True(new MatchRailScore(3, 5) == new MatchRailScore(3, 5));
-        Assert.NotEqual(new MatchRailScore(3, 5), new MatchRailScore(5, 3));
-        Assert.NotEqual(new MatchRailScore(3, 5, isCrawford: true), new MatchRailScore(3, 5));
-        Assert.Equal<RailScore>(new MoneyRailScore(), new MoneyRailScore());
+        Assert.Equal(new MatchRailScore(3, 5, isCrawford: false), new MatchRailScore(3, 5, isCrawford: false));
+        Assert.True(new MatchRailScore(3, 5, isCrawford: false) == new MatchRailScore(3, 5, isCrawford: false));
+        Assert.NotEqual(new MatchRailScore(3, 5, isCrawford: false), new MatchRailScore(5, 3, isCrawford: false));
+        Assert.NotEqual(new MatchRailScore(3, 5, isCrawford: true), new MatchRailScore(3, 5, isCrawford: false));
+        Assert.Equal<RailScore>(new MoneyRailScore(isJacoby: null), new MoneyRailScore(isJacoby: null));
         Assert.Equal<RailScore>(new MoneyRailScore(isJacoby: true), new MoneyRailScore(isJacoby: true));
         Assert.NotEqual<RailScore>(new MoneyRailScore(isJacoby: true), new MoneyRailScore(isJacoby: false));
-        Assert.NotEqual<RailScore>(new MoneyRailScore(isJacoby: false), new MoneyRailScore());
-        Assert.NotEqual<RailScore>(new MoneyRailScore(), new MatchRailScore(1, 1));
-        Assert.Equal(new MatchRailScore(3, 5).GetHashCode(), new MatchRailScore(3, 5).GetHashCode());
+        Assert.NotEqual<RailScore>(new MoneyRailScore(isJacoby: false), new MoneyRailScore(isJacoby: null));
+        Assert.NotEqual<RailScore>(new MoneyRailScore(isJacoby: null), new MatchRailScore(1, 1, isCrawford: false));
+        Assert.Equal(new MatchRailScore(3, 5, isCrawford: false).GetHashCode(), new MatchRailScore(3, 5, isCrawford: false).GetHashCode());
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public class DisplayFactsTests
             Dice = new DiceFaces(6, 2),
             CubeValue = 4,
             CubeOwner = CubeOwner.Opponent,
-            Score = new MoneyRailScore(),
+            Score = new MoneyRailScore(isJacoby: null),
         };
 
         Assert.Equal(Facts(), Facts());

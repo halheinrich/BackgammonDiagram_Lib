@@ -205,12 +205,15 @@ drawing it needs:
 | `Dice` | `DiceFaces?` | each face 1–6, the faces a die is drawn with | the dice, left first, and the strip's `"{left}-{right} to play"` |
 | `CubeValue` | `int` (1) | nothing | the cube's face; 1 reads `64` |
 | `CubeOwner` | `CubeOwner` (`Centered`) | a defined value, a place to draw it | where the cube sits |
-| `Score` | `RailScore?` | nothing | `MatchRailScore(onRollNeeds, opponentNeeds, isCrawford)` → `"{name} needs {n}"`, with ` Crawford` and a `Cr` cube when stated, and a `Dmp` cube at 1-away/1-away; `MoneyRailScore(isJacoby)` → `"{name} (Money Game, Jacoby)"`, `(… No Jacoby)`, or the bare `(Money Game)` for none stated; null → names alone |
+| `Score` | `RailScore?` | nothing | `MatchRailScore(onRollNeeds, opponentNeeds, isCrawford)` → `"{name} needs {n}"`, with ` Crawford` and a `Cr` cube when stated, and a `Dmp` cube at 1-away/1-away; `MoneyRailScore(isJacoby)` → `"{name} (Money Game, Jacoby)"`, `(… No Jacoby)`, or the bare `(Money Game)` for `null`, a source stating none; each argument required; null → names alone |
 
 **The boundary** (Hal's rulings of 2026-09-28 on
 halheinrich/backgammon#273). A board's presentation may carry the domain
 facts it needs to reproduce that presentation: the Crawford status for a
-match score and the Jacoby rule for a money score. The diagram consumes
+match score and the Jacoby rule for a money score, each a required
+constructor argument — a caller that leaves one out fails to build rather
+than silently drawing none (AGENTS.md, Migration discipline), and
+`MoneyRailScore(null)` is how a source states no rule. The diagram consumes
 them and neither derives nor validates their domain legality — a stated
 Crawford status draws whatever the away scores beside it, as the needs
 numbers draw `needs 0`. Double match point is not a supplied flag: it is
@@ -784,8 +787,8 @@ sealed record DisplayFacts
 
 sealed record DiceFaces(int left, int right) { int Left { get; } int Right { get; } }   // each 1–6
 abstract class RailScore : IEquatable<RailScore>                                        // closed
-sealed class MatchRailScore(int onRollNeeds, int opponentNeeds, bool isCrawford = false) : RailScore
-sealed class MoneyRailScore(bool? isJacoby = null) : RailScore
+sealed class MatchRailScore(int onRollNeeds, int opponentNeeds, bool isCrawford) : RailScore   // every argument required
+sealed class MoneyRailScore(bool? isJacoby) : RailScore                                       // required; null states no rule
 enum DiceOrder { AsRolled, Reversed }
 ```
 

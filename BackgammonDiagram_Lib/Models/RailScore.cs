@@ -64,11 +64,15 @@ public abstract class RailScore : IEquatable<RailScore>, IEqualityOperators<Rail
 /// </summary>
 public sealed class MatchRailScore : RailScore
 {
-    /// <summary>Creates the score. Every fact is shown as given.</summary>
+    /// <summary>
+    /// Creates the score. Every fact is required and shown as given: a caller
+    /// adapting a source states the Crawford status, so one left out is a
+    /// build error rather than a status silently not drawn.
+    /// </summary>
     /// <param name="onRollNeeds">What the side whose checkers are positive in the board's frame needs.</param>
     /// <param name="opponentNeeds">What the other side needs.</param>
     /// <param name="isCrawford">Whether the game shown is the Crawford game.</param>
-    public MatchRailScore(int onRollNeeds, int opponentNeeds, bool isCrawford = false)
+    public MatchRailScore(int onRollNeeds, int opponentNeeds, bool isCrawford)
     {
         OnRollNeeds = onRollNeeds;
         OpponentNeeds = opponentNeeds;
@@ -113,9 +117,13 @@ public sealed class MatchRailScore : RailScore
 /// </summary>
 public sealed class MoneyRailScore : RailScore
 {
-    /// <summary>Creates the label.</summary>
+    /// <summary>
+    /// Creates the label. The Jacoby rule is required: a caller states it, or
+    /// states <see langword="null"/> for a source that states none, so one
+    /// left out is a build error rather than a rule silently not drawn.
+    /// </summary>
     /// <param name="isJacoby">The Jacoby rule, or <see langword="null"/> where the board's source states none.</param>
-    public MoneyRailScore(bool? isJacoby = null)
+    public MoneyRailScore(bool? isJacoby)
     {
         IsJacoby = isJacoby;
     }
