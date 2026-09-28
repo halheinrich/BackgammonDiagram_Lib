@@ -156,13 +156,13 @@ public class DecisionDataDiagramTests
         // Base name derived from the fixture file, not the hard-coded "ajhh".
         var baseName = Path.GetFileNameWithoutExtension(filename).ToLowerInvariant();
 
-        var playL = FromDecisionData(play);
-        var cubeL = FromDecisionData(cube);
+        var playL = RequestFor(play);
+        var cubeL = RequestFor(cube);
         var (playProbL, playSolL) = playL.ToProblemSolutionPair();
         var (cubeProbL, cubeSolL) = cubeL.ToProblemSolutionPair();
 
-        var playR = FromDecisionData(play, analysisPanelPosition: PanelPosition.Right);
-        var cubeR = FromDecisionData(cube, analysisPanelPosition: PanelPosition.Right);
+        var playR = RequestFor(play, analysisPanelPosition: PanelPosition.Right);
+        var cubeR = RequestFor(cube, analysisPanelPosition: PanelPosition.Right);
         var (playProbR, playSolR) = playR.ToProblemSolutionPair();
         var (cubeProbR, cubeSolR) = cubeR.ToProblemSolutionPair();
 
@@ -186,7 +186,7 @@ public class DecisionDataDiagramTests
     //  the default ranking, with the panel side this fixture varies.
     // -----------------------------------------------------------------------
 
-    private static DiagramRequest FromDecisionData(
+    private static DiagramRequest RequestFor(
         BgDecisionData data,
         PanelPosition analysisPanelPosition = PanelPosition.Left) =>
         DiagramRequest.ForDecision(data, PlayRanking.Equity) with { AnalysisPanelPosition = analysisPanelPosition };
