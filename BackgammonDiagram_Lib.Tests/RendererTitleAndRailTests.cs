@@ -332,7 +332,7 @@ public class RendererTitleAndRailTests
     {
         const string longName = "Mochizuki Masayuki";
         const int maxPip = 375;
-        var allOnTheBar = TestFixtures.Board((0, -15), (25, 15));
+        var allOnTheBar = TestFixtures.Board((0, -BoardPosition.CheckersPerSide), (25, BoardPosition.CheckersPerSide));
         Session session = match
             ? TestRecords.MatchSession(length: 11, onRollNeeds: 11, opponentNeeds: 1, isCrawford: true)
             : TestRecords.MoneySession(isJacoby: false);

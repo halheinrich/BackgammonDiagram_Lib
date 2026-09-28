@@ -133,9 +133,10 @@ public class BoardOnlyCanvasTests
     public void BoardOnly_AllHitRegionsLandOnTheBoard()
     {
         // A request that renders every region at once: a checker decision
-        // (dice region), the on-roll player with all 15 on the board (empty
-        // on-roll tray renders per the [0,14] band), and the opponent one
-        // checker off (opponent tray renders per the [1,14] band). Every
+        // (dice region), the on-roll player with every checker on the board
+        // (empty on-roll tray renders, its band starting at 0 off), and the
+        // opponent one checker off (opponent tray renders, its band starting
+        // at 1). Every
         // region must lie inside the board-only viewBox — the whole point of
         // the preset is that clicks land on the board, not on cropped space.
         var regions = DiagramRenderer.GetHitRegions(OneOpponentCheckerOff(), BoardOnlyOptions);
@@ -253,8 +254,8 @@ public class BoardOnlyCanvasTests
     /// <summary>
     /// A checker play from the standard start with one of the opponent's
     /// checkers off the 19-point (14 on the board, one borne off), so both
-    /// trays render: the on-roll player's empty one, per its [0,14] band, and
-    /// the opponent's, per its [1,14] band.
+    /// trays render: the on-roll player's empty one, its band starting at 0
+    /// off, and the opponent's, its band starting at 1.
     /// </summary>
     private static DiagramRequest OneOpponentCheckerOff() => TestFixtures.RequestFor(TestFixtures.CheckerPlayOn(
         TestFixtures.Board((1, -2), (12, -5), (17, -3), (19, -4), (24, 2), (13, 5), (8, 3), (6, 5))));

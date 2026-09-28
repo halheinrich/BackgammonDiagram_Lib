@@ -18,13 +18,13 @@ public class BearOffTests
     private const string BarSignature = "stroke=\"#888\" stroke-width=\"0.5\"/>";
 
     // -----------------------------------------------------------------------
-    //  Render rule — [1,14] trigger band
+    //  Render rule — the trigger band
     // -----------------------------------------------------------------------
 
     [Fact]
     public void StartingPosition_HasNoBearOffBars()
     {
-        // 15 on-board each → 0 off each.
+        // Every checker on the board each side → 0 off each.
         int strokedRects = CountStroke05Rects(TestFixtures.Render(TestFixtures.MinimalRequest()));
 
         // Only the cube rect uses stroke-width="0.5" under a zero-off position.
@@ -34,8 +34,8 @@ public class BearOffTests
     [Fact]
     public void AllCheckersOff_DoesNotRenderBars()
     {
-        // Upper edge of the trigger band — 15 off is outside [1,14].
-        int strokedRects = CountStroke05Rects(TestFixtures.Render(RequestFor(onRollOff: 15, opponentOff: 15)));
+        // Upper edge of the trigger band — every checker off is outside it.
+        int strokedRects = CountStroke05Rects(TestFixtures.Render(RequestFor(onRollOff: BoardPosition.CheckersPerSide, opponentOff: BoardPosition.CheckersPerSide)));
         Assert.Equal(1, strokedRects);  // cube only
     }
 
@@ -93,8 +93,8 @@ public class BearOffTests
     [Fact]
     public void GetHitRegions_ZeroOnRollOff_OnRollTrayPopulated()
     {
-        // E1 regression: with all 15 on the board (0 off), the on-roll tray's
-        // hit-region was gated out at the old [1,14] floor, so the first
+        // E1 regression: with every checker on the board (0 off), the on-roll
+        // tray's hit-region was gated out at the old floor of 1, so the first
         // checker couldn't be borne off by clicking the tray. It must now be
         // present at 0.
         var regions = DiagramRenderer.GetHitRegions(RequestFor(onRollOff: 0, opponentOff: 0), new DiagramOptions());
@@ -105,7 +105,7 @@ public class BearOffTests
     [Fact]
     public void GetHitRegions_ZeroOpponentOff_OpponentTrayHidden()
     {
-        // The opponent tray keeps its [1,14] floor (display-only, nothing to
+        // The opponent tray keeps its floor of 1 (display-only, nothing to
         // click), so 0 opponent-off leaves it null even though the on-roll
         // tray now shows at 0.
         var regions = DiagramRenderer.GetHitRegions(RequestFor(onRollOff: 0, opponentOff: 0), new DiagramOptions());
@@ -116,9 +116,9 @@ public class BearOffTests
     [Fact]
     public void GetHitRegions_AllOnRollOff_OnRollTrayNull()
     {
-        // Upper edge of the band: 15 off is all checkers borne off (game over),
-        // which is outside [0,14] — no tray.
-        var regions = DiagramRenderer.GetHitRegions(RequestFor(onRollOff: 15, opponentOff: 0), new DiagramOptions());
+        // Upper edge of the band: every checker borne off (game over) is
+        // outside it — no tray.
+        var regions = DiagramRenderer.GetHitRegions(RequestFor(onRollOff: BoardPosition.CheckersPerSide, opponentOff: 0), new DiagramOptions());
 
         Assert.Null(regions.OnRollTray);
     }
@@ -332,11 +332,14 @@ public class BearOffTests
     /// <summary>
     /// A board with the given off-counts, all on-board checkers of each side
     /// on its home board's one point (the on-roll player's 1, the opponent's
-    /// 24): off-count is 15 − (checkers on board), so stacking the rest on
-    /// one point is enough.
+    /// 24): a side's off-count is <see cref="BoardPosition.CheckersPerSide"/>
+    /// less its checkers on the board, so stacking the rest on one point is
+    /// enough.
     /// </summary>
     private static BoardPosition BoardFor(int onRollOff, int opponentOff) =>
-        TestFixtures.Board((1, 15 - onRollOff), (24, -(15 - opponentOff)));
+        TestFixtures.Board(
+            (1, BoardPosition.CheckersPerSide - onRollOff),
+            (24, -(BoardPosition.CheckersPerSide - opponentOff)));
 
     /// <summary>
     /// The request drawing <see cref="BoardFor"/>'s board: a decision's while

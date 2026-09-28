@@ -22,7 +22,7 @@ public class BoardRequestTests
 
     /// <summary>
     /// The position a final bear-off leaves: the player on roll has borne off
-    /// all fifteen; the opponent has thirteen left, two borne off.
+    /// every checker; the opponent has thirteen left, two borne off.
     /// </summary>
     private static readonly BoardPosition FinalPosition = TestFixtures.Board(
         (19, -3), (20, -3), (21, -3), (22, -2), (23, -1), (24, -1));
@@ -116,7 +116,7 @@ public class BoardRequestTests
         // Thirteen checkers, each one circle; the pips on dice would be
         // circles too, and there are no dice.
         Assert.Equal(13, TestFixtures.CountOccurrences(svg, "<circle"));
-        // All fifteen off is outside the tray's band; the opponent's two off
+        // Every checker off is outside the tray's band; the opponent's two off
         // are inside it.
         Assert.Null(regions.OnRollTray);
         Assert.NotNull(regions.OpponentTray);

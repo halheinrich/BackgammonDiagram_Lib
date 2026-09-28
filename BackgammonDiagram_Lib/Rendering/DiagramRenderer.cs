@@ -188,7 +188,8 @@ public static class DiagramRenderer
         // The tray occupies the half of the left rail between the centered-cube
         // position and the turned-cube position — same region the renderer uses
         // for the stack, minus the bar-specific padding.
-        var (onRollOff, opponentOff) = CountBorneOff(request.Board);
+        int onRollOff = request.Board.OnRollBorneOffCount;
+        int opponentOff = request.Board.OpponentBorneOffCount;
         double cubeSize = layout.LeftRailWidth * 0.7;
         HitRect? onRollTray = onRollOff is >= OnRollTrayMinCount and <= BearOffMaxCount
             ? TrayHitRect(layout, panelOnLeft, titleOffset, cubeSize, atBottom: request.OnRollAtBottom)
@@ -945,25 +946,28 @@ public static class DiagramRenderer
     // render (visual stack + hit-region). The two players differ at the lower
     // edge:
     //
-    //  * On-roll tray: shown throughout play, [0,14]. At 0 off it draws an
+    //  * On-roll tray: shown throughout play, from 0 off. At 0 off it draws an
     //    empty tray (count-0 stack — the rail region, no checkers) so the first
     //    checker can be borne off by clicking the tray. Without this the tray
     //    was missing at the start of a bear-off and TryBearOffMax was
-    //    unreachable from a 15-on-board position.
+    //    unreachable from a position with every checker on the board.
     //  * Opponent tray: display-only (no hit-region drives interaction), so it
-    //    keeps the original "at least one off" floor, [1,14] — an empty
-    //    opponent tray would be visual noise with nothing to click.
+    //    keeps the original "at least one off" floor — an empty opponent tray
+    //    would be visual noise with nothing to click.
     //
-    // Both share the upper bound 14: 15 off is all checkers borne off (game
-    // over), which renders no tray.
+    // Both share the upper bound, one short of BoardPosition.CheckersPerSide:
+    // every checker off is the game over, which renders no tray. The counts
+    // are the position's (BoardPosition.OnRollBorneOffCount and
+    // OpponentBorneOffCount); the renderer derives neither.
     private const int OnRollTrayMinCount = 0;
     private const int OpponentTrayMinCount = 1;
-    private const int BearOffMaxCount = 14;
+    private const int BearOffMaxCount = BoardPosition.CheckersPerSide - 1;
 
     private static void AppendBearOff(StringBuilder sb, BoardLayout layout, ITheme theme,
         double bx, DiagramRequest request)
     {
-        var (onRollOff, opponentOff) = CountBorneOff(request.Board);
+        int onRollOff = request.Board.OnRollBorneOffCount;
+        int opponentOff = request.Board.OpponentBorneOffCount;
         double cubeSize = layout.LeftRailWidth * 0.7;
 
         if (onRollOff >= OnRollTrayMinCount && onRollOff <= BearOffMaxCount)
@@ -976,25 +980,6 @@ public static class DiagramRenderer
             AppendBearOffStack(sb, layout, bx, !request.OnRollAtBottom,
                 count: opponentOff, cubeSize: cubeSize, fill: theme.CheckerColorOpponent);
         }
-    }
-
-    /// <summary>
-    /// Returns (onRollOff, opponentOff): count of checkers each player has
-    /// borne off, computed as 15 minus the checkers currently on the board
-    /// (points 1-24 plus the bar for that player).
-    /// </summary>
-    private static (int onRollOff, int opponentOff) CountBorneOff(BoardPosition board)
-    {
-        Span<int> counts = stackalloc int[26];
-        board.CopyTo(counts);
-        int onRollOn = 0;
-        int opponentOn = 0;
-        foreach (int v in counts)
-        {
-            if (v > 0) onRollOn += v;
-            else if (v < 0) opponentOn += -v;
-        }
-        return (15 - onRollOn, 15 - opponentOn);
     }
 
     /// <summary>
