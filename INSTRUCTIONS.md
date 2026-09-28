@@ -205,18 +205,24 @@ drawing it needs:
 | `Dice` | `DiceFaces?` | each face 1–6, the faces a die is drawn with | the dice, left first, and the strip's `"{left}-{right} to play"` |
 | `CubeValue` | `int` (1) | nothing | the cube's face; 1 reads `64` |
 | `CubeOwner` | `CubeOwner` (`Centered`) | a defined value, a place to draw it | where the cube sits |
-| `Score` | `RailScore?` | nothing | `MatchRailScore` → `"{name} needs {n}"`; `MoneyRailScore` → `"{name} (Money Game)"`; null → names alone |
+| `Score` | `RailScore?` | nothing | `MatchRailScore(onRollNeeds, opponentNeeds, isCrawford)` → `"{name} needs {n}"`, with ` Crawford` and a `Cr` cube when stated, and a `Dmp` cube at 1-away/1-away; `MoneyRailScore(isJacoby)` → `"{name} (Money Game, Jacoby)"`, `(… No Jacoby)`, or the bare `(Money Game)` for none stated; null → names alone |
 
-No session, standing, Crawford or Jacoby fact, cube legality, decision
-kind, analysis, candidate, error or ranking is re-spelled in them, and the
-diagram enforces no rule of the game on them: a cube limit, a legal
-standing or a legal roll is the domain's rule, so the cube shows the value
-it is given and the rails the score they are given, `needs 0` included. The
-consequence, deliberately: a board cannot mark the Crawford game (`Cr`,
-` Crawford`), double match point (`Dmp`) or a money session's Jacoby rule —
-those are a session's facts, which a decision's diagram and a working board
-draw from the record. The diagram keeps owning how it words what it shows:
-a caller states values, never drawn text. Not display facts: the board (the
+**The boundary** (Hal's rulings of 2026-09-28 on
+halheinrich/backgammon#273). A board's presentation may carry the domain
+facts it needs to reproduce that presentation: the Crawford status for a
+match score and the Jacoby rule for a money score. The diagram consumes
+them and neither derives nor validates their domain legality — a stated
+Crawford status draws whatever the away scores beside it, as the needs
+numbers draw `needs 0`. Double match point is not a supplied flag: it is
+worded from the match score by the one rule a decision's session goes
+through (see "Rail text and the cube's face"), so the same score never
+renders differently by request path. Nothing else joins display facts: no
+session beyond those facts, no decision kind (so `"Cube Action?"` stays a
+decision's diagram's), no cube legality, analysis, candidate, error or
+ranking; and the diagram enforces no rule of the game on what is there — a
+cube limit, a legal standing or a legal roll is the domain's rule, so the
+cube shows the value it is given. The diagram keeps owning how it words
+what it shows: a caller states values, never drawn text. Not display facts: the board (the
 request's); the orientation, panel side and position number (the request's
 options, the same for every entry point); and the pip counts, read off the
 drawn board by `BgDataTypes_Lib`'s one pip rule through `BoardState`'s
@@ -293,7 +299,9 @@ strip's texts, the dice, the cube's face and place, the rail labels — is
 resolved once per render by the internal `DiagramPresentation`, from one of
 two sources: a decision's record (for a decision's diagram and a working
 board) or a board's display facts. Both go through the same wording helpers
-there, so a thing is worded one way whichever source states it. The pip
+there, so a thing is worded one way whichever source states it — the score
+through one method (see "Rail text and the cube's face"). The title's cube
+prompt stays a decision's: it words a decision's kind. The pip
 counts are not presentation: the rails read them off the drawn board.
 
 ### Title strip
@@ -336,20 +344,27 @@ Each rail carries a player label and `Pip: N`. Both are bold on every
 surface, emitted by the one helper `DiagramRenderer.AppendRailLabel`. The
 pip count is the drawn board's, by `BoardState`'s count. The player label is
 `"{name} {score}"`, each part drawn only where stated (a record may state no
-name). The score:
+name).
 
-- **A decision's**, from its session (the producer's; see
-  `BgDataTypes_Lib`'s "Money and match: the session kinds"): a match reads
-  `needs {n}` on each side, with ` Crawford` in the Crawford game; money
-  reads `(Money Game, Jacoby)` or `(Money Game, No Jacoby)` on both rails —
-  the rule is the session's, so both rails say the same thing.
-- **A board's**, from its `RailScore`: `needs {n}`, or the bare
-  `(Money Game)` — display facts state no rule of a session.
+**One rule for the score, whichever path states it.** A decision's session
+is read as the `RailScore` a board would state for it — a match's away
+scores and Crawford status, a money session's Jacoby rule (the session's
+facts are the producer's; see `BgDataTypes_Lib`'s "Money and match: the
+session kinds") — and `DiagramPresentation.Scored` words either:
 
-The cube's face, likewise: a decision's reads `Dmp` at double match point
-(a match with both players 1-away, where the cube is dead), `Cr` in the
-Crawford game (played without the cube), and otherwise the cube's value —
-`64` for 1. A board's reads its stated value, 1 reading `64`.
+- a match reads `needs {n}` on each side, with ` Crawford` on both in the
+  Crawford game;
+- money reads `(Money Game, Jacoby)` or `(Money Game, No Jacoby)` on both
+  rails, or the bare `(Money Game)` where a board's source states no rule;
+- no score (a board's): the names alone.
+
+The cube's face comes from the same method: `Dmp` at double match point (a
+match with both players 1-away, where the cube is dead), taking precedence
+over `Cr` in the Crawford game (played without the cube), and otherwise the
+cube's value — `64` for 1. Double match point is worded from the away
+scores and never stated, so 1-away/1-away draws `Dmp` on either path, and
+there is no second copy of the rule; `PresentationPathAgreementTests` holds
+the two paths to one rendering for the same score.
 
 ### Analysis panel
 
@@ -769,8 +784,8 @@ sealed record DisplayFacts
 
 sealed record DiceFaces(int left, int right) { int Left { get; } int Right { get; } }   // each 1–6
 abstract class RailScore : IEquatable<RailScore>                                        // closed
-sealed class MatchRailScore(int onRollNeeds, int opponentNeeds) : RailScore
-sealed class MoneyRailScore() : RailScore
+sealed class MatchRailScore(int onRollNeeds, int opponentNeeds, bool isCrawford = false) : RailScore
+sealed class MoneyRailScore(bool? isJacoby = null) : RailScore
 enum DiceOrder { AsRolled, Reversed }
 ```
 

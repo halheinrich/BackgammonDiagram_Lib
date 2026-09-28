@@ -11,21 +11,29 @@ namespace BackgammonDiagram_Lib;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Presentation-owned facts, not copies of a decision's</b> (Hal's ruling
-/// of 2026-09-28 on halheinrich/backgammon#273). Nothing here is a session, a
-/// standing, a Crawford or Jacoby fact, a cube's legality, a decision kind,
-/// an analysis, a candidate, an error or a ranking, and the diagram enforces
-/// no rule of the game on them: it validates only what it needs to draw each
-/// one. A cube's limit, a legal standing or a legal roll is the domain's rule,
-/// not the diagram's — so the cube shows the value it is given and the rails
-/// the score they are given, a match won 0-away included.
+/// <b>Presentation-owned facts, not copies of a decision's</b> (Hal's rulings
+/// of 2026-09-28 on halheinrich/backgammon#273). A board's presentation may
+/// carry the domain facts it needs to reproduce that presentation, and no
+/// more: the score's Crawford status for a match and Jacoby rule for money
+/// (<see cref="RailScore"/>). Nothing here is a session, a decision kind, a
+/// cube's legality, an analysis, a candidate, an error or a ranking — so
+/// <c>"Cube Action?"</c>, which words a decision's kind, is never a board's.
+/// The diagram consumes these facts and neither derives nor validates their
+/// domain legality: it validates only what it needs to draw each one. A
+/// cube's limit, a legal standing or a legal roll is the domain's rule, not
+/// the diagram's — so the cube shows the value it is given and the rails the
+/// score they are given, a match won 0-away and a Crawford status at any
+/// score included.
 /// </para>
 /// <para>
-/// <b>The diagram words them.</b> A caller states a value and the diagram
-/// draws it as it draws a decision's — the cube's starting value 1 reads
-/// <c>64</c>, the dice shown become the title's <c>"3-1 to play"</c>, a
-/// <see cref="MatchRailScore"/> reads <c>"{name} needs {n}"</c> — so a caller
-/// never formats text the diagram draws.
+/// <b>The diagram words them, as it words a decision's.</b> A caller states a
+/// value and the diagram draws it by the rule a decision's goes through — the
+/// cube's starting value 1 reads <c>64</c>, the dice shown become the title's
+/// <c>"3-1 to play"</c>, a <see cref="MatchRailScore"/> reads
+/// <c>"{name} needs {n}"</c> with <c>" Crawford"</c> and a <c>Cr</c> cube in
+/// the Crawford game, and double match point reads <c>Dmp</c> on the cube,
+/// worded from the away scores rather than stated — so one score draws one
+/// way on either path, and a caller never formats text the diagram draws.
 /// </para>
 /// <para>
 /// <b>What is not here.</b> The board is the request's. The orientation, the

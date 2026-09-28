@@ -114,7 +114,11 @@ public class DisplayFactsTests
         Assert.Equal(new MatchRailScore(3, 5), new MatchRailScore(3, 5));
         Assert.True(new MatchRailScore(3, 5) == new MatchRailScore(3, 5));
         Assert.NotEqual(new MatchRailScore(3, 5), new MatchRailScore(5, 3));
+        Assert.NotEqual(new MatchRailScore(3, 5, isCrawford: true), new MatchRailScore(3, 5));
         Assert.Equal<RailScore>(new MoneyRailScore(), new MoneyRailScore());
+        Assert.Equal<RailScore>(new MoneyRailScore(isJacoby: true), new MoneyRailScore(isJacoby: true));
+        Assert.NotEqual<RailScore>(new MoneyRailScore(isJacoby: true), new MoneyRailScore(isJacoby: false));
+        Assert.NotEqual<RailScore>(new MoneyRailScore(isJacoby: false), new MoneyRailScore());
         Assert.NotEqual<RailScore>(new MoneyRailScore(), new MatchRailScore(1, 1));
         Assert.Equal(new MatchRailScore(3, 5).GetHashCode(), new MatchRailScore(3, 5).GetHashCode());
     }

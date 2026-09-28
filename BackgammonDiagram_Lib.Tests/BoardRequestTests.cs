@@ -138,10 +138,10 @@ public class BoardRequestTests
     }
 
     [Fact]
-    public void Money_RailsShowTheBareMoneyLabel()
+    public void Money_WithNoJacobyRuleStated_RailsShowTheBareMoneyLabel()
     {
-        // A board's facts state no money rule: the bare label, the rule being
-        // a session's fact.
+        // A board's source may state no Jacoby rule: the bare label, never a
+        // guessed rule.
         var svg = TestFixtures.Render(DiagramRequest.ForBoard(BoardPosition.Standard, new DisplayFacts
         {
             OnRollName = "One",
@@ -247,7 +247,7 @@ public class BoardRequestTests
     public void WorkingBoard_KeepsACrawfordDecisionsMarks()
     {
         // The decision's own session words its rails and its cube: a working
-        // board keeps what a board's display facts cannot state.
+        // board keeps them from the record, with no display fact restated.
         var session = TestRecords.MatchSession(length: 7, onRollNeeds: 1, opponentNeeds: 4, isCrawford: true);
         var record = TestFixtures.CheckerPlayOn(BoardPosition.Standard, session: session);
 

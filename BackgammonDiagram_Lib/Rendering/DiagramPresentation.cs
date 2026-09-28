@@ -13,11 +13,14 @@ namespace BackgammonDiagram_Lib.Rendering;
 /// <remarks>
 /// <para>
 /// Two sources, one wording. A decision's presentation is derived from its
-/// record — the session's kind decides the rail wording and the cube's face,
-/// the decision's kind the title — and a board's from the display facts its
-/// request states. Both go through the same wording helpers here, so the
-/// diagram words a thing one way whichever source states it; a caller never
-/// supplies drawn text.
+/// record, and a board's from the display facts its request states. The
+/// score is the one both carry into the same rule: a record's session is
+/// read as the <see cref="RailScore"/> a board would state for it
+/// (<see cref="ScoreOf"/>), and <see cref="Scored"/> words either — the
+/// rails, and the cube's face, double match point and the Crawford game
+/// included — so one score cannot draw two ways by the path it came by. A
+/// caller never supplies drawn text. The title's cube prompt stays a
+/// decision's: it words the decision's kind, which no display fact states.
 /// </para>
 /// <para>
 /// The pip counts are not here: the rails read them off the drawn board,
@@ -66,23 +69,19 @@ internal sealed record DiagramPresentation(
                 ? new DiceFaces(play.Decision.Dice[1], play.Decision.Dice[0])
                 : new DiceFaces(play.Decision.Dice[0], play.Decision.Dice[1]),
             _ => null);
-        string action = dice is null ? CubeActionPrompt : RollPrompt(dice);
 
-        int cubeSize = decision.Position.CubeSize;
-        var (cubeFace, onRollScore, opponentScore) = decision.Session.Match(
-            money => (CubeValueFace(cubeSize), MoneyText(money.Terms.IsJacoby), MoneyText(money.Terms.IsJacoby)),
-            match => (MatchCubeFace(match, cubeSize),
-                NeedsText(match.OnRollNeeds, match.IsCrawford),
-                NeedsText(match.OpponentNeeds, match.IsCrawford)));
+        var (cubeFace, onRollLabel, opponentLabel) = Scored(
+            ScoreOf(decision.Session), decision.Position.CubeSize,
+            decision.Descriptive.OnRollName, decision.Descriptive.OpponentName);
 
         return new DiagramPresentation(
-            action,
+            dice is null ? CubeActionPrompt : RollPrompt(dice),
             StripLastExtension(decision.SourceFile),
             dice,
             cubeFace,
             decision.Position.CubeOwner,
-            PlayerLabel(decision.Descriptive.OnRollName, onRollScore),
-            PlayerLabel(decision.Descriptive.OpponentName, opponentScore));
+            onRollLabel,
+            opponentLabel);
     }
 
     /// <summary>
@@ -92,27 +91,58 @@ internal sealed record DiagramPresentation(
     /// </summary>
     private static DiagramPresentation OfFacts(DisplayFacts facts)
     {
-        var (onRollScore, opponentScore) = facts.Score switch
-        {
-            null => ((string?)null, (string?)null),
-            MatchRailScore match => (NeedsText(match.OnRollNeeds, crawford: false), NeedsText(match.OpponentNeeds, crawford: false)),
-            MoneyRailScore => (MoneyText(isJacoby: null), MoneyText(isJacoby: null)),
-            _ => throw new ArgumentOutOfRangeException(nameof(facts), facts.Score, "Not a rail score this library defines."),
-        };
+        var (cubeFace, onRollLabel, opponentLabel) = Scored(
+            facts.Score, facts.CubeValue, facts.OnRollName, facts.OpponentName);
 
         return new DiagramPresentation(
             facts.Dice is { } dice ? RollPrompt(dice) : string.Empty,
             facts.Title ?? string.Empty,
             facts.Dice,
-            CubeValueFace(facts.CubeValue),
+            cubeFace,
             facts.CubeOwner,
-            PlayerLabel(facts.OnRollName, onRollScore),
-            PlayerLabel(facts.OpponentName, opponentScore));
+            onRollLabel,
+            opponentLabel);
     }
+
+    /// <summary>
+    /// A record's session as the score a board would state for it: a match's
+    /// away scores and Crawford status, a money session's Jacoby rule. The
+    /// session holds more (a match's length, a money session's scores and
+    /// limits); the rails and the cube's face show only these.
+    /// </summary>
+    private static RailScore ScoreOf(Session session) => session.Match<RailScore>(
+        money => new MoneyRailScore(money.Terms.IsJacoby),
+        match => new MatchRailScore(match.OnRollNeeds, match.OpponentNeeds, match.IsCrawford));
 
     // -----------------------------------------------------------------------
     //  The wording — one statement each, for both sources
     // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// The cube's face and both rails' player labels for
+    /// <paramref name="score"/> — the one rule, whichever source states the
+    /// score. A match's cube reads <c>Dmp</c> at double match point (both
+    /// sides 1-away, where the cube is dead and a value would mislead), taking
+    /// precedence over the Crawford game's <c>Cr</c> (a game played without
+    /// the cube); otherwise, and for money or no score, the cube shows its
+    /// value. Each rail reads the name and the side's score, where stated.
+    /// </summary>
+    private static (string CubeFace, string OnRollLabel, string OpponentLabel) Scored(
+        RailScore? score, int cubeValue, string? onRollName, string? opponentName) => score switch
+    {
+        null => (CubeValueFace(cubeValue), PlayerLabel(onRollName, null), PlayerLabel(opponentName, null)),
+        MatchRailScore match => (
+            match.OnRollNeeds == 1 && match.OpponentNeeds == 1 ? DoubleMatchPointFace
+            : match.IsCrawford ? CrawfordFace
+            : CubeValueFace(cubeValue),
+            PlayerLabel(onRollName, NeedsText(match.OnRollNeeds, match.IsCrawford)),
+            PlayerLabel(opponentName, NeedsText(match.OpponentNeeds, match.IsCrawford))),
+        MoneyRailScore money => (
+            CubeValueFace(cubeValue),
+            PlayerLabel(onRollName, MoneyText(money.IsJacoby)),
+            PlayerLabel(opponentName, MoneyText(money.IsJacoby))),
+        _ => throw new ArgumentOutOfRangeException(nameof(score), score, "Not a rail score this library defines."),
+    };
 
     /// <summary>The title's action cell for dice shown: <c>"3-1 to play"</c>, left die first.</summary>
     private static string RollPrompt(DiceFaces dice) =>
@@ -125,17 +155,6 @@ internal sealed record DiagramPresentation(
     private static string CubeValueFace(int value) =>
         value == 1 ? "64" : value.ToString(CultureInfo.InvariantCulture);
 
-    /// <summary>
-    /// A match's cube face. At double match point — both players 1-away —
-    /// the cube is dead, so the face reads <c>Dmp</c> rather than a value
-    /// that could mislead; that takes precedence over the Crawford game's
-    /// <c>Cr</c>, which marks a game played without the cube.
-    /// </summary>
-    private static string MatchCubeFace(MatchSession match, int cubeSize) =>
-        match.OnRollNeeds == 1 && match.OpponentNeeds == 1 ? DoubleMatchPointFace
-        : match.IsCrawford ? CrawfordFace
-        : CubeValueFace(cubeSize);
-
     /// <summary>A match score on one rail: <c>"needs 3"</c>, with <c>" Crawford"</c> in the Crawford game.</summary>
     private static string NeedsText(int needs, bool crawford) =>
         string.Create(CultureInfo.InvariantCulture, $"needs {needs}{(crawford ? " Crawford" : string.Empty)}");
@@ -143,7 +162,7 @@ internal sealed record DiagramPresentation(
     /// <summary>
     /// The money-game label: <c>"(Money Game, Jacoby)"</c> or <c>"(Money Game,
     /// No Jacoby)"</c> with the rule stated, and the bare <c>"(Money Game)"</c>
-    /// when none is (a board's display facts state no rule).
+    /// when none is (a board's source may state none).
     /// </summary>
     private static string MoneyText(bool? isJacoby) => isJacoby switch
     {
