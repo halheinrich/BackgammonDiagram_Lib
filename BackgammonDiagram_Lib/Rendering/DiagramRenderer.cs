@@ -1061,7 +1061,7 @@ public static class DiagramRenderer
 
         decision.Switch(
             play => AppendPlayPanel(sb, px, pw, ph, panelText, dimText, play, request),
-            cube => AppendCubePanel(sb, px, panelText, dimText, cube));
+            cube => AppendCubePanel(sb, px, pw, panelText, dimText, cube));
     }
 
     // -----------------------------------------------------------------------
@@ -1275,7 +1275,7 @@ public static class DiagramRenderer
             // "Eq Loss" column headers stay at normal weight, as do the rank,
             // move-notation, and Depth cells. (The marker cell above is bold
             // under its own, older rule.)
-            sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold"{italicAttr}fill="{textColor}">{FormatEquity(candidate.Equity)}</text>""");
+            sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold"{italicAttr}fill="{textColor}">{EquityDisplay.FormatEquity(candidate.Equity)}</text>""");
             // The Eq Loss cell is the ranking's error: blank where it counts
             // as zero (the best play, any play tying it, and any whose error
             // shows as 0.0000), so a blank cell and a correct play coincide;
@@ -1284,8 +1284,8 @@ public static class DiagramRenderer
             string? loss = row.Error switch
             {
                 null => PlayPanelNotScoredMark,
-                double error when EquityLoss.CountsAsZero(error) => null,
-                double error => EquityLoss.Format(error),
+                double error when EquityDisplay.CountsAsZero(error) => null,
+                double error => EquityDisplay.FormatLoss(error),
             };
             if (loss is not null)
                 sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold"{italicAttr}fill="{dimColor}">{Escape(loss)}</text>""");
@@ -1365,7 +1365,7 @@ public static class DiagramRenderer
         {
             var play = row.Candidate;
             depthPerSize  = Math.Max(depthPerSize, EstimateTextWidth(play.DepthAbbreviation ?? string.Empty, 1, TextWeight.Regular));
-            equityPerSize = Math.Max(equityPerSize, EstimateTextWidth(FormatEquity(play.Equity), 1, TextWeight.Bold));
+            equityPerSize = Math.Max(equityPerSize, EstimateTextWidth(EquityDisplay.FormatEquity(play.Equity), 1, TextWeight.Bold));
             movePerSize   = Math.Max(movePerSize, EstimateTextWidth(play.Notation, 1, TextWeight.Regular));
         }
         double equityCellPerSize = PlayPanelColumnGapEm + equityPerSize;
@@ -1479,7 +1479,7 @@ public static class DiagramRenderer
     // vs. Pass), and each row's loss is its action's error against the best
     // action of its half. Those errors are the analysis's facts, not what an
     // answer costs: answer costs are the producer's, CubeDecision.CostOf.
-    private static void AppendCubePanel(StringBuilder sb, double px,
+    private static void AppendCubePanel(StringBuilder sb, double px, double pw,
         string textColor, string dimColor, CubeDecision cube)
     {
         CubeDecisionData d = cube.Decision;
@@ -1501,10 +1501,17 @@ public static class DiagramRenderer
 
         // ── Best / Actual banner ───────────────────────────────────────
         // Both lines name cube answers, each labelled at this decision by
-        // CubeLabels; see CubeBestLine and CubeActualLine.
-        string bestLine = CubeBestLinePrefix + CubeBestLine(cube);
-        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(bestLine)}</text>""");
-        y += CubePanelLineHeight;
+        // CubeLabels; see CubeBestLines and CubeActualLine. The Best line's
+        // lead is drawn on its own and its answers from one x past it, so a
+        // wrapped line's continuations start exactly under the first answer;
+        // every line the wrap adds moves everything below it down.
+        double bestAnswersX = textX + CubeBestLineIndent;
+        sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(CubeBestLineLead)}</text>""");
+        foreach (string line in CubeBestLines(cube, px + pw - PanelMargin - bestAnswersX))
+        {
+            sb.AppendLine($"""  <text x="{F(bestAnswersX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(line)}</text>""");
+            y += CubePanelLineHeight;
+        }
 
         if (CubeActualLine(cube) is { } actual)
         {
@@ -1582,10 +1589,10 @@ public static class DiagramRenderer
         sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" font-weight="bold" fill="{textColor}">{Escape(label)}</text>""");
         // Equity as its own text element so invariant-culture format tests can
         // assert ">+0.XXXX<" directly.
-        sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{FormatEquity(equity)}</text>""");
+        sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{EquityDisplay.FormatEquity(equity)}</text>""");
         // Loss shown unconditionally, through the shared display: 0.0000 for
         // the correct option, and for any error that counts as zero.
-        sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{dimColor}">{EquityLoss.Format(loss)}</text>""");
+        sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{dimColor}">{EquityDisplay.FormatLoss(loss)}</text>""");
         return y + CubePanelLineHeight + 3;
     }
 
@@ -1639,49 +1646,84 @@ public static class DiagramRenderer
     //  (halheinrich/backgammon#185), which labels an answer at its decision.
     //  What lives here is only each line's shape.
 
-    /// <summary>The Best line's lead-in, ahead of <see cref="CubeBestLine"/>.</summary>
-    private const string CubeBestLinePrefix = "Best:   ";
+    /// <summary>The Best line's lead, drawn on its own ahead of its answers.</summary>
+    private const string CubeBestLineLead = "Best:";
+
+    /// <summary>The gap from the Best line's lead to its first answer, in em.</summary>
+    private const double CubeBestLineLeadGapEm = 0.5;
+
+    /// <summary>
+    /// Where the Best line's answers start, past its lead: the lead's
+    /// estimated width (<see cref="EstimateTextWidth"/>) and the gap. Every
+    /// line of a wrapped list starts here, so its answers align.
+    /// </summary>
+    private static double CubeBestLineIndent =>
+        EstimateTextWidth(CubeBestLineLead, CubePanelFontSize, TextWeight.Regular)
+        + CubePanelFontSize * CubeBestLineLeadGapEm;
 
     /// <summary>The Actual line's lead-in, ahead of <see cref="CubeActualLine"/>.</summary>
     private const string CubeActualLinePrefix = "Actual: ";
 
-    /// <summary>Joins the answers the Best line lists.</summary>
+    /// <summary>
+    /// Joins the answers the Best line lists. A wrapped line breaks after it,
+    /// keeping its comma and dropping its space.
+    /// </summary>
     private const string CubeBestLineSeparator = ", ";
 
     /// <summary>
-    /// The Best line's answers: every cube answer whose cost counts as zero
-    /// (SPEC-scoring §3, "The tie": "The review's Best line lists every answer
-    /// whose cost counts as zero, so at a tie it lists them all"), in the
-    /// order the answers are offered, each labelled at
-    /// <paramref name="cube"/>, joined by <see cref="CubeBestLineSeparator"/>.
+    /// The Best line's answers, as drawn lines no wider than
+    /// <paramref name="width"/>: the producer's
+    /// <see cref="CubeDecision.ZeroCostAnswers"/>, in its order, each labelled
+    /// at <paramref name="cube"/> through
+    /// <see cref="CubeLabels.Label(CubeAnswer, CubeDecision)"/>, joined by
+    /// <see cref="CubeBestLineSeparator"/> (SPEC-scoring §3, "The tie": "The
+    /// review's Best line lists every answer whose cost counts as zero, so at
+    /// a tie it lists them all").
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The list is the fixed display-zero set: an answer is on it exactly when
-    /// <see cref="EquityLoss.CountsAsZero"/> holds for its whole cost,
-    /// <see cref="CubeDecision.CostOf"/>'s <see cref="CubeAnswerCost.Total"/>.
-    /// Its size comes from the costs, not from an exact equity tie: off a tie
-    /// it can still hold two answers (where gammons are not possible and No
-    /// double / Pass is right, No double costs nothing too), and near a
-    /// boundary an answer whose cost is not 0 but shows as 0.0000 is listed.
-    /// It is never the quiz's verdict and takes no error tolerance.
+    /// Which answers are listed is the producer's alone, stated on
+    /// <see cref="CubeDecision.ZeroCostAnswers"/>: off an equity tie it can
+    /// still hold two answers. The line never names the quiz user's answer:
+    /// the verdict below the board does (Hal, 2026-10-01).
     /// </para>
     /// <para>
-    /// The truth, <see cref="CubeDecisionData.BestAnswer"/>, always costs
-    /// nothing, so it is always on the line; it does not decide the line's
-    /// size. The offered order is <see cref="CubeAnswer"/>'s declaration order
-    /// (No double, Double / Take, Double / Pass, the fourth), which the
-    /// producer states as the order the answers are offered in.
-    /// </para>
-    /// <para>
-    /// The line never names the quiz user's answer: the verdict below the
-    /// board does (Hal, 2026-10-01).
+    /// <b>The wrap</b> (Hal, 2026-10-01: "Yes, wrap it"). The answers fill a
+    /// line while it fits <paramref name="width"/> by
+    /// <see cref="EstimateTextWidth"/>, its trailing comma included; an
+    /// answer that would not fit starts the next line. A line breaks only
+    /// after a separator, between two answers, never inside a label, and
+    /// every answer keeps its full label. A single label wider than the
+    /// panel takes a line of its own and overruns it: the narrow presets'
+    /// overflow is halheinrich/backgammon#253's.
     /// </para>
     /// </remarks>
-    private static string CubeBestLine(CubeDecision cube) =>
-        string.Join(CubeBestLineSeparator, Enum.GetValues<CubeAnswer>()
-            .Where(answer => EquityLoss.CountsAsZero(cube.CostOf(answer).Total))
-            .Select(answer => CubeLabels.Label(answer, cube)));
+    private static List<string> CubeBestLines(CubeDecision cube, double width)
+    {
+        var labels = cube.ZeroCostAnswers.Select(answer => CubeLabels.Label(answer, cube)).ToList();
+        string comma = CubeBestLineSeparator.TrimEnd();
+
+        var lines = new List<string>();
+        string line = labels[0];
+        for (int i = 1; i < labels.Count; i++)
+        {
+            string extended = line + CubeBestLineSeparator + labels[i];
+            bool more = i < labels.Count - 1;
+            if (Fits(more ? extended + comma : extended))
+            {
+                line = extended;
+            }
+            else
+            {
+                lines.Add(line + comma);
+                line = labels[i];
+            }
+        }
+        lines.Add(line);
+        return lines;
+
+        bool Fits(string drawn) => EstimateTextWidth(drawn, CubePanelFontSize, TextWeight.Regular) <= width;
+    }
 
     /// <summary>
     /// The Actual line: what was played, read off the record's played halves
@@ -1715,24 +1757,6 @@ public static class DiagramRenderer
             (null, CubeAction taker)               => "? / " + CubeLabels.Label(taker),
             (null, null)                           => null,
         };
-
-    // -----------------------------------------------------------------------
-    //  Equity formatting
-    // -----------------------------------------------------------------------
-
-    /// <summary>
-    /// An equity as the panels show it: the shared display of every equity
-    /// figure, <see cref="EquityLoss.Format"/> — its precision, its rounding,
-    /// and its rule that a figure rounding to zero never shows a minus sign —
-    /// with an explicit <c>+</c> ahead of any figure that shows no minus.
-    /// No precision is stated here. Internal so the tests that measure a
-    /// column's widest equity read the same text the panel draws.
-    /// </summary>
-    internal static string FormatEquity(double equity)
-    {
-        string shown = EquityLoss.Format(equity);
-        return shown.StartsWith('-') ? shown : "+" + shown;
-    }
 
     // -----------------------------------------------------------------------
     //  Text-width estimation

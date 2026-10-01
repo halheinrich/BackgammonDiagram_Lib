@@ -36,9 +36,11 @@ Core (`BackgammonDiagram_Lib`):
   action's equity and error (`CubeDecisionData.ActionEquity` and the error
   methods), the four cube answers with what each reads as and costs at a
   decision (`CubeAnswer`, `CubeAnswerExtensions.Of`,
-  `CubeDecision.ClaimOf`, `CubeDecision.CostOf`), the display of every
-  equity and loss and when a loss counts as zero (`EquityLoss.Format`,
-  `EquityLoss.CountsAsZero`), a play's notation (`Play.ToNotation`, through
+  `CubeDecision.ClaimOf`, `CubeDecision.CostOf`) and the answers that cost
+  zero (`CubeDecision.ZeroCostAnswers`), the display of every equity and
+  loss and when a loss counts as zero (`EquityDisplay.FormatEquity`,
+  `EquityDisplay.FormatLoss`, `EquityDisplay.CountsAsZero`), a play's
+  notation (`Play.ToNotation`, through
   `PlayCandidate.Notation`), and the board value any diagram draws
   (`BoardPosition`) with the one pip rule (`BoardState`). The whole shared
   type layer this library renders from. **This is core's only dependency** —
@@ -378,15 +380,16 @@ the two paths to one rendering for the same score.
 ### Analysis panel
 
 Rendered in Solution mode only — a decision's diagram. Two shapes,
-sharing one display for every equity and loss figure: `BgDataTypes_Lib`'s
-`EquityLoss.Format`, the one owner of the precision (SPEC-scoring §3, "When
-a cost counts as zero"; halheinrich/backgammon#202), so what a panel shows
-and what is scored cannot disagree. A loss is shown as `Format` gives it;
-an equity is the same text with an explicit `+` ahead of any figure showing
-no minus (`DiagramRenderer.FormatEquity`), so a figure that rounds to zero
-reads `+0.0000`, never with a minus sign. The renderer states no precision
-of its own (`Renderer_StatesNoPrecisionForAnEquityOrALoss`); the cube
-panel's percentages, which are not costs, keep their one decimal.
+sharing the producer's displays for every equity and loss figure:
+`BgDataTypes_Lib`'s `EquityDisplay`, the one owner of the precision, the
+sign rule and the zero rule (SPEC-scoring §3, "When a cost counts as zero";
+halheinrich/backgammon#202), so what a panel shows and what is scored
+cannot disagree. Every loss is shown through `EquityDisplay.FormatLoss`
+and every equity through `EquityDisplay.FormatEquity`, which signs it and
+never shows a minus on a figure that rounds to zero. The renderer states
+no precision, sign rule or threshold of its own
+(`Renderer_StatesNoPrecisionForAnEquityOrALoss`); the cube panel's
+percentages, which are not costs, keep their one decimal.
 
 - **Play panel** (a checker play). One row per visible candidate. The
   candidates arrive in the analyser's stored order; the request's ranking
@@ -401,9 +404,9 @@ panel's percentages, which are not costs, keep their one decimal.
     (`PlayCandidate.Notation`, which is `Play.ToNotation()`); a record
     stores none.
   - The Eq Loss cell is the ranking's error: blank where it counts as zero
-    (`EquityLoss.CountsAsZero`) — the best play, any play tying it, and any
+    (`EquityDisplay.CountsAsZero`) — the best play, any play tying it, and any
     whose error shows as `0.0000` — so a blank cell and a correct play
-    coincide; the error, through `EquityLoss.Format`, where it does not;
+    coincide; the error, through `EquityDisplay.FormatLoss`, where it does not;
     and the not-scored mark `—` (`DiagramRenderer.PlayPanelNotScoredMark`)
     for a candidate the ranking does not score. Such a candidate (under
     depth first, one at another depth from the best that rates higher) has
@@ -508,23 +511,32 @@ panel's percentages, which are not costs, keep their one decimal.
     from these rows (halheinrich/backgammon#326). The loss shows for every
     row, `0.0000` for the correct option.
   - **The Best line lists every answer whose cost counts as zero**
-    (SPEC-scoring §3, "The tie"): each answer whose
-    `CubeDecision.CostOf(answer).Total` counts as zero under
-    `EquityLoss.CountsAsZero`, in the order the answers are offered
-    (`CubeAnswer`'s declaration order), labelled through `CubeLabels`,
-    joined by `", "`. It is the fixed display-zero set: its size comes from
-    the costs, not from an exact equity tie — where gammons are not
-    possible and No double / Pass is right, No double costs nothing too —
-    and it takes no error tolerance (halheinrich/backgammon#30 widens only
-    the quiz's verdict). The truth, `CubeDecisionData.BestAnswer`, always
-    costs nothing, so it is always listed, but it does not decide the
-    list's size. The line never names the quiz user's answer: the verdict
-    below the board does. **Fit (measured 2026-10-01):** by
-    `EstimateTextWidth` at the banner's 14 px, the longest list, four full
-    labels with No double / Pass, is about 453 px, against about 138, 178
-    and 386 px of usable panel width under Natural, 4:3 and 16:9; three
-    labels (about 348 px) fit 16:9 only. The line is drawn as it is: how a
-    list too long for the panel resolves is not yet ruled.
+    (SPEC-scoring §3, "The tie"): the producer's
+    `CubeDecision.ZeroCostAnswers`, in its order, each labelled through
+    `CubeLabels.Label(answer, decision)`, joined by `", "`. Which answers
+    are on it is the producer's alone, stated on that member: its size
+    comes from the costs, not from an exact equity tie, and off a tie it can
+    still hold two answers (where gammons are not possible and No double /
+    Pass is right, No double costs nothing too). The renderer filters
+    nothing. The line never names the quiz user's answer: the verdict below
+    the board does.
+  - **The Best line wraps** (Hal, 2026-10-01: "Yes, wrap it"). Its lead,
+    `Best:`, is drawn on its own, and its answers from one x past it, so
+    every line of a wrapped list starts exactly under the first answer.
+    The answers fill a line while it fits the panel's usable width (to the
+    panel's right edge less its margin) by `EstimateTextWidth`, its trailing
+    comma included; a line breaks only after a separator, between two
+    answers, never inside a label, and every answer keeps its full label.
+    Everything below moves down one line pitch per line added. A single
+    label wider than the panel takes a line of its own and overruns it, on
+    the narrow presets: that overflow is halheinrich/backgammon#253's.
+    **Measured 2026-10-01 on `Widescreen16x9`**, the preset BgQuiz uses for
+    every review: the answers start at x 52.1 and must end by 396.2. The
+    four-answer list (about 353 px one-line with Too good, 405 px with No
+    double / Pass) wraps into two lines, the first,
+    `No double, Double / Take, Double / Pass,`, ending at 335.4. With an
+    Actual line, the footer's baseline then sits at 354 in a panel 446
+    high. On Natural and 4:3 the same list takes four lines, footer at 394.
   - **The Actual line reads what was played**: the record's
     `UserDoublerAction` and `UserTakerAction`, never inferred from an error
     (a zero error does not identify the action when the equities tie).
@@ -697,6 +709,7 @@ and the consuming apps (`halheinrich/backgammon#185`).
 static string Label(CubeAction action);                          // No double / Double / Take / Pass
 static string Label(CubeAnswer answer, CubeDecision decision);    // the full label, at its decision
 static string ShortLabel(CubeAnswer answer, CubeDecision decision); // the short label, at its decision
+static string FourthAnswerUnderEitherLabel { get; }               // "Too good or No double / Pass"
 ```
 
 | `CubeAnswer` | Full | Short |
@@ -726,6 +739,15 @@ answer alone, or from a claim a caller supplies apart from its decision,
 and no caller can pair an answer with another decision's reading.
 `PublicSurface_LabelsAnAnswerOnlyWithItsDecision_AndNeverAClaim` pins
 that shape.
+
+**The aggregate name** `FourthAnswerUnderEitherLabel` is
+`Too good or No double / Pass` (Hal, 2026-10-01): the answer-type
+breakdown's fourth bucket, which gathers the fourth answer across
+decisions under both its labels. It is composed from the two full labels
+the type gives the fourth answer, so neither is spelled twice. It names a
+mixed set, not an answer: it takes no answer and no decision, infers no
+gammon context, and is never a fallback for labelling one answer without
+its decision. BgQuiz_Blazor's breakdown is its consumer.
 
 **The actions** keep their labels for what is an action, not an answer:
 the cube panel's equity table, and a played half recorded without the
@@ -912,19 +934,23 @@ to supply their own palette.
 - **The play panel's best play, errors and order are a ranking's.** Draw
   a checker play's candidates only through `RankedBy(request.Ranking)`:
   the Eq Loss cell is blank exactly where the ranking's error counts as
-  zero (`EquityLoss.CountsAsZero`: the best play, any tie with it, and any
+  zero (`EquityDisplay.CountsAsZero`: the best play, any tie with it, and any
   error showing as `0.0000`), and a candidate the ranking does not score
   shows the not-scored mark, never a number and never the blank. Nothing
   here answers "best" without the request's ranking, and the stored order
   is not the drawn order. The cube panel's Equity/Loss table is governed
   independently — it always renders its loss values, including `0.0000`
   for the correct option.
-- **No equity or loss is formatted here.** Every such figure goes through
-  `EquityLoss.Format` (an equity through `FormatEquity`, which only adds
-  the `+`), and every "is it zero" through `EquityLoss.CountsAsZero`. A
-  format string or a threshold beside them would let what is shown and
-  what is scored disagree; `Renderer_StatesNoPrecisionForAnEquityOrALoss`
-  fails if one returns.
+- **No equity or loss is formatted here.** Every loss goes through
+  `EquityDisplay.FormatLoss`, every equity through
+  `EquityDisplay.FormatEquity`, and every "is it zero" through
+  `EquityDisplay.CountsAsZero`. A format string, sign rule or threshold
+  beside them would let what is shown and what is scored disagree;
+  `Renderer_StatesNoPrecisionForAnEquityOrALoss` fails if a format string
+  returns.
+- **Which answers are best is the producer's.** The Best line reads
+  `CubeDecision.ZeroCostAnswers` and filters nothing; never rebuild the
+  set from `CostOf` here.
 - **A cube answer is labelled at its decision, and two played actions
   are an answer only through the producer.** Label an answer with
   `CubeLabels.Label(answer, decision)` or `ShortLabel`, never by switching

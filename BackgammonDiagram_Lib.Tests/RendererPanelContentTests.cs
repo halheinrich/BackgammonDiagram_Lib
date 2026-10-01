@@ -39,9 +39,37 @@ public class RendererPanelContentTests
         return lines.SingleOrDefault();
     }
 
-    /// <summary>The Best line's text after its lead-in.</summary>
-    private static string BestLine(string svg) =>
-        BannerLine(svg, "Best:   ") ?? throw new Xunit.Sdk.XunitException("No Best line drawn.");
+    /// <summary>A drawn text element: its anchor, its font size and its text.</summary>
+    private sealed record SvgText(double X, double Y, double FontSize, string Text);
+
+    /// <summary>Every text element of <paramref name="svg"/> that states x, y and a font size, in document order.</summary>
+    private static List<SvgText> Texts(string svg) =>
+        Regex.Matches(svg, """<text x="([0-9.]+)" y="([0-9.]+)"[^>]*font-size="([0-9.]+)"[^>]*>([^<]*)</text>""")
+            .Select(m => new SvgText(Num(m.Groups[1].Value), Num(m.Groups[2].Value), Num(m.Groups[3].Value), m.Groups[4].Value))
+            .ToList();
+
+    private static double Num(string text) => double.Parse(text, CultureInfo.InvariantCulture);
+
+    /// <summary>The Best line's lead, drawn on its own.</summary>
+    private static SvgText BestLead(string svg) =>
+        Texts(svg).Single(t => t.Text == "Best:");
+
+    /// <summary>
+    /// The Best line's drawn lines, top to bottom: the elements after its lead
+    /// that share the first one's x, which is where every line of its answers
+    /// starts.
+    /// </summary>
+    private static List<SvgText> BestLines(string svg)
+    {
+        var texts = Texts(svg);
+        int lead = texts.FindIndex(t => t.Text == "Best:");
+        Assert.True(lead >= 0, "No Best line drawn.");
+        double answersX = texts[lead + 1].X;
+        return texts.Skip(lead + 1).TakeWhile(t => t.X == answersX).ToList();
+    }
+
+    /// <summary>The Best line's answers as one line: its drawn lines, rejoined where they broke.</summary>
+    private static string BestLine(string svg) => string.Join(" ", BestLines(svg).Select(t => t.Text));
 
     /// <summary>The Actual line's text after its lead-in, or null where none is drawn.</summary>
     private static string? ActualLine(string svg) => BannerLine(svg, "Actual: ");
@@ -114,15 +142,145 @@ public class RendererPanelContentTests
 
     [Theory]
     [MemberData(nameof(BestLineGrid))]
-    public void CubePanel_BestLine_AlwaysListsTheTruth(double noDouble, double doubleTake, bool gammonsPossible)
+    public void CubePanel_BestLine_IsTheProducersZeroCostAnswers(double noDouble, double doubleTake, bool gammonsPossible)
     {
-        // The truth always costs nothing, so it is always listed, though it
-        // does not decide how many answers are. A decision whose list lacks it
-        // contradicts the producer.
+        // The set is the producer's, CubeDecision.ZeroCostAnswers: the line
+        // lists every answer in it, in its order, each labelled at its
+        // decision, and nothing else. The truth is always among them.
         var record = TestFixtures.CubeWithGammons(gammonsPossible, noDouble, doubleTake);
-        var listed = BestLine(RenderSolution(record)).Split(", ");
+        var listed = record.ZeroCostAnswers.Select(answer => CubeLabels.Label(answer, record)).ToList();
 
+        Assert.Equal(string.Join(", ", listed), BestLine(RenderSolution(record)));
         Assert.Contains(CubeLabels.Label(record.Decision.BestAnswer, record), listed);
+    }
+
+    // -----------------------------------------------------------------------
+    //  The Best line's wrap (Hal, 2026-10-01: "Yes, wrap it")
+    // -----------------------------------------------------------------------
+
+    /// <summary>The solution diagram of <paramref name="record"/> on <paramref name="aspect"/>.</summary>
+    private static string RenderSolution(BgDecisionData record, AspectPreset aspect) =>
+        DiagramRenderer.RenderSvg(
+            TestFixtures.RequestFor(record, DiagramMode.Solution),
+            TestFixtures.DefaultOptions() with { Aspect = aspect });
+
+    /// <summary>
+    /// The x the cube panel's content must end by on <paramref name="aspect"/>:
+    /// the panel's right edge less its margin. The panel is on the left by
+    /// default, so its right edge is its width, the canvas less the board.
+    /// </summary>
+    private static double PanelLimit(string svg)
+    {
+        double canvasWidth = Num(Regex.Match(svg, "viewBox=\"0 0 ([0-9.]+) ").Groups[1].Value);
+        return canvasWidth - BoardLayout.Default.BoardWidth - DiagramRenderer.PanelMargin;
+    }
+
+    private static double Width(SvgText text) =>
+        DiagramRenderer.EstimateTextWidth(text.Text, text.FontSize, DiagramRenderer.TextWeight.Regular);
+
+    /// <summary>The four answers, labelled at <paramref name="record"/>.</summary>
+    private static List<string> Labels(CubeDecision record) =>
+        Enum.GetValues<CubeAnswer>().Select(answer => CubeLabels.Label(answer, record)).ToList();
+
+    [Fact]
+    public void CubePanel_BestLine_ThatFits_StaysOneLine()
+    {
+        // Two answers fit the 16:9 panel: one line, beside its lead.
+        var svg = RenderSolution(TestFixtures.CubeWithGammons(possible: true, 0.50, 0.50), AspectPreset.Widescreen16x9);
+
+        var line = Assert.Single(BestLines(svg));
+        Assert.Equal("No double, Double / Take", line.Text);
+        Assert.Equal(BestLead(svg).Y, line.Y);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void CubePanel_BestLine_FourAnswersOn16x9_WrapAtAnswerBoundaries_WithinTheWidth_Aligned(bool gammonsPossible)
+    {
+        // N = T = 1: all four answers cost 0. On Widescreen16x9, the preset
+        // BgQuiz uses for every review, the list is wider than the panel.
+        var record = TestFixtures.CubeWithGammons(gammonsPossible, 1.00, 1.00);
+        var svg = RenderSolution(record, AspectPreset.Widescreen16x9);
+        var lines = BestLines(svg);
+        var labels = Labels(record);
+
+        Assert.True(lines.Count > 1, "The four-answer list should wrap on 16:9.");
+        Assert.Equal(string.Join(", ", labels), BestLine(svg));
+        for (int i = 0; i < lines.Count; i++)
+        {
+            // Within the usable width, starting where the first answer does,
+            // one line pitch below the last.
+            Assert.True(lines[i].X + Width(lines[i]) <= PanelLimit(svg),
+                $"Line {i} ends at {lines[i].X + Width(lines[i])}, past {PanelLimit(svg)}.");
+            Assert.Equal(lines[0].X, lines[i].X);
+            Assert.Equal(BestLead(svg).Y + 20 * i, lines[i].Y, precision: 6);
+
+            // Broken only between answers: every line but the last ends at a
+            // separator, and every line holds whole labels.
+            bool last = i == lines.Count - 1;
+            Assert.Equal(!last, lines[i].Text.EndsWith(','));
+            Assert.All(lines[i].Text.TrimEnd(',').Split(", "), label => Assert.Contains(label, labels));
+        }
+        Assert.True(lines[0].X > BestLead(svg).X + Width(BestLead(svg)), "The answers start past the lead.");
+    }
+
+    [Fact]
+    public void CubePanel_BestLine_OnTheNarrowPresets_WrapsTheSameWay()
+    {
+        // Each line fits the usable width, or holds a single label too wide
+        // for it, whose overrun is halheinrich/backgammon#253's.
+        var record = TestFixtures.CubeWithGammons(possible: false, 1.00, 1.00);
+        var labels = Labels(record);
+        foreach (var aspect in new[] { AspectPreset.Natural, AspectPreset.Standard4x3 })
+        {
+            var svg = RenderSolution(record, aspect);
+            var lines = BestLines(svg);
+
+            Assert.Equal(string.Join(", ", labels), BestLine(svg));
+            Assert.All(lines, line => Assert.True(
+                line.X + Width(line) <= PanelLimit(svg) || labels.Contains(line.Text.TrimEnd(',')),
+                $"{aspect}: \"{line.Text}\" overruns the panel and is not a single label."));
+        }
+    }
+
+    [Fact]
+    public void CubePanel_BestLineWrap_MovesTheContentBelowDown_WithNoOverlap()
+    {
+        // Two decisions with an Actual line each: one whose Best line fits,
+        // and the four-answer list, which wraps. Every text below the Best
+        // line moves down by the lines the wrap adds, and the panel's content
+        // still fits its height.
+        var oneLine = RenderSolution(TestFixtures.CubeWithGammons(possible: false, 0.50, 0.50), AspectPreset.Widescreen16x9);
+        var wrapped = RenderSolution(TestFixtures.CubeWithGammons(possible: false, 1.00, 1.00), AspectPreset.Widescreen16x9);
+        int added = BestLines(wrapped).Count - BestLines(oneLine).Count;
+        Assert.True(added > 0);
+
+        double YOf(string svg, Func<string, bool> text) => Texts(svg).First(t => text(t.Text)).Y;
+        foreach (Func<string, bool> below in new Func<string, bool>[]
+            {
+                t => t.StartsWith("Actual: "),
+                t => t == "Equity",
+                t => t == "On-roll",
+                t => t.StartsWith("Analysis Level: "),
+            })
+            Assert.Equal(YOf(oneLine, below) + 20 * added, YOf(wrapped, below), precision: 6);
+
+        // No overlap: the panel's left column, the Best lines included, runs
+        // strictly down the page, a line apart at least.
+        double leftX = BestLead(wrapped).X;
+        var column = Texts(wrapped)
+            .SkipWhile(t => t.Text != "Best:")
+            .Where(t => t.X == leftX || t.X == BestLines(wrapped)[0].X)
+            .Where(t => t.Text != "Best:")
+            .ToList();
+        for (int i = 1; i < column.Count; i++)
+            Assert.True(column[i].Y - column[i - 1].Y >= column[i].FontSize,
+                $"\"{column[i].Text}\" at {column[i].Y} overlaps \"{column[i - 1].Text}\" at {column[i - 1].Y}.");
+
+        double footer = YOf(wrapped, t => t.StartsWith("Analysis Level: "));
+        Assert.True(footer <= BoardLayout.Default.BoardHeight - DiagramRenderer.PanelMargin,
+            $"The footer's baseline at {footer} is past the panel's height.");
     }
 
     // -----------------------------------------------------------------------
@@ -210,8 +368,8 @@ public class RendererPanelContentTests
         var decision = TestFixtures.CubeWith(noDouble, doubleTake).Decision;
         var rows = CubeRows(RenderCube(noDouble, doubleTake));
 
-        string Equity(CubeAction action) => DiagramRenderer.FormatEquity(decision.ActionEquity(action));
-        static string Loss(double error) => EquityLoss.Format(error);
+        string Equity(CubeAction action) => EquityDisplay.FormatEquity(decision.ActionEquity(action));
+        static string Loss(double error) => EquityDisplay.FormatLoss(error);
 
         Assert.Equal(
         [
@@ -351,7 +509,7 @@ public class RendererPanelContentTests
         // explicit plus and never a minus: a negative zero once read "+-0.0000".
         var rows = CubeRows(RenderCube(noDouble, 0.50));
 
-        Assert.Equal("+" + EquityLoss.Format(0), rows[0].Equity);
+        Assert.Equal(EquityDisplay.FormatEquity(noDouble), rows[0].Equity);
         Assert.Equal("+0.0000", rows[0].Equity);
     }
 
@@ -370,7 +528,7 @@ public class RendererPanelContentTests
     [Fact]
     public void Renderer_StatesNoPrecisionForAnEquityOrALoss()
     {
-        // The display precision has one owner, BgDataTypes_Lib's EquityLoss
+        // The display precision has one owner, BgDataTypes_Lib's EquityDisplay
         // (SPEC-scoring §3, halheinrich/backgammon#202). The renderer's one
         // numeric format string is the percentages' one decimal, which is not
         // a cost; no four-decimal format, or any other, returns.

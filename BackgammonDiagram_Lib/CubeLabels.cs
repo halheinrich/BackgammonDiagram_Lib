@@ -40,6 +40,14 @@ namespace BackgammonDiagram_Lib;
 /// played half recorded without the other.
 /// </para>
 /// <para>
+/// <b>One aggregate name</b>, <see cref="FourthAnswerUnderEitherLabel"/>
+/// (<c>Too good or No double / Pass</c>), names the fourth answer gathered
+/// across decisions under both its labels, as the answer-type breakdown's
+/// fourth bucket does (Hal, 2026-10-01). It names a mixed set, not an answer:
+/// it takes no answer and no decision, and it is never a way to label one
+/// answer without its decision.
+/// </para>
+/// <para>
 /// One case throughout, sentence case (ruled 2026-09-02,
 /// halheinrich/backgammon#185). A full label that names a doubling action and
 /// a response joins their action labels with <c>" / "</c>, so each word has
@@ -58,6 +66,10 @@ public static class CubeLabels
     /// <summary>Joins a doubling action's label and a response's label in a
     /// full label. Spaced, as ruled: <c>"Double / Take"</c>.</summary>
     private const string FullSeparator = " / ";
+
+    /// <summary>Joins the fourth answer's two full labels in
+    /// <see cref="FourthAnswerUnderEitherLabel"/>.</summary>
+    private const string EitherSeparator = " or ";
 
     /// <summary>
     /// The user-facing spelling of a cube action: <c>No double</c>,
@@ -126,6 +138,24 @@ public static class CubeLabels
     public static string ShortLabel(CubeAnswer answer, CubeDecision decision) => Spell(answer, decision).Short;
 
     /// <summary>
+    /// The name of the fourth answer gathered across decisions under both its
+    /// labels: <c>Too good or No double / Pass</c>, the answer-type
+    /// breakdown's fourth bucket (Hal, 2026-10-01). Composed from the two full
+    /// labels <see cref="Label(CubeAnswer, CubeDecision)"/> gives the fourth
+    /// answer, so neither is spelled twice.
+    /// </summary>
+    /// <remarks>
+    /// It names a mixed set, not an answer: a set holding the fourth answer
+    /// at decisions where gammons are possible and at decisions where they
+    /// are not. It takes no answer and no decision and infers no gammon
+    /// context, so it is never a label for one answer: one answer is labelled
+    /// only at its decision, by <see cref="Label(CubeAnswer, CubeDecision)"/>
+    /// or <see cref="ShortLabel"/>.
+    /// </remarks>
+    public static string FourthAnswerUnderEitherLabel =>
+        FourthReadTooGood.Full + EitherSeparator + FourthReadNoDouble.Full;
+
+    /// <summary>
     /// Both spellings of <paramref name="answer"/> at
     /// <paramref name="decision"/>, side by side: the one table of answer
     /// labels, so a full label and its short form cannot drift apart.
@@ -159,11 +189,19 @@ public static class CubeLabels
     /// </exception>
     private static (string Full, string Short) SpellFourth(CubeClaim reading) => reading switch
     {
-        CubeClaim.TooGood  => ("Too good", "TG"),
-        CubeClaim.NoDouble => (Joined(CubeAction.NoDouble, CubeAction.Pass), "NP"),
+        CubeClaim.TooGood  => FourthReadTooGood,
+        CubeClaim.NoDouble => FourthReadNoDouble,
         _ => throw new UnreachableException(
             $"CubeDecision.ClaimOf read the fourth answer as {reading}; it reads TooGood or NoDouble.")
     };
+
+    /// <summary>The fourth answer's spellings where it reads Too good.</summary>
+    private static (string Full, string Short) FourthReadTooGood => ("Too good", "TG");
+
+    /// <summary>The fourth answer's spellings where it reads No double, with
+    /// its pass.</summary>
+    private static (string Full, string Short) FourthReadNoDouble =>
+        (Joined(CubeAction.NoDouble, CubeAction.Pass), "NP");
 
     /// <summary>A full label naming a doubling action and a response, each in
     /// its own action label.</summary>

@@ -125,6 +125,28 @@ public class CubeLabelsTests
     }
 
     // -----------------------------------------------------------------------
+    //  The aggregate name: the fourth answer under either label
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void FourthAnswerUnderEitherLabel_IsTheBreakdownsFourthBucketName()
+        => Assert.Equal("Too good or No double / Pass", CubeLabels.FourthAnswerUnderEitherLabel);
+
+    [Fact]
+    public void FourthAnswerUnderEitherLabel_IsComposedOfTheFourthAnswersTwoFullLabels()
+    {
+        // Composed from the label home's own spellings of the fourth answer,
+        // read at a decision of each gammon fact, so neither phrase is spelled
+        // twice. It names the mixed set, and is neither answer's label.
+        string tooGood = CubeLabels.Label(CubeAnswer.NoDoublePass, DecisionWhereGammons(possible: true));
+        string noDoublePass = CubeLabels.Label(CubeAnswer.NoDoublePass, DecisionWhereGammons(possible: false));
+
+        Assert.Equal(tooGood + " or " + noDoublePass, CubeLabels.FourthAnswerUnderEitherLabel);
+        Assert.NotEqual(tooGood, CubeLabels.FourthAnswerUnderEitherLabel);
+        Assert.NotEqual(noDoublePass, CubeLabels.FourthAnswerUnderEitherLabel);
+    }
+
+    // -----------------------------------------------------------------------
     //  The public surface: an answer is labelled only at its decision
     // -----------------------------------------------------------------------
 
@@ -135,7 +157,9 @@ public class CubeLabelsTests
         // from a reading a caller supplies apart from its decision: every
         // public member taking an answer takes the decision too, and none
         // takes a claim (labelling CubeClaim.TooGood would label the fourth
-        // answer from a supplied reading).
+        // answer from a supplied reading). The aggregate name takes neither
+        // an answer nor a decision, so it passes as what it is: no answer's
+        // label.
         var members = typeof(CubeLabels).GetMethods(BindingFlags.Public | BindingFlags.Static);
         Assert.NotEmpty(members);
 

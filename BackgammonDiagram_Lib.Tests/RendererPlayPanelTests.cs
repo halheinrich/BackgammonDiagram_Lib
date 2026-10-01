@@ -11,7 +11,7 @@ namespace BackgammonDiagram_Lib.Tests;
 /// Invariants of the checker-play analysis panel's cells and layout:
 ///
 ///   * The Eq Loss cell is the ranking's error, through the shared display
-///     (<see cref="EquityLoss.Format"/>), for every play whose error does not
+///     (<see cref="EquityDisplay.FormatLoss"/>), for every play whose error does not
 ///     count as zero, and blank where it does: the best play, any play tying
 ///     it, and any whose error shows as 0.0000. (The ranking's order, numbers
 ///     and not-scored mark are pinned in <see cref="PlayPanelRankingTests"/>.)
@@ -83,7 +83,7 @@ public class RendererPlayPanelTests
     public void Plays_AnErrorThatCountsAsZero_IsBlank_AndOneThatDoesNot_IsShown()
     {
         // The cell is blank exactly where the error counts as zero
-        // (EquityLoss.CountsAsZero), so a blank cell and a correct play
+        // (EquityDisplay.CountsAsZero), so a blank cell and a correct play
         // coincide: 0.00004 behind the best shows as 0.0000 and is blank,
         // 0.00006 shows as 0.0001 and is drawn through the shared display.
         List<PlayCandidate> plays =
@@ -402,8 +402,8 @@ public class RendererPlayPanelTests
         ((CheckerPlayDecision)request.Decision!).Decision.RankedBy(request.Ranking!.Value)
             .Select(row => row.Error)
             .OfType<double>()
-            .Where(error => !EquityLoss.CountsAsZero(error))
-            .Select(EquityLoss.Format);
+            .Where(error => !EquityDisplay.CountsAsZero(error))
+            .Select(EquityDisplay.FormatLoss);
 
     /// <summary>The Depth column's texts: every play's abbreviation.</summary>
     private static IEnumerable<string> DepthTexts(DiagramRequest request) =>
@@ -473,7 +473,7 @@ public class RendererPlayPanelTests
     /// value, formatted as the renderer formats them.</summary>
     private static IEnumerable<string> EquityCells(DiagramRequest request) =>
         Plays(request)
-            .Select(p => DiagramRenderer.FormatEquity(p.Equity))
+            .Select(p => EquityDisplay.FormatEquity(p.Equity))
             .Append(DiagramRenderer.PlayPanelEquityHeader);
 
     // Each cell at the weight it is emitted in: the header regular, the
