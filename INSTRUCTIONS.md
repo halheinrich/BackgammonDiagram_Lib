@@ -34,7 +34,11 @@ Core (`BackgammonDiagram_Lib`):
   `CubeDecision`, their categories and the session kinds), the ranking of a
   checker play's candidates (`PlayRanking`, `RankedPlays`), each cube
   action's equity and error (`CubeDecisionData.ActionEquity` and the error
-  methods), a play's notation (`Play.ToNotation`, through
+  methods), the four cube answers with what each reads as and costs at a
+  decision (`CubeAnswer`, `CubeAnswerExtensions.Of`,
+  `CubeDecision.ClaimOf`, `CubeDecision.CostOf`), the display of every
+  equity and loss and when a loss counts as zero (`EquityLoss.Format`,
+  `EquityLoss.CountsAsZero`), a play's notation (`Play.ToNotation`, through
   `PlayCandidate.Notation`), and the board value any diagram draws
   (`BoardPosition`) with the one pip rule (`BoardState`). The whole shared
   type layer this library renders from. **This is core's only dependency** —
@@ -99,7 +103,8 @@ states why. Four areas:
   `GreyscaleTheme`) only as `ITheme`; and `CustomTheme`, the public
   caller-supplied palette.
 - **Single sources at the root** — `CubeLabels` (the wording of every cube
-  answer), `SvgFormat` (invariant number formatting for SVG attributes),
+  answer, full and short, and of every cube action), `SvgFormat` (invariant
+  number formatting for SVG attributes),
   and `Watermarks`, the loader for `Assets/board-watermark.png`, the
   pre-baked watermark shipped as an `EmbeddedResource`.
 
@@ -123,10 +128,11 @@ records through `TestRecords`, boards as `BoardPosition` values. Guards
 enforce invariants this doc states: `CoreNativeFreeTests` (core references
 no native package), `WatermarksTests.Default_MatchesPreBakedBytes` (the
 watermark's exact bytes), `CollectionRiderTests` (no public member hands
-out a live mutable collection or array), and two surveys of the renderer's
-source, which a rendered SVG cannot show —
-`RailLabels_BoldIsSpeltOnce_InTheOneRailTextEmitter` and
-`CubePanel_StatesNoPassValueAndNoDoublingRuleOfItsOwn`. `TestFixtures`
+out a live mutable collection or array), and three surveys of the
+renderer's source, which a rendered SVG cannot show —
+`RailLabels_BoldIsSpeltOnce_InTheOneRailTextEmitter`,
+`CubePanel_StatesNoPassValueAndNoDoublingRuleOfItsOwn` and
+`Renderer_StatesNoPrecisionForAnEquityOrALoss`. `TestFixtures`
 holds the shared requests and boards, `PlayPanelReader` reads a rendered
 play panel back into rows, and `RendererSource` reaches the renderer's
 source; `TestPaths` resolves the umbrella's `TestData/`, which the
@@ -371,7 +377,16 @@ the two paths to one rendering for the same score.
 
 ### Analysis panel
 
-Rendered in Solution mode only — a decision's diagram. Two shapes:
+Rendered in Solution mode only — a decision's diagram. Two shapes,
+sharing one display for every equity and loss figure: `BgDataTypes_Lib`'s
+`EquityLoss.Format`, the one owner of the precision (SPEC-scoring §3, "When
+a cost counts as zero"; halheinrich/backgammon#202), so what a panel shows
+and what is scored cannot disagree. A loss is shown as `Format` gives it;
+an equity is the same text with an explicit `+` ahead of any figure showing
+no minus (`DiagramRenderer.FormatEquity`), so a figure that rounds to zero
+reads `+0.0000`, never with a minus sign. The renderer states no precision
+of its own (`Renderer_StatesNoPrecisionForAnEquityOrALoss`); the cube
+panel's percentages, which are not costs, keep their one decimal.
 
 - **Play panel** (a checker play). One row per visible candidate. The
   candidates arrive in the analyser's stored order; the request's ranking
@@ -385,12 +400,15 @@ Rendered in Solution mode only — a decision's diagram. Two shapes:
   - The move notation is the candidate's play's
     (`PlayCandidate.Notation`, which is `Play.ToNotation()`); a record
     stores none.
-  - The Eq Loss cell is the ranking's error: blank at 0 — the best play, and
-    any play tying it — the error where it is positive, and the not-scored
-    mark `—` (`DiagramRenderer.PlayPanelNotScoredMark`) for a candidate the
-    ranking does not score. Such a candidate (under depth first, one at
-    another depth from the best that rates higher) has no error, so its row
-    never shows one and never reads like the best play, whose cell is blank.
+  - The Eq Loss cell is the ranking's error: blank where it counts as zero
+    (`EquityLoss.CountsAsZero`) — the best play, any play tying it, and any
+    whose error shows as `0.0000` — so a blank cell and a correct play
+    coincide; the error, through `EquityLoss.Format`, where it does not;
+    and the not-scored mark `—` (`DiagramRenderer.PlayPanelNotScoredMark`)
+    for a candidate the ranking does not score. Such a candidate (under
+    depth first, one at another depth from the best that rates higher) has
+    no error, so its row never shows one and never reads like the best
+    play, whose cell is blank.
     It keeps its rank number and its place in the ranking.
   - The Depth column renders the candidate's derived
     `DepthAbbreviation`; a candidate with no depth recorded (null) omits
@@ -472,45 +490,57 @@ Rendered in Solution mode only — a decision's diagram. Two shapes:
   (No double / Double / Take / Pass), two percentage tables (No double and
   Take played-out stats), and an Analysis Level footer. Every word of every
   cube label comes from `CubeLabels` (see Public API); the renderer holds
-  no cube wording of its own. Invariants:
+  no cube wording of its own. The banner names cube answers, the four of
+  SPEC-scoring §3, each labelled at this decision; the table names actions.
+  Invariants:
   - **Each row's equity and loss are the producer's**, from its one
     calculation: `CubeDecisionData.ActionEquity(action)` — each action's
     equity in the doubler's perspective, doubling's the taker's best
-    response's — and the half's error method. The renderer states neither
-    the pass's value nor the rule for doubling's equity (Hal's ruling of
-    2026-09-27 on halheinrich/backgammon#273), so the numbers shown are the
-    ones the scoring used; `CubePanel_StatesNoPassValueAndNoDoublingRuleOfItsOwn`
-    pins that no copy returns. The loss shows for every row, `0.0000` for
-    the correct option.
-  - **The Best line is claim-level; the Actual line is action-level.**
-    Best labels `CubeDecisionData.BestClaimPair` whole — the producer's one
-    derivation of the verdict — through `CubeLabels`, and never composes
-    itself from the two board actions: Too good and No double share a board
-    action, so a composed line printed a too-good position as
-    `"No double / Take"` (`halheinrich/backgammon#185`). At the producer's
-    tie boundary where the pair is the incoherent `NoDoublePass`,
-    `CubeLabels` reads it `Too good` (SPEC-scoring §3), never `No double`.
-  - Actual reports what was played: the stamped `UserDoublerAction` /
-    `UserTakerAction`, assembled by `CubeDecisionLine`, never inferred from
-    an error (a zero error does not identify the action when the equities
-    tie). A null half is omitted, and a decision with neither half stamped
-    drops the line. Both halves present are classified as a
-    `CubeDecisionPair`, whose `IsTooGood` names the too-good pair — the
-    renderer does not re-encode that rule — spelled
-    `CubeLabels.Label(CubeClaimPair.TooGoodPass)`, the Best banner's
-    spelling. Otherwise every present half renders, and no half is dropped
-    on account of the other's value.
-  - The **stale-taker rule belongs to the Actual line's stamped-data
-    boundary**, not to `CubeDecisionLine`: `DiagramRenderer
-    .StampedTakerAction` drops the taker half of a stamped
-    `CubeDecisionPair.NoDoubleTake` before the line is built — defence in
-    depth, since the record leaves cross-half consistency to its producer
-    (`BgDataTypes_Lib`'s "Played cube actions on CubeDecisionData"). Only
-    that pair is filtered; (NoDouble, Pass) passes through to the too-good
-    classification.
-  - `"Actual: Too good"` is unreachable from real data **by design**: on a
-    too-good decline no taker decision exists, so the too-good pair is
-    never stamped. Don't "fix" this by stamping a fabricated Pass.
+    response's — and the half's error method, the action's error against
+    the best action of its half. The renderer states neither the pass's
+    value nor the rule for doubling's equity (Hal's ruling of 2026-09-27 on
+    halheinrich/backgammon#273), so each row's equity and error agree;
+    `CubePanel_StatesNoPassValueAndNoDoublingRuleOfItsOwn` pins that no
+    copy returns. **They are the analysis's action facts, not what the
+    scoring charges.** A cube answer's cost is the producer's,
+    `CubeDecision.CostOf`, which adds the response an answer commits to and
+    charges SPEC-scoring §3's conventions where they apply, so it differs
+    from these rows (halheinrich/backgammon#326). The loss shows for every
+    row, `0.0000` for the correct option.
+  - **The Best line lists every answer whose cost counts as zero**
+    (SPEC-scoring §3, "The tie"): each answer whose
+    `CubeDecision.CostOf(answer).Total` counts as zero under
+    `EquityLoss.CountsAsZero`, in the order the answers are offered
+    (`CubeAnswer`'s declaration order), labelled through `CubeLabels`,
+    joined by `", "`. It is the fixed display-zero set: its size comes from
+    the costs, not from an exact equity tie — where gammons are not
+    possible and No double / Pass is right, No double costs nothing too —
+    and it takes no error tolerance (halheinrich/backgammon#30 widens only
+    the quiz's verdict). The truth, `CubeDecisionData.BestAnswer`, always
+    costs nothing, so it is always listed, but it does not decide the
+    list's size. The line never names the quiz user's answer: the verdict
+    below the board does. **Fit (measured 2026-10-01):** by
+    `EstimateTextWidth` at the banner's 14 px, the longest list, four full
+    labels with No double / Pass, is about 453 px, against about 138, 178
+    and 386 px of usable panel width under Natural, 4:3 and 16:9; three
+    labels (about 348 px) fit 16:9 only. The line is drawn as it is: how a
+    list too long for the panel resolves is not yet ruled.
+  - **The Actual line reads what was played**: the record's
+    `UserDoublerAction` and `UserTakerAction`, never inferred from an error
+    (a zero error does not identify the action when the equities tie).
+    With both halves present they are the answer
+    `CubeAnswerExtensions.Of(doubler, taker)`, labelled at its decision like
+    any answer — a recorded no double with a pass reads `Too good` or
+    `No double / Pass` as the decision reads it, and a recorded no double
+    with a take is the No double answer, `No double`. With one half missing
+    no answer is inferred: the present half renders alone in its action
+    label, a missing doubler half shows `?` (`? / Take`), and a decision
+    with neither half recorded drops the line. The renderer classifies no
+    action pair itself: the pair check and the stale-taker filter it once
+    kept are gone, since the answer mapping reads every combination.
+  - From real data a no double with a pass is never recorded: on a decline
+    to double no taker decision exists, so no taker half is stamped. Don't
+    stamp a fabricated Pass to reach the fourth answer's Actual line.
   - The Analysis Level footer renders the cube analysis's derived `Depth`
     label (e.g. `"Rollout: 1296 trials. 3-ply"`), not its abbreviation: the
     cube panel has one analysis depth and column space to spare. No depth
@@ -658,40 +688,56 @@ static BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions opti
 
 ### `CubeLabels` (core — `BackgammonDiagram_Lib`)
 
-Single source of truth for the user-facing wording of a cube answer —
-one case throughout, sentence case. Every surface that names a cube
-answer reads it here: this library's cube panel, and the consuming apps
-(`halheinrich/backgammon#185`).
+Single source of truth for the user-facing wording of a cube answer, full
+and short, and of a cube action — one case throughout, sentence case. Every
+surface that names a cube answer reads it here: this library's cube panel,
+and the consuming apps (`halheinrich/backgammon#185`).
 
 ```csharp
-static string Label(CubeClaim claim);        // No double / Double / Too good
-static string Label(CubeAction action);      // No double / Double / Take / Pass
-static string Label(CubeClaimPair pair);     // the pair rule, below
+static string Label(CubeAction action);                          // No double / Double / Take / Pass
+static string Label(CubeAnswer answer, CubeDecision decision);    // the full label, at its decision
+static string ShortLabel(CubeAnswer answer, CubeDecision decision); // the short label, at its decision
 ```
 
-**The pair rule, in two clauses.** A pair reads as its claim alone when
-that claim has exactly one reachable pair, else claim and response joined
-by `" / "` — so the four reachable verdicts read `No double`,
-`Double / Take`, `Double / Pass`, `Too good` (ruled 2026-09-02 on
-`halheinrich/backgammon#185`; reachability is SPEC-scoring §3 as amended
-2026-09-02). And the incoherent cell `NoDoublePass` reads `Too good`:
-§3's sixth-cell ruling buckets it with Too good / Pass as that posture's
-degenerate point — derivable only at the exact tie boundary — and a
-banner must not print a verdict the model itself calls incoherent.
+| `CubeAnswer` | Full | Short |
+|---|---|---|
+| `NoDouble` | `No double` | `ND` |
+| `DoubleTake` | `Double / Take` | `D/T` |
+| `DoublePass` | `Double / Pass` | `D/P` |
+| `NoDoublePass`, read Too good | `Too good` | `TG` |
+| `NoDoublePass`, read No double | `No double / Pass` | `NP` |
 
-`Label` is therefore **not injective** over `CubeClaimPair`, by design:
-`NoDoublePass` and `TooGoodPass` share a label. The pair is not lossy,
-only its spelling is; callers needing to tell the two apart hold the
-pair. `CubeClaimPair` is a closed 3×2 and the function is total over it,
-which leaves `TooGoodTake` — unreachable as a verdict since Too good came
-to require the pass — as the one cell joining on its own account, because
-its response is exactly what its claim does *not* imply.
+**The answers** are SPEC-scoring §3's four (amended 2026-09-30 and
+2026-10-01). The short labels are SPEC-quiz-view §4's ("The action row
+under quiz navigation"), for a row that cannot fit the full ones; when a
+surface uses them is that surface's to decide, and the full label stays
+the answer's accessible name. Both forms sit in one table in the type, so
+neither can drift from the other. A full label that names a doubling
+action and a response is the two actions' own labels joined by `" / "`,
+so each word has one spelling.
+
+**The fourth answer is labelled at its decision.** Which of its two labels
+applies is the decision's reading of it, `CubeDecision.ClaimOf`:
+`TooGood` reads Too good, `NoDouble` reads No double / Pass. Whether
+gammons are possible, and what the answer means, are BgDataTypes_Lib's;
+this type renders the reading and re-checks no rule. So every answer is
+labelled together with the decision it answers: no member labels an
+answer alone, or from a claim a caller supplies apart from its decision,
+and no caller can pair an answer with another decision's reading.
+`PublicSurface_LabelsAnAnswerOnlyWithItsDecision_AndNeverAClaim` pins
+that shape.
+
+**The actions** keep their labels for what is an action, not an answer:
+the cube panel's equity table, and a played half recorded without the
+other.
 
 Every member is exhaustive over its type and throws
-`ArgumentOutOfRangeException` outside it, including on the non-meaningful
-`default(CubeClaimPair)`, whose `Taker` escapes that type's half-guards.
-There is no display fallback: an unlabelled value is a programming error,
-and rendering a placeholder would ship it to the reader.
+`ArgumentOutOfRangeException` outside it, and the answer members throw
+`ArgumentNullException` without a decision, whichever the answer. A
+decision reading the fourth answer as a claim it cannot make is a broken
+producer contract, refused with `UnreachableException`. There is no
+display fallback: an unlabelled value is a programming error, and
+rendering a placeholder would ship it to the reader.
 
 ### `SvgFormat` (core — `BackgammonDiagram_Lib`)
 
@@ -865,13 +911,31 @@ to supply their own palette.
   would produce broken SVG.
 - **The play panel's best play, errors and order are a ranking's.** Draw
   a checker play's candidates only through `RankedBy(request.Ranking)`:
-  the Eq Loss cell is blank exactly where the ranking's error is 0 (the
-  best play and any tie with it), and a candidate the ranking does not
-  score shows the not-scored mark, never a number and never the blank.
-  Nothing here answers "best" without the request's ranking, and the
-  stored order is not the drawn order. The cube panel's Equity/Loss table
-  is governed independently — it always renders its loss values,
-  including `0.0000` for the correct option.
+  the Eq Loss cell is blank exactly where the ranking's error counts as
+  zero (`EquityLoss.CountsAsZero`: the best play, any tie with it, and any
+  error showing as `0.0000`), and a candidate the ranking does not score
+  shows the not-scored mark, never a number and never the blank. Nothing
+  here answers "best" without the request's ranking, and the stored order
+  is not the drawn order. The cube panel's Equity/Loss table is governed
+  independently — it always renders its loss values, including `0.0000`
+  for the correct option.
+- **No equity or loss is formatted here.** Every such figure goes through
+  `EquityLoss.Format` (an equity through `FormatEquity`, which only adds
+  the `+`), and every "is it zero" through `EquityLoss.CountsAsZero`. A
+  format string or a threshold beside them would let what is shown and
+  what is scored disagree; `Renderer_StatesNoPrecisionForAnEquityOrALoss`
+  fails if one returns.
+- **A cube answer is labelled at its decision, and two played actions
+  are an answer only through the producer.** Label an answer with
+  `CubeLabels.Label(answer, decision)` or `ShortLabel`, never by switching
+  on a claim, and form an answer from two actions with
+  `CubeAnswerExtensions.Of`, never by classifying the pair here: whether
+  the fourth answer reads Too good is the decision's, through
+  `CubeDecision.ClaimOf`.
+- **The cube table's losses are not answer costs.** Each row is an
+  action's error; an answer's cost is `CubeDecision.CostOf`. Anything that
+  asks which answers are correct (the Best line) reads the costs, never
+  the table's rows.
 
 ## Subproject-internal next steps
 

@@ -1061,7 +1061,7 @@ public static class DiagramRenderer
 
         decision.Switch(
             play => AppendPlayPanel(sb, px, pw, ph, panelText, dimText, play, request),
-            cube => AppendCubePanel(sb, px, panelText, dimText, cube.Decision));
+            cube => AppendCubePanel(sb, px, panelText, dimText, cube));
     }
 
     // -----------------------------------------------------------------------
@@ -1276,14 +1276,16 @@ public static class DiagramRenderer
             // move-notation, and Depth cells. (The marker cell above is bold
             // under its own, older rule.)
             sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold"{italicAttr}fill="{textColor}">{FormatEquity(candidate.Equity)}</text>""");
-            // The Eq Loss cell is the ranking's error: blank at 0 (the best
-            // play, and any play tying it), the error where it is positive,
-            // and the not-scored mark where the ranking gives none.
+            // The Eq Loss cell is the ranking's error: blank where it counts
+            // as zero (the best play, any play tying it, and any whose error
+            // shows as 0.0000), so a blank cell and a correct play coincide;
+            // the error, through the shared display, where it does not; and
+            // the not-scored mark where the ranking gives none.
             string? loss = row.Error switch
             {
                 null => PlayPanelNotScoredMark,
-                double error and > 0 => FormatEquityLoss(error),
-                _ => null,
+                double error when EquityLoss.CountsAsZero(error) => null,
+                double error => EquityLoss.Format(error),
             };
             if (loss is not null)
                 sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold"{italicAttr}fill="{dimColor}">{Escape(loss)}</text>""");
@@ -1471,12 +1473,17 @@ public static class DiagramRenderer
     //   Percentages table for Take (played-out stats)
     //   Footer line: Analysis Level
     //
-    // Two decisions are surfaced: the doubler's (Double vs. No double) and
-    // the opponent's (Take vs. Pass). Losses are mistake costs measured
-    // against the decider's correct play.
+    // The banner speaks in cube answers (SPEC-scoring §3), labelled at their
+    // decision by CubeLabels. The table speaks in actions: two decisions are
+    // surfaced, the doubler's (Double vs. No double) and the opponent's (Take
+    // vs. Pass), and each row's loss is its action's error against the best
+    // action of its half. Those errors are the analysis's facts, not what an
+    // answer costs: answer costs are the producer's, CubeDecision.CostOf.
     private static void AppendCubePanel(StringBuilder sb, double px,
-        string textColor, string dimColor, CubeDecisionData d)
+        string textColor, string dimColor, CubeDecision cube)
     {
+        CubeDecisionData d = cube.Decision;
+
         // Width allocated for the right-hand numeric columns (equity/loss and
         // the Win/Gammon/BG pct columns), measured from the left label edge.
         // Fixed rather than panel-relative so the numeric block stays tight
@@ -1493,38 +1500,15 @@ public static class DiagramRenderer
         double equityX = numericRightX - 70;
 
         // ── Best / Actual banner ───────────────────────────────────────
-        // The two lines speak at different levels, as ruled
-        // (halheinrich/backgammon#185).
-        //
-        // "Best" is the analysis verdict, and a verdict is a claim: it is
-        // read whole off CubeDecisionData.BestClaimPair — the producer's one
-        // derivation site — and spelled by CubeLabels, which owns the rule
-        // for when a pair reads as its claim alone. Composing it from the
-        // two board actions instead is what made a too-good position print
-        // "No double / Take": at the action level the claim has nowhere to
-        // live, since Too good and No double share the board action.
-        //
-        // "Actual" is what was played, and a played record is action-level:
-        // read straight off the stamped UserDoublerAction /
-        // UserTakerAction, through CubeDecisionLine. It is not inferred from
-        // UserDoubleError / UserTakeError: a zero error does not identify the
-        // action when the two cube equities tie, so an equity-tie double
-        // (NoDoubleEquity == DoubleTakeEquity, error 0, tie-break best
-        // NoDouble) used to be misreported as "No double". Null means the
-        // producer recorded no action for that half — that half is omitted,
-        // and a wholly unrecorded decision drops the Actual line entirely.
-        // Being external input, the stamped halves also go through
-        // StampedTakerAction first; see its comment.
-        string bestLine = "Best:   " + CubeLabels.Label(d.BestClaimPair);
+        // Both lines name cube answers, each labelled at this decision by
+        // CubeLabels; see CubeBestLine and CubeActualLine.
+        string bestLine = CubeBestLinePrefix + CubeBestLine(cube);
         sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(bestLine)}</text>""");
         y += CubePanelLineHeight;
 
-        CubeAction? actualDoublerAction = d.UserDoublerAction;
-        CubeAction? actualTakerAction = d.UserTakerAction;
-        if (actualDoublerAction != null || actualTakerAction != null)
+        if (CubeActualLine(cube) is { } actual)
         {
-            string actualLine = CubeDecisionLine("Actual: ", actualDoublerAction,
-                StampedTakerAction(actualDoublerAction, actualTakerAction));
+            string actualLine = CubeActualLinePrefix + actual;
             sb.AppendLine($"""  <text x="{F(textX)}" y="{F(y + CubePanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{Escape(actualLine)}</text>""");
             y += CubePanelLineHeight;
         }
@@ -1539,10 +1523,15 @@ public static class DiagramRenderer
         // Each row shows its action's equity and its error, both the
         // producer's, from its one calculation (CubeDecisionData.ActionEquity):
         // the equity in the doubler's perspective — doubling's is the taker's
-        // best response's — and the error the mistake cost for the decider of
-        // that row. The renderer states neither the pass's value nor the rule
-        // for doubling's equity, so the numbers shown are the ones the
-        // scoring used.
+        // best response's — and the action's error against the best action of
+        // its half. The renderer states neither the pass's value nor the rule
+        // for doubling's equity, so each row's equity and error agree with
+        // each other. They are the analysis's action facts, not what the
+        // scoring charges: a cube answer's cost is the producer's
+        // CubeDecision.CostOf, which adds the response the answer commits to
+        // and, where gammons are possible, charges SPEC-scoring §3's two
+        // conventions for misreadings that lose no equity
+        // (halheinrich/backgammon#326).
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
             label: CubeLabels.Label(CubeAction.NoDouble), equity: d.ActionEquity(CubeAction.NoDouble), loss: d.DoublerActionError(CubeAction.NoDouble));
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
@@ -1594,9 +1583,9 @@ public static class DiagramRenderer
         // Equity as its own text element so invariant-culture format tests can
         // assert ">+0.XXXX<" directly.
         sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{textColor}">{FormatEquity(equity)}</text>""");
-        // Loss shown unconditionally — "0.0000" for the correct option, a
-        // positive magnitude for the wrong option. Always four decimal places.
-        sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{dimColor}">{FormatEquityLoss(loss)}</text>""");
+        // Loss shown unconditionally, through the shared display: 0.0000 for
+        // the correct option, and for any error that counts as zero.
+        sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + CubePanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(CubePanelFontSize)}" fill="{dimColor}">{EquityLoss.Format(loss)}</text>""");
         return y + CubePanelLineHeight + 3;
     }
 
@@ -1642,85 +1631,107 @@ public static class DiagramRenderer
     }
 
     // -----------------------------------------------------------------------
-    //  Cube decision line
+    //  Best and Actual lines
     // -----------------------------------------------------------------------
     //
     //  Wording is not this renderer's to choose: every cube label it prints
     //  comes from CubeLabels, the library's one public label home
-    //  (halheinrich/backgammon#185). What lives here is only the Actual
-    //  line's shape — how present and absent stamped halves assemble.
+    //  (halheinrich/backgammon#185), which labels an answer at its decision.
+    //  What lives here is only each line's shape.
 
-    // Builds an action-level "<prefix><doubler> / <taker>" line for the
-    // Actual banner. (The Best banner is claim-level and does not come
-    // through here; it labels CubeDecisionData.BestClaimPair whole.)
-    //
-    // When both halves are present they form a complete cube decision, so the
-    // line is classified as a pair rather than assembled from the two labels:
-    // (NoDouble, Pass) is the too-good-to-double case and is named by its
-    // claim pair. Classification is CubeDecisionPair's job — BgDataTypes_Lib
-    // owns the "NoDouble + Pass means too good" rule, and this renderer must
-    // not re-encode it; the wording of the result is then CubeLabels', which
-    // is what keeps the two banners from spelling the claim two ways. The
-    // pair constructor rejects cross-half values, but cannot throw here: both
-    // halves arrive half-correct by construction, from CubeDecisionData's guarded
-    // UserDoublerAction / UserTakerAction.
-    //
-    // Otherwise each present half renders: a null doubler renders "?" (the
-    // Actual line when the producer stamped a taker action but no doubler
-    // action), and a null taker renders the doubler half alone. Presence is
-    // the only thing that decides whether a half is shown — the builder never
-    // suppresses one half on account of the other's value. A doubler-side
-    // "No double" therefore keeps its taker half: "No double / Take" is a
-    // real record, not a stale leftover. Deciding which stamped halves are
-    // trustworthy belongs to the Actual line's own boundary, not here; see
-    // StampedTakerAction.
-    private static string CubeDecisionLine(string prefix, CubeAction? doubler, CubeAction? taker)
-    {
-        if (doubler is CubeAction dh && taker is CubeAction th
-            && new CubeDecisionPair(dh, th).IsTooGood)
-            return prefix + CubeLabels.Label(CubeClaimPair.TooGoodPass);
+    /// <summary>The Best line's lead-in, ahead of <see cref="CubeBestLine"/>.</summary>
+    private const string CubeBestLinePrefix = "Best:   ";
 
-        string line = prefix + (doubler is CubeAction d ? CubeLabels.Label(d) : "?");
-        if (taker is CubeAction r)
-            line += " / " + CubeLabels.Label(r);
-        return line;
-    }
+    /// <summary>The Actual line's lead-in, ahead of <see cref="CubeActualLine"/>.</summary>
+    private const string CubeActualLinePrefix = "Actual: ";
 
-    // Defence-in-depth at the Actual line's stamped-data boundary. The played
-    // halves are external input, and CubeDecisionData leaves cross-half
-    // consistency (a recorded taker response implies the doubler doubled) to
-    // the producer rather than guarding it — each init-only half is validated
-    // only against its own action domain. A stamped (NoDouble, Take) breaks
-    // that contract: the opponent cannot have taken a cube that was never
-    // offered, so the taker half is a stale leftover and is dropped, leaving
-    // the doubler half to render alone.
-    //
-    // Only that one pair is out of contract. (NoDouble, Pass) is the too-good
-    // pair, which CubeDecisionLine names, so it passes through untouched — the
-    // pair to reject is named by BgDataTypes_Lib as CubeDecisionPair
-    // .NoDoubleTake rather than spelled out here. The Best line needs no such
-    // pass: it labels a producer-derived claim pair, never a stamped one.
-    private static CubeAction? StampedTakerAction(CubeAction? doubler, CubeAction? taker) =>
-        doubler is CubeAction d && taker is CubeAction t
-            && new CubeDecisionPair(d, t) == CubeDecisionPair.NoDoubleTake
-                ? null
-                : taker;
+    /// <summary>Joins the answers the Best line lists.</summary>
+    private const string CubeBestLineSeparator = ", ";
+
+    /// <summary>
+    /// The Best line's answers: every cube answer whose cost counts as zero
+    /// (SPEC-scoring §3, "The tie": "The review's Best line lists every answer
+    /// whose cost counts as zero, so at a tie it lists them all"), in the
+    /// order the answers are offered, each labelled at
+    /// <paramref name="cube"/>, joined by <see cref="CubeBestLineSeparator"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The list is the fixed display-zero set: an answer is on it exactly when
+    /// <see cref="EquityLoss.CountsAsZero"/> holds for its whole cost,
+    /// <see cref="CubeDecision.CostOf"/>'s <see cref="CubeAnswerCost.Total"/>.
+    /// Its size comes from the costs, not from an exact equity tie: off a tie
+    /// it can still hold two answers (where gammons are not possible and No
+    /// double / Pass is right, No double costs nothing too), and near a
+    /// boundary an answer whose cost is not 0 but shows as 0.0000 is listed.
+    /// It is never the quiz's verdict and takes no error tolerance.
+    /// </para>
+    /// <para>
+    /// The truth, <see cref="CubeDecisionData.BestAnswer"/>, always costs
+    /// nothing, so it is always on the line; it does not decide the line's
+    /// size. The offered order is <see cref="CubeAnswer"/>'s declaration order
+    /// (No double, Double / Take, Double / Pass, the fourth), which the
+    /// producer states as the order the answers are offered in.
+    /// </para>
+    /// <para>
+    /// The line never names the quiz user's answer: the verdict below the
+    /// board does (Hal, 2026-10-01).
+    /// </para>
+    /// </remarks>
+    private static string CubeBestLine(CubeDecision cube) =>
+        string.Join(CubeBestLineSeparator, Enum.GetValues<CubeAnswer>()
+            .Where(answer => EquityLoss.CountsAsZero(cube.CostOf(answer).Total))
+            .Select(answer => CubeLabels.Label(answer, cube)));
+
+    /// <summary>
+    /// The Actual line: what was played, read off the record's played halves
+    /// (<see cref="CubeDecisionData.UserDoublerAction"/>,
+    /// <see cref="CubeDecisionData.UserTakerAction"/>), or
+    /// <see langword="null"/> where neither half is recorded, which drops the
+    /// line.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// With both halves present the record states an answer, formed the one
+    /// way two actions become one (<see cref="CubeAnswerExtensions.Of"/>) and
+    /// labelled at its decision like any answer: a recorded no double with a
+    /// pass reads Too good or No double / Pass as the decision reads it, and a
+    /// recorded no double with a take is the No double answer, which reads
+    /// <c>No double</c>.
+    /// </para>
+    /// <para>
+    /// With one half missing no answer is inferred: the present half renders
+    /// alone in its action label, and a missing doubler half shows
+    /// <c>?</c> ahead of the taker half. Neither line reads a played action
+    /// off an error: a zero error does not identify the action when the two
+    /// cube equities tie.
+    /// </para>
+    /// </remarks>
+    private static string? CubeActualLine(CubeDecision cube) =>
+        (cube.Decision.UserDoublerAction, cube.Decision.UserTakerAction) switch
+        {
+            (CubeAction doubler, CubeAction taker) => CubeLabels.Label(CubeAnswerExtensions.Of(doubler, taker), cube),
+            (CubeAction doubler, null)             => CubeLabels.Label(doubler),
+            (null, CubeAction taker)               => "? / " + CubeLabels.Label(taker),
+            (null, null)                           => null,
+        };
 
     // -----------------------------------------------------------------------
     //  Equity formatting
     // -----------------------------------------------------------------------
 
-    private static string FormatEquity(double equity)
+    /// <summary>
+    /// An equity as the panels show it: the shared display of every equity
+    /// figure, <see cref="EquityLoss.Format"/> — its precision, its rounding,
+    /// and its rule that a figure rounding to zero never shows a minus sign —
+    /// with an explicit <c>+</c> ahead of any figure that shows no minus.
+    /// No precision is stated here. Internal so the tests that measure a
+    /// column's widest equity read the same text the panel draws.
+    /// </summary>
+    internal static string FormatEquity(double equity)
     {
-        string sign = equity >= 0 ? "+" : "";
-        return sign + equity.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
-    }
-
-    // Equity loss is always a non-negative magnitude — a negative "loss" would
-    // be a gain, and is not produced here. Bare 4-decimal invariant formatting.
-    private static string FormatEquityLoss(double loss)
-    {
-        return loss.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
+        string shown = EquityLoss.Format(equity);
+        return shown.StartsWith('-') ? shown : "+" + shown;
     }
 
     // -----------------------------------------------------------------------

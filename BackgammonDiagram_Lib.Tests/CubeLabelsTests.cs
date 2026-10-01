@@ -1,3 +1,4 @@
+using System.Reflection;
 using BgDataTypes_Lib;
 using Xunit;
 
@@ -5,23 +6,27 @@ namespace BackgammonDiagram_Lib.Tests;
 
 /// <summary>
 /// Pins <see cref="CubeLabels"/> — the library's one public home for the
-/// wording of a cube answer (halheinrich/backgammon#185). Every member is
-/// pinned exhaustively over its type, because the point of a single label
-/// home is that nothing downstream re-spells these words: a silent change
-/// here would ripple through the cube panel, BgDiag_Razor and BgQuiz at once.
+/// wording of a cube answer and a cube action (halheinrich/backgammon#185):
+/// the four answers' full and short labels (SPEC-scoring §3, SPEC-quiz-view
+/// §4), the fourth labelled by its decision's reading, and the four action
+/// labels. Every member is pinned exhaustively over its type, because the
+/// point of a single label home is that nothing downstream re-spells these
+/// words: a silent change here would ripple through the cube panel,
+/// BgDiag_Razor and BgQuiz at once.
 /// </summary>
 public class CubeLabelsTests
 {
-    // -----------------------------------------------------------------------
-    //  Claims and actions — sentence case, exhaustive
-    // -----------------------------------------------------------------------
+    /// <summary>
+    /// A decision for each gammon fact. The two differ in that fact alone, so
+    /// a label that changes between them changes by the decision's reading.
+    /// The equities are a double/take's; no label depends on them.
+    /// </summary>
+    private static CubeDecision DecisionWhereGammons(bool possible) =>
+        TestFixtures.CubeWithGammons(possible, noDoubleEquity: 0.40, doubleTakeEquity: 0.60);
 
-    [Theory]
-    [InlineData(CubeClaim.NoDouble, "No double")]
-    [InlineData(CubeClaim.Double, "Double")]
-    [InlineData(CubeClaim.TooGood, "Too good")]
-    public void Label_Claim_IsSentenceCase(CubeClaim claim, string expected)
-        => Assert.Equal(expected, CubeLabels.Label(claim));
+    // -----------------------------------------------------------------------
+    //  Actions — sentence case, exhaustive
+    // -----------------------------------------------------------------------
 
     [Theory]
     [InlineData(CubeAction.NoDouble, "No double")]
@@ -32,100 +37,115 @@ public class CubeLabelsTests
         => Assert.Equal(expected, CubeLabels.Label(action));
 
     [Fact]
-    public void Label_Claim_CoversEveryDefinedMember()
-    {
-        // The suite above is exhaustive by inspection; this makes it
-        // exhaustive by construction, so a member added to CubeClaim fails
-        // here rather than reaching a reader as an exception.
-        foreach (CubeClaim claim in Enum.GetValues<CubeClaim>())
-            Assert.False(string.IsNullOrWhiteSpace(CubeLabels.Label(claim)));
-    }
-
-    [Fact]
     public void Label_Action_CoversEveryDefinedMember()
     {
+        // The suite above is exhaustive by inspection; this makes it
+        // exhaustive by construction, so a member added to CubeAction fails
+        // here rather than reaching a reader as an exception.
         foreach (CubeAction action in Enum.GetValues<CubeAction>())
             Assert.False(string.IsNullOrWhiteSpace(CubeLabels.Label(action)));
     }
 
     // -----------------------------------------------------------------------
-    //  The pair rule — the closed 3×2, all six cells
+    //  Answers — full and short, each under both gammon facts
     // -----------------------------------------------------------------------
-    //
-    //  Two clauses: a pair reads as its claim alone when that claim has
-    //  exactly one reachable pair, else claim and response joined by " / ";
-    //  and the incoherent cell reads as the posture it degenerates from. The
-    //  four reachable verdicts and the two cells outside them are pinned
-    //  together, because the rule is only meaningful as a total function over
-    //  the type.
 
     [Theory]
-    // The four reachable verdicts (SPEC-scoring §3, amended 2026-09-02).
-    [InlineData(CubeClaim.NoDouble, CubeAction.Take, "No double")]
-    [InlineData(CubeClaim.Double, CubeAction.Take, "Double / Take")]
-    [InlineData(CubeClaim.Double, CubeAction.Pass, "Double / Pass")]
-    [InlineData(CubeClaim.TooGood, CubeAction.Pass, "Too good")]
-    // TooGoodTake: representable, but no analysis derives it since Too good
-    // came to require the pass. It joins, because its response is exactly
-    // what its claim does *not* imply — that contradiction is the whole of
-    // what the pair says.
-    [InlineData(CubeClaim.TooGood, CubeAction.Take, "Too good / Take")]
-    // NoDoublePass, the incoherent cell: reads as Too good, not as its own
-    // halves. SPEC-scoring §3's sixth-cell ruling buckets it with
-    // Too good / Pass rather than giving it a bucket of its own — it is that
-    // posture's degenerate point, derivable only at the exact tie boundary —
-    // and a banner must not print a verdict the model calls incoherent.
-    [InlineData(CubeClaim.NoDouble, CubeAction.Pass, "Too good")]
-    public void Label_Pair_SpellsEveryCellOfTheClosedGrid(
-        CubeClaim claim, CubeAction taker, string expected)
-        => Assert.Equal(expected, CubeLabels.Label(new CubeClaimPair(claim, taker)));
+    [InlineData(CubeAnswer.NoDouble, true, "No double")]
+    [InlineData(CubeAnswer.NoDouble, false, "No double")]
+    [InlineData(CubeAnswer.DoubleTake, true, "Double / Take")]
+    [InlineData(CubeAnswer.DoubleTake, false, "Double / Take")]
+    [InlineData(CubeAnswer.DoublePass, true, "Double / Pass")]
+    [InlineData(CubeAnswer.DoublePass, false, "Double / Pass")]
+    [InlineData(CubeAnswer.NoDoublePass, true, "Too good")]
+    [InlineData(CubeAnswer.NoDoublePass, false, "No double / Pass")]
+    public void Label_Answer_IsTheFullLabel(CubeAnswer answer, bool gammonsPossible, string expected)
+        => Assert.Equal(expected, CubeLabels.Label(answer, DecisionWhereGammons(gammonsPossible)));
 
-    [Fact]
-    public void Label_Pair_CoversTheWholeClosedGridAndIsNotInjective()
+    [Theory]
+    [InlineData(CubeAnswer.NoDouble, true, "ND")]
+    [InlineData(CubeAnswer.NoDouble, false, "ND")]
+    [InlineData(CubeAnswer.DoubleTake, true, "D/T")]
+    [InlineData(CubeAnswer.DoubleTake, false, "D/T")]
+    [InlineData(CubeAnswer.DoublePass, true, "D/P")]
+    [InlineData(CubeAnswer.DoublePass, false, "D/P")]
+    [InlineData(CubeAnswer.NoDoublePass, true, "TG")]
+    [InlineData(CubeAnswer.NoDoublePass, false, "NP")]
+    public void ShortLabel_Answer_IsTheShortLabel(CubeAnswer answer, bool gammonsPossible, string expected)
+        => Assert.Equal(expected, CubeLabels.ShortLabel(answer, DecisionWhereGammons(gammonsPossible)));
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Label_FourthAnswer_RendersTheDecisionsReading(bool gammonsPossible)
     {
-        // Totality, stated as such: every cell of the closed 3×2 labels.
-        //
-        // Exactly one collision, and it is the deliberate one: NoDoublePass
-        // and TooGoodPass both read "Too good", per the sixth-cell ruling.
-        // The count is pinned at five rather than left open because the other
-        // way a label could collide — the claim-alone compression swallowing
-        // a cell its claim does not uniquely reach — would be a defect, and
-        // this is what would catch it.
-        var labels = new List<string>();
-        foreach (CubeClaim claim in Enum.GetValues<CubeClaim>())
-            foreach (CubeAction taker in new[] { CubeAction.Take, CubeAction.Pass })
-                labels.Add(CubeLabels.Label(new CubeClaimPair(claim, taker)));
+        // The label home renders the producer's choice and holds no gammon
+        // rule: Too good exactly where the decision reads the fourth answer
+        // as Too good, No double / Pass exactly where it reads No double.
+        var decision = DecisionWhereGammons(gammonsPossible);
+        bool readsTooGood = decision.ClaimOf(CubeAnswer.NoDoublePass) == CubeClaim.TooGood;
 
-        Assert.Equal(6, labels.Count);
-        Assert.Equal(5, labels.Distinct().Count());
-        Assert.Equal(
-            CubeLabels.Label(CubeClaimPair.TooGoodPass),
-            CubeLabels.Label(CubeClaimPair.NoDoublePass));
+        Assert.Equal(readsTooGood ? "Too good" : "No double / Pass", CubeLabels.Label(CubeAnswer.NoDoublePass, decision));
+        Assert.Equal(readsTooGood ? "TG" : "NP", CubeLabels.ShortLabel(CubeAnswer.NoDoublePass, decision));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Labels_CoverEveryAnswer_AndTellThemApart(bool gammonsPossible)
+    {
+        // Exhaustive by construction, and injective at a decision in both
+        // forms: a reader can always tell the four answers apart, whichever
+        // form a surface shows.
+        var decision = DecisionWhereGammons(gammonsPossible);
+        var answers = Enum.GetValues<CubeAnswer>();
+
+        var full = answers.Select(answer => CubeLabels.Label(answer, decision)).ToList();
+        var brief = answers.Select(answer => CubeLabels.ShortLabel(answer, decision)).ToList();
+
+        Assert.All(full.Concat(brief), label => Assert.False(string.IsNullOrWhiteSpace(label)));
+        Assert.Equal(4, full.Distinct().Count());
+        Assert.Equal(4, brief.Distinct().Count());
     }
 
     [Fact]
-    public void Label_Pair_AgreesWithItsHalves()
+    public void Label_JoinedAnswers_AreTheirActionsLabels()
     {
-        // The joined form is the two halves' own labels, not a third
-        // spelling: no lowercasing of the second half, and the separator is
-        // exactly " / " (ruled 2026-09-02).
-        Assert.Equal(
-            CubeLabels.Label(CubeClaim.Double) + " / " + CubeLabels.Label(CubeAction.Pass),
-            CubeLabels.Label(CubeClaimPair.DoublePass));
+        // A full label naming a doubling action and a response is the two
+        // actions' own labels, not a third spelling: no lowercasing of the
+        // second half, and the separator exactly " / " (ruled 2026-09-02).
+        var decision = DecisionWhereGammons(possible: false);
+        string Joined(CubeAction doubler, CubeAction response) =>
+            CubeLabels.Label(doubler) + " / " + CubeLabels.Label(response);
+
+        Assert.Equal(CubeLabels.Label(CubeAction.NoDouble), CubeLabels.Label(CubeAnswer.NoDouble, decision));
+        Assert.Equal(Joined(CubeAction.Double, CubeAction.Take), CubeLabels.Label(CubeAnswer.DoubleTake, decision));
+        Assert.Equal(Joined(CubeAction.Double, CubeAction.Pass), CubeLabels.Label(CubeAnswer.DoublePass, decision));
+        Assert.Equal(Joined(CubeAction.NoDouble, CubeAction.Pass), CubeLabels.Label(CubeAnswer.NoDoublePass, decision));
     }
 
+    // -----------------------------------------------------------------------
+    //  The public surface: an answer is labelled only at its decision
+    // -----------------------------------------------------------------------
+
     [Fact]
-    public void Label_Pair_MatchesTheCanonicalInstances()
+    public void PublicSurface_LabelsAnAnswerOnlyWithItsDecision_AndNeverAClaim()
     {
-        // The canonical statics and the (claim, taker) constructor are the
-        // same six values; pinning through the statics guards against the
-        // rule being keyed to something other than the pair's own halves.
-        Assert.Equal("No double", CubeLabels.Label(CubeClaimPair.NoDoubleTake));
-        Assert.Equal("Too good", CubeLabels.Label(CubeClaimPair.NoDoublePass));
-        Assert.Equal("Double / Take", CubeLabels.Label(CubeClaimPair.DoubleTake));
-        Assert.Equal("Double / Pass", CubeLabels.Label(CubeClaimPair.DoublePass));
-        Assert.Equal("Too good / Take", CubeLabels.Label(CubeClaimPair.TooGoodTake));
-        Assert.Equal("Too good", CubeLabels.Label(CubeClaimPair.TooGoodPass));
+        // No public path labels the fourth answer from the answer alone, or
+        // from a reading a caller supplies apart from its decision: every
+        // public member taking an answer takes the decision too, and none
+        // takes a claim (labelling CubeClaim.TooGood would label the fourth
+        // answer from a supplied reading).
+        var members = typeof(CubeLabels).GetMethods(BindingFlags.Public | BindingFlags.Static);
+        Assert.NotEmpty(members);
+
+        foreach (var member in members)
+        {
+            var parameters = member.GetParameters().Select(p => p.ParameterType).ToList();
+            Assert.DoesNotContain(typeof(CubeClaim), parameters);
+            if (parameters.Contains(typeof(CubeAnswer)))
+                Assert.Contains(typeof(CubeDecision), parameters);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -133,20 +153,27 @@ public class CubeLabelsTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Label_Claim_ThrowsOnUndefinedValue()
-        => Assert.Throws<ArgumentOutOfRangeException>(() => CubeLabels.Label((CubeClaim)99));
-
-    [Fact]
     public void Label_Action_ThrowsOnUndefinedValue()
         => Assert.Throws<ArgumentOutOfRangeException>(() => CubeLabels.Label((CubeAction)99));
 
     [Fact]
-    public void Label_Pair_ThrowsOnTheNonMeaningfulDefault()
+    public void Labels_ThrowOnAnUndefinedAnswer()
     {
-        // default(CubeClaimPair) bypasses the type's own half-guards and
-        // arrives with a Taker of CubeAction.NoDouble — a defined action, but
-        // not a taker response. Labelling it would print the plausible
-        // nonsense "No double / No double"; there is no display fallback.
-        Assert.Throws<ArgumentOutOfRangeException>(() => CubeLabels.Label(default(CubeClaimPair)));
+        var decision = DecisionWhereGammons(possible: true);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => CubeLabels.Label((CubeAnswer)99, decision));
+        Assert.Throws<ArgumentOutOfRangeException>(() => CubeLabels.ShortLabel((CubeAnswer)99, decision));
+    }
+
+    [Fact]
+    public void Labels_ThrowWithoutADecision()
+    {
+        // The decision is required for every answer, not only the fourth:
+        // an answer is labelled at its decision.
+        foreach (CubeAnswer answer in Enum.GetValues<CubeAnswer>())
+        {
+            Assert.Throws<ArgumentNullException>(() => CubeLabels.Label(answer, null!));
+            Assert.Throws<ArgumentNullException>(() => CubeLabels.ShortLabel(answer, null!));
+        }
     }
 }

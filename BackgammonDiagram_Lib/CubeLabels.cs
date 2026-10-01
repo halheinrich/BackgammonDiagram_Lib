@@ -1,22 +1,50 @@
+using System.Diagnostics;
 using BgDataTypes_Lib;
 
 namespace BackgammonDiagram_Lib;
 
 /// <summary>
-/// Single source of truth for the user-facing spelling of a cube answer —
-/// the doubler's <see cref="CubeClaim"/>, the taker's
-/// <see cref="CubeAction"/> response, and the complete
-/// <see cref="CubeClaimPair"/>. Every surface that names a cube answer reads
-/// its wording here: this library's own cube panel, and the consuming apps
+/// Single source of truth for the user-facing wording of a cube answer and of
+/// a cube action: the four answers, each in a full and a short form, and the
+/// four board actions. Every surface that names a cube answer reads its
+/// wording here: this library's own cube panel, and the consuming apps
 /// (halheinrich/backgammon#185).
 /// </summary>
 /// <remarks>
 /// <para>
-/// One case throughout — sentence case: <c>No double</c>, <c>Double</c>,
-/// <c>Too good</c>, <c>Take</c>, <c>Pass</c> (ruled 2026-09-02,
-/// halheinrich/backgammon#185). Presentation only: the claim/action model
-/// and the derivation of a position's verdict belong to
-/// <c>BgDataTypes_Lib</c>, and nothing here re-derives them.
+/// <b>The answers</b> are BgDataTypes_Lib's <see cref="CubeAnswer"/>, one of
+/// four (SPEC-scoring §3, amended 2026-09-30 and 2026-10-01 on
+/// halheinrich/backgammon#326). Their full labels are <c>No double</c>,
+/// <c>Double / Take</c>, <c>Double / Pass</c>, and for the fourth answer
+/// <c>Too good</c> or <c>No double / Pass</c>; their short labels, the
+/// spelling for a row that cannot fit the full ones (SPEC-quiz-view §4, "The
+/// action row under quiz navigation"), are <c>ND</c>, <c>D/T</c>, <c>D/P</c>,
+/// and <c>TG</c> or <c>NP</c>.
+/// </para>
+/// <para>
+/// <b>The fourth answer is labelled at its decision.</b> Which of its two
+/// labels applies is the decision's reading of it,
+/// <see cref="CubeDecision.ClaimOf"/>: Too good where it reads
+/// <see cref="CubeClaim.TooGood"/> (gammons are possible), No double / Pass
+/// where it reads <see cref="CubeClaim.NoDouble"/>. This type renders that
+/// choice and re-checks no rule: whether gammons are possible, and what the
+/// answer means, are the decision's. So an answer is labelled only together
+/// with the decision it answers; no member labels an answer alone, or from a
+/// claim a caller supplies apart from its decision, and no caller can pair an
+/// answer with another decision's reading.
+/// </para>
+/// <para>
+/// <b>The actions</b> keep their own labels, <c>No double</c>,
+/// <c>Double</c>, <c>Take</c>, <c>Pass</c>, for what is an action and not an
+/// answer: the cube panel's equity table, which lists each action, and a
+/// played half recorded without the other.
+/// </para>
+/// <para>
+/// One case throughout, sentence case (ruled 2026-09-02,
+/// halheinrich/backgammon#185). A full label that names a doubling action and
+/// a response joins their action labels with <c>" / "</c>, so each word has
+/// one spelling. Presentation only: the answer model and every rule over it
+/// belong to BgDataTypes_Lib.
 /// </para>
 /// <para>
 /// Every member is exhaustive over its type and throws
@@ -27,28 +55,9 @@ namespace BackgammonDiagram_Lib;
 /// </remarks>
 public static class CubeLabels
 {
-    /// <summary>Joins the two halves of a pair that does not read as its
-    /// claim alone. Spaced, as ruled — <c>"Double / Take"</c>.</summary>
-    private const string PairSeparator = " / ";
-
-    /// <summary>
-    /// The user-facing spelling of a doubler's claim: <c>No double</c>,
-    /// <c>Double</c>, <c>Too good</c>.
-    /// </summary>
-    /// <param name="claim">The claim to label.</param>
-    /// <returns>The sentence-case label for <paramref name="claim"/>.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="claim"/> is not a defined <see cref="CubeClaim"/>
-    /// member.
-    /// </exception>
-    public static string Label(CubeClaim claim) => claim switch
-    {
-        CubeClaim.NoDouble => "No double",
-        CubeClaim.Double   => "Double",
-        CubeClaim.TooGood  => "Too good",
-        _ => throw new ArgumentOutOfRangeException(nameof(claim), claim,
-            "CubeLabels.Label requires a defined CubeClaim member.")
-    };
+    /// <summary>Joins a doubling action's label and a response's label in a
+    /// full label. Spaced, as ruled: <c>"Double / Take"</c>.</summary>
+    private const string FullSeparator = " / ";
 
     /// <summary>
     /// The user-facing spelling of a cube action: <c>No double</c>,
@@ -73,96 +82,91 @@ public static class CubeLabels
     };
 
     /// <summary>
-    /// The user-facing spelling of a complete cube answer, in two clauses.
-    /// A pair reads as its claim alone when that claim has exactly one
-    /// reachable pair, and otherwise as claim and response joined by
-    /// <c>" / "</c> — so the four reachable verdicts read <c>No double</c>,
-    /// <c>Double / Take</c>, <c>Double / Pass</c>, <c>Too good</c> (ruled
-    /// 2026-09-02, halheinrich/backgammon#185). And the incoherent cell
-    /// <see cref="CubeClaimPair.NoDoublePass"/> reads <c>Too good</c>, the
-    /// posture whose degenerate point SPEC-scoring §3's sixth-cell ruling
-    /// says it is.
+    /// The full label of <paramref name="answer"/> at
+    /// <paramref name="decision"/>: <c>No double</c>, <c>Double / Take</c>,
+    /// <c>Double / Pass</c>, and for the fourth answer
+    /// (<see cref="CubeAnswer.NoDoublePass"/>) <c>Too good</c> or
+    /// <c>No double / Pass</c>, as the decision reads it
+    /// (<see cref="CubeDecision.ClaimOf"/>).
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The first clause is a compression, not an omission: where the claim
-    /// admits only one response, naming that response adds nothing a reader
-    /// could not supply.
-    /// </para>
-    /// <para>
-    /// The second clause is why this method is <strong>not injective</strong>
-    /// over <see cref="CubeClaimPair"/>, by design:
-    /// <see cref="CubeClaimPair.NoDoublePass"/> and
-    /// <see cref="CubeClaimPair.TooGoodPass"/> share the label
-    /// <c>Too good</c>. §3 buckets the sixth cell with Too good / Pass rather
-    /// than giving it a bucket of its own — it is the too-good posture's
-    /// degenerate point, derivable only at the exact tie boundary
-    /// (<c>NoDoubleEquity == 1</c> with <c>DoubleTakeEquity &gt;= 1</c>,
-    /// where the two halves' ruled tie-breaks compose it) — and a banner must
-    /// not print a verdict the model itself calls incoherent. Callers that
-    /// need to tell the two apart have the pair, which is not lossy; only its
-    /// spelling is.
-    /// </para>
-    /// <para>
-    /// <see cref="CubeClaimPair"/> is a closed 3×2 and this function stays
-    /// total over it. That leaves
-    /// <see cref="CubeClaimPair.TooGoodTake"/> as the one cell taking the
-    /// joined form on its own account (<c>Too good / Take</c>): unreachable
-    /// as a verdict since Too good came to require the pass (SPEC-scoring §3,
-    /// amended 2026-09-02), it arrives here only from a stored or submitted
-    /// answer, and its response is exactly what its claim does <em>not</em>
-    /// imply — that contradiction is the whole of what the pair says, so
-    /// spelling it in full is the honest reading.
-    /// </para>
-    /// </remarks>
-    /// <param name="pair">The cube answer to label.</param>
-    /// <returns>The sentence-case label for <paramref name="pair"/>.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="pair"/> carries a half outside its own domain — which
-    /// a constructed <see cref="CubeClaimPair"/> cannot, but
-    /// <c>default(CubeClaimPair)</c> can: the <see langword="struct"/>
-    /// default escapes the type's half-guards and its
-    /// <see cref="CubeClaimPair.Taker"/> is <see cref="CubeAction.NoDouble"/>,
-    /// not a taker response. Rejected rather than labelled, per this type's
-    /// no-fallback rule.
+    /// <param name="answer">The answer to label.</param>
+    /// <param name="decision">The decision <paramref name="answer"/> answers,
+    /// whose reading chooses the fourth answer's label.</param>
+    /// <returns>The sentence-case full label.</returns>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="decision"/> is <see langword="null"/>.
     /// </exception>
-    public static string Label(CubeClaimPair pair)
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="answer"/> is not one of the four
+    /// <see cref="CubeAnswer"/> members.
+    /// </exception>
+    public static string Label(CubeAnswer answer, CubeDecision decision) => Spell(answer, decision).Full;
+
+    /// <summary>
+    /// The short label of <paramref name="answer"/> at
+    /// <paramref name="decision"/>, for a row that cannot fit the full one
+    /// (SPEC-quiz-view §4): <c>ND</c>, <c>D/T</c>, <c>D/P</c>, and for the
+    /// fourth answer (<see cref="CubeAnswer.NoDoublePass"/>) <c>TG</c> or
+    /// <c>NP</c>, as the decision reads it
+    /// (<see cref="CubeDecision.ClaimOf"/>). When a surface uses it is that
+    /// surface's to decide; the full label stays the answer's accessible
+    /// name.
+    /// </summary>
+    /// <param name="answer">The answer to label.</param>
+    /// <param name="decision">The decision <paramref name="answer"/> answers,
+    /// whose reading chooses the fourth answer's label.</param>
+    /// <returns>The short label.</returns>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="decision"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="answer"/> is not one of the four
+    /// <see cref="CubeAnswer"/> members.
+    /// </exception>
+    public static string ShortLabel(CubeAnswer answer, CubeDecision decision) => Spell(answer, decision).Short;
+
+    /// <summary>
+    /// Both spellings of <paramref name="answer"/> at
+    /// <paramref name="decision"/>, side by side: the one table of answer
+    /// labels, so a full label and its short form cannot drift apart.
+    /// </summary>
+    private static (string Full, string Short) Spell(CubeAnswer answer, CubeDecision decision)
     {
-        if (pair.Taker is not (CubeAction.Take or CubeAction.Pass))
-            throw new ArgumentOutOfRangeException(nameof(pair), pair,
-                "CubeLabels.Label requires a CubeClaimPair whose Taker is a "
-                + "taker-half action (Take or Pass).");
-
-        // The sixth cell reads as the posture it degenerates from, ahead of
-        // the reachability rule below: SPEC-scoring §3 buckets (No double,
-        // Pass) with Too good / Pass rather than giving it a bucket of its
-        // own. Named through CubeClaimPair's own IsIncoherent so the cell is
-        // identified where it is defined, not re-spelled here.
-        if (pair.IsIncoherent)
-            return Label(CubeClaim.TooGood);
-
-        string claim = Label(pair.Claim);
-        return ReadsAsClaimAlone(pair) ? claim : claim + PairSeparator + Label(pair.Taker);
+        ArgumentNullException.ThrowIfNull(decision);
+        return answer switch
+        {
+            CubeAnswer.NoDouble     => (Label(CubeAction.NoDouble), "ND"),
+            CubeAnswer.DoubleTake   => (Joined(CubeAction.Double, CubeAction.Take), "D/T"),
+            CubeAnswer.DoublePass   => (Joined(CubeAction.Double, CubeAction.Pass), "D/P"),
+            CubeAnswer.NoDoublePass => SpellFourth(decision.ClaimOf(answer)),
+            _ => throw new ArgumentOutOfRangeException(nameof(answer), answer,
+                "CubeLabels requires one of the four CubeAnswer members.")
+        };
     }
 
     /// <summary>
-    /// Whether <paramref name="pair"/> is the one reachable pair of its
-    /// claim, and so reads as that claim alone. The reachable verdicts are
-    /// the four coherent pairs of SPEC-scoring §3 (amended 2026-09-02):
-    /// <see cref="CubeClaim.NoDouble"/> reaches only
-    /// <see cref="CubeAction.Take"/> and <see cref="CubeClaim.TooGood"/> only
-    /// <see cref="CubeAction.Pass"/>, while <see cref="CubeClaim.Double"/>
-    /// reaches both and so is always joined. Pure reachability: the
-    /// incoherent cell is answered by the caller's earlier clause and never
-    /// arrives here, so this stays the one statement of which pairs an
-    /// analysis can derive.
+    /// The fourth answer's two spellings for the decision's
+    /// <paramref name="reading"/> of it: Too good where it reads
+    /// <see cref="CubeClaim.TooGood"/>, No double / Pass where it reads
+    /// <see cref="CubeClaim.NoDouble"/>. The reading is rendered, never
+    /// re-checked.
     /// </summary>
-    private static bool ReadsAsClaimAlone(CubeClaimPair pair) => pair.Claim switch
+    /// <exception cref="UnreachableException">
+    /// The decision read the fourth answer as a claim it cannot make
+    /// (<see cref="CubeClaim.Double"/>, or a value outside
+    /// <see cref="CubeClaim"/>): a broken producer contract, which no label
+    /// can stand for.
+    /// </exception>
+    private static (string Full, string Short) SpellFourth(CubeClaim reading) => reading switch
     {
-        CubeClaim.NoDouble => pair.Taker is CubeAction.Take,
-        CubeClaim.TooGood  => pair.Taker is CubeAction.Pass,
-        CubeClaim.Double   => false,
-        _ => throw new ArgumentOutOfRangeException(nameof(pair), pair,
-            "CubeLabels.Label requires a defined CubeClaim member.")
+        CubeClaim.TooGood  => ("Too good", "TG"),
+        CubeClaim.NoDouble => (Joined(CubeAction.NoDouble, CubeAction.Pass), "NP"),
+        _ => throw new UnreachableException(
+            $"CubeDecision.ClaimOf read the fourth answer as {reading}; it reads TooGood or NoDouble.")
     };
+
+    /// <summary>A full label naming a doubling action and a response, each in
+    /// its own action label.</summary>
+    private static string Joined(CubeAction doubler, CubeAction response) =>
+        Label(doubler) + FullSeparator + Label(response);
 }

@@ -10,10 +10,11 @@ namespace BackgammonDiagram_Lib.Tests;
 /// <summary>
 /// Invariants of the checker-play analysis panel's cells and layout:
 ///
-///   * The Eq Loss cell is the ranking's error, rendered for every play the
-///     ranking scores behind the best, blank for the best play and any play
-///     tying it. (The ranking's order, numbers and not-scored mark are pinned
-///     in <see cref="PlayPanelRankingTests"/>.)
+///   * The Eq Loss cell is the ranking's error, through the shared display
+///     (<see cref="EquityLoss.Format"/>), for every play whose error does not
+///     count as zero, and blank where it does: the best play, any play tying
+///     it, and any whose error shows as 0.0000. (The ranking's order, numbers
+///     and not-scored mark are pinned in <see cref="PlayPanelRankingTests"/>.)
 ///   * The Depth cell is the candidate's derived abbreviation, and a
 ///     candidate with no depth recorded draws none.
 ///   * The Equity and Eq Loss <em>values</em> render bold; their column
@@ -76,6 +77,33 @@ public class RendererPlayPanelTests
         ];
 
         Assert.Equal([null, null, "0.0500"], PlayPanelReader.Rows(TestFixtures.Render(Solution(plays))).Select(r => r.Loss));
+    }
+
+    [Fact]
+    public void Plays_AnErrorThatCountsAsZero_IsBlank_AndOneThatDoesNot_IsShown()
+    {
+        // The cell is blank exactly where the error counts as zero
+        // (EquityLoss.CountsAsZero), so a blank cell and a correct play
+        // coincide: 0.00004 behind the best shows as 0.0000 and is blank,
+        // 0.00006 shows as 0.0001 and is drawn through the shared display.
+        List<PlayCandidate> plays =
+        [
+            Candidate([new(8, 5), new(6, 5)], 0.50),
+            Candidate([new(13, 10), new(8, 5)], 0.49996),
+            Candidate([new(24, 21), new(13, 10)], 0.49994),
+        ];
+
+        Assert.Equal([null, null, "0.0001"], PlayPanelReader.Rows(TestFixtures.Render(Solution(plays))).Select(r => r.Loss));
+    }
+
+    [Theory]
+    [InlineData(-0.00004)]
+    [InlineData(-0.0)]
+    public void Plays_AnEquityThatRoundsToZero_ShowsNoMinusSign(double equity)
+    {
+        List<PlayCandidate> plays = [Candidate([new(8, 5), new(6, 5)], equity)];
+
+        Assert.Equal("+0.0000", PlayPanelReader.Rows(TestFixtures.Render(Solution(plays))).Single().Equity);
     }
 
     // Three evaluations at falling depth ranks (3-ply 30, 2-ply 20, 1-ply 10):
@@ -368,11 +396,14 @@ public class RendererPlayPanelTests
     /// emitted.</summary>
     private sealed record RenderedColumns(string FontSize, string MoveX, string EquityX, string LossX, string DepthX);
 
-    /// <summary>The losses the Eq Loss column shows: each error behind the best, formatted.</summary>
+    /// <summary>The losses the Eq Loss column shows: each error that does not
+    /// count as zero, through the shared display.</summary>
     private static IEnumerable<string> LossCells(DiagramRequest request) =>
         ((CheckerPlayDecision)request.Decision!).Decision.RankedBy(request.Ranking!.Value)
-            .Where(row => row.Error > 0)
-            .Select(row => row.Error!.Value.ToString("F4", CultureInfo.InvariantCulture));
+            .Select(row => row.Error)
+            .OfType<double>()
+            .Where(error => !EquityLoss.CountsAsZero(error))
+            .Select(EquityLoss.Format);
 
     /// <summary>The Depth column's texts: every play's abbreviation.</summary>
     private static IEnumerable<string> DepthTexts(DiagramRequest request) =>
@@ -442,7 +473,7 @@ public class RendererPlayPanelTests
     /// value, formatted as the renderer formats them.</summary>
     private static IEnumerable<string> EquityCells(DiagramRequest request) =>
         Plays(request)
-            .Select(p => (p.Equity >= 0 ? "+" : "") + p.Equity.ToString("F4", CultureInfo.InvariantCulture))
+            .Select(p => DiagramRenderer.FormatEquity(p.Equity))
             .Append(DiagramRenderer.PlayPanelEquityHeader);
 
     // Each cell at the weight it is emitted in: the header regular, the

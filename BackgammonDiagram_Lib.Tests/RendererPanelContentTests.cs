@@ -9,11 +9,13 @@ using Xunit;
 namespace BackgammonDiagram_Lib.Tests;
 
 /// <summary>
-/// Tests the cube-panel contents rendered into SVG: the Best / Actual banner,
-/// the four-row Equity/Loss table — each action's equity and error, the
-/// producer's, from its one calculation — the two percentages tables (No
-/// double, Take), the Analysis Level footer, plus equity formatting,
-/// percentage scale, and PanelBackgroundColor wiring.
+/// Tests the cube-panel contents rendered into SVG: the Best / Actual banner
+/// — the Best line every answer whose cost counts as zero, the Actual line
+/// the played answer — the four-row Equity/Loss table — each action's equity
+/// and error, the producer's, from its one calculation — the two percentages
+/// tables (No double, Take), the Analysis Level footer, plus the shared
+/// display of every equity and loss, percentage scale, and
+/// PanelBackgroundColor wiring.
 ///
 /// Every cube word pinned here is CubeLabels' spelling; CubeLabelsTests owns
 /// the labels themselves, and these tests own which label each line carries.
@@ -23,160 +25,131 @@ public class RendererPanelContentTests
     /// <summary>A cube decision's solution with the given equities and played actions.</summary>
     private static string RenderCube(double noDoubleEquity, double doubleTakeEquity,
         CubeAction? userDoublerAction = CubeAction.Double, CubeAction? userTakerAction = CubeAction.Take) =>
-        DiagramRenderer.RenderSvg(
-            TestFixtures.RequestFor(
-                TestFixtures.CubeWith(noDoubleEquity, doubleTakeEquity, userDoublerAction, userTakerAction),
-                DiagramMode.Solution),
-            TestFixtures.DefaultOptions());
+        RenderSolution(TestFixtures.CubeWith(noDoubleEquity, doubleTakeEquity, userDoublerAction, userTakerAction));
+
+    /// <summary>The solution diagram of <paramref name="record"/>.</summary>
+    private static string RenderSolution(BgDecisionData record) =>
+        DiagramRenderer.RenderSvg(TestFixtures.RequestFor(record, DiagramMode.Solution), TestFixtures.DefaultOptions());
+
+    /// <summary>The text of the banner line led by <paramref name="prefix"/>, or null where none is drawn.</summary>
+    private static string? BannerLine(string svg, string prefix)
+    {
+        var lines = Regex.Matches(svg, $">{Regex.Escape(prefix)}([^<]*)</text>").Select(m => m.Groups[1].Value).ToList();
+        Assert.True(lines.Count <= 1, $"More than one line led by \"{prefix}\".");
+        return lines.SingleOrDefault();
+    }
+
+    /// <summary>The Best line's text after its lead-in.</summary>
+    private static string BestLine(string svg) =>
+        BannerLine(svg, "Best:   ") ?? throw new Xunit.Sdk.XunitException("No Best line drawn.");
+
+    /// <summary>The Actual line's text after its lead-in, or null where none is drawn.</summary>
+    private static string? ActualLine(string svg) => BannerLine(svg, "Actual: ");
 
     // -----------------------------------------------------------------------
-    //  Best / Actual banner
+    //  The Best line — every answer whose cost counts as zero
+    // -----------------------------------------------------------------------
+    //
+    //  SPEC-scoring §3, "The tie": "The review's Best line lists every answer
+    //  whose cost counts as zero, so at a tie it lists them all." Each list
+    //  is pinned on exact equities, so no other answer's cost falls under the
+    //  display-zero threshold by accident; the whole line is compared, so an
+    //  extra answer fails as surely as a missing one.
+
+    [Theory]
+    // Each truth, off any tie.
+    [InlineData(0.40, 0.60, true, "Double / Take")]
+    [InlineData(1.20, 0.50, true, "No double")]           // not good enough to double
+    [InlineData(0.25, -0.10, true, "No double")]          // doubling actively bad
+    [InlineData(0.30, 1.20, true, "Double / Pass")]
+    [InlineData(1.50, 1.20, true, "Too good")]
+    // The fourth answer's other label: the same equities where gammons are
+    // not possible. No double costs nothing there too (SPEC-scoring §3's
+    // no-gammon table), so both are listed though nothing ties.
+    [InlineData(1.50, 1.20, false, "No double, No double / Pass")]
+    [InlineData(1.20, 1.50, false, "No double, No double / Pass")]
+    // halheinrich/backgammon#293's tie: N = 1 with a pass. No double,
+    // Double / Pass and the fourth answer all cost 0, under either label.
+    [InlineData(1.00, 1.20, true, "No double, Double / Pass, Too good")]
+    [InlineData(1.00, 1.20, false, "No double, Double / Pass, No double / Pass")]
+    // N = T = 1: Double / Take costs T − 1 = 0 too, so all four.
+    [InlineData(1.00, 1.00, true, "No double, Double / Take, Double / Pass, Too good")]
+    [InlineData(1.00, 1.00, false, "No double, Double / Take, Double / Pass, No double / Pass")]
+    // T = 1 with N < 1: take and pass both cost 0.
+    [InlineData(0.50, 1.00, true, "Double / Take, Double / Pass")]
+    // T = N < 1: not doubling and doubling tie, and they'd take.
+    [InlineData(0.50, 0.50, true, "No double, Double / Take")]
+    public void CubePanel_BestLine_ListsEveryAnswerWhoseCostCountsAsZero(
+        double noDouble, double doubleTake, bool gammonsPossible, string expected)
+    {
+        var record = TestFixtures.CubeWithGammons(gammonsPossible, noDouble, doubleTake);
+
+        Assert.Equal(expected, BestLine(RenderSolution(record)));
+    }
+
+    [Theory]
+    // N = 0.99996 with a pass: No double and Too good each cost 1 − N =
+    // 0.00004, which is not 0 but shows as 0.0000, so both are listed beside
+    // the truth, Double / Pass.
+    [InlineData(0.99996, "No double, Double / Pass, Too good")]
+    // N = 0.99994: 1 − N = 0.00006 shows as 0.0001, so it is not.
+    [InlineData(0.99994, "Double / Pass")]
+    public void CubePanel_BestLine_JudgesEachCostByTheSharedZeroRule(double noDouble, string expected)
+    {
+        var record = TestFixtures.CubeWithGammons(possible: true, noDouble, doubleTakeEquity: 1.20);
+
+        Assert.Equal(expected, BestLine(RenderSolution(record)));
+    }
+
+    public static TheoryData<double, double, bool> BestLineGrid()
+    {
+        double[] equities = [-0.50, 0.00, 0.30, 0.50, 0.99994, 0.99996, 1.00, 1.00004, 1.00006, 1.20, 1.50, 2.00];
+        var grid = new TheoryData<double, double, bool>();
+        foreach (double noDouble in equities)
+            foreach (double doubleTake in equities)
+                foreach (bool gammonsPossible in new[] { true, false })
+                    grid.Add(noDouble, doubleTake, gammonsPossible);
+        return grid;
+    }
+
+    [Theory]
+    [MemberData(nameof(BestLineGrid))]
+    public void CubePanel_BestLine_AlwaysListsTheTruth(double noDouble, double doubleTake, bool gammonsPossible)
+    {
+        // The truth always costs nothing, so it is always listed, though it
+        // does not decide how many answers are. A decision whose list lacks it
+        // contradicts the producer.
+        var record = TestFixtures.CubeWithGammons(gammonsPossible, noDouble, doubleTake);
+        var listed = BestLine(RenderSolution(record)).Split(", ");
+
+        Assert.Contains(CubeLabels.Label(record.Decision.BestAnswer, record), listed);
+    }
+
+    // -----------------------------------------------------------------------
+    //  The Actual line — the played halves, read as an answer when both are
     // -----------------------------------------------------------------------
 
-    [Fact]
-    public void CubePanel_BestLine_CompoundActionPresent()
+    [Theory]
+    // Both halves present: the answer they form, labelled at its decision.
+    [InlineData(CubeAction.NoDouble, CubeAction.Take, true, "No double")]
+    [InlineData(CubeAction.Double, CubeAction.Take, true, "Double / Take")]
+    [InlineData(CubeAction.Double, CubeAction.Pass, true, "Double / Pass")]
+    [InlineData(CubeAction.NoDouble, CubeAction.Pass, true, "Too good")]
+    [InlineData(CubeAction.NoDouble, CubeAction.Pass, false, "No double / Pass")]
+    // One half missing: never inferred. The present half alone, in its
+    // action label; a missing doubler half shows "?".
+    [InlineData(CubeAction.NoDouble, null, true, "No double")]
+    [InlineData(CubeAction.Double, null, true, "Double")]
+    [InlineData(null, CubeAction.Take, true, "? / Take")]
+    [InlineData(null, CubeAction.Pass, true, "? / Pass")]
+    [InlineData(null, CubeAction.Pass, false, "? / Pass")]
+    public void CubePanel_ActualLine_ReadsEveryRecordedCombination(
+        CubeAction? doubler, CubeAction? taker, bool gammonsPossible, string expected)
     {
-        // nd=0.40, dt=0.60 → Double is correct for doubler; Take is correct for opp.
-        Assert.Contains("Best:   Double / Take", RenderCube(0.40, 0.60));
-    }
+        // A too-good position, so no line can borrow the truth's label.
+        var record = TestFixtures.CubeWithGammons(gammonsPossible, 1.50, 1.20, doubler, taker);
 
-    [Fact]
-    public void CubePanel_BestLine_NoDoubleClaimReadsAlone()
-    {
-        // nd=1.20, dt=0.50 → BestDoublerClaim = NoDouble (doubling gains
-        // nothing) and BestTakerAction = Take (dt < 1), so BestClaimPair is
-        // NoDoubleTake — NOT the too-good pair: the position is not good
-        // enough to double, not too good to. No double reaches only the take,
-        // so the banner reads the claim alone (halheinrich/backgammon#185).
-        var svg = RenderCube(1.20, 0.50);
-
-        Assert.Contains("Best:   No double", svg);
-        Assert.DoesNotContain("Best:   No double /", svg);
-        Assert.DoesNotContain("Too good", svg);
-    }
-
-    [Fact]
-    public void CubePanel_BestLine_TooGoodRendersTooGood()
-    {
-        // nd=1.50, dt=1.20 → BestClaimPair is TooGoodPass. Composed from the
-        // two board actions the banner read "No double / Take" (defect 1 of
-        // halheinrich/backgammon#185); read whole, the claim pair says Too
-        // good, which reaches only the pass, so the response is not printed.
-        var svg = RenderCube(1.50, 1.20, CubeAction.NoDouble, userTakerAction: null);
-
-        Assert.Contains("Best:   Too good", svg);
-        Assert.DoesNotContain("Best:   No double", svg);
-        Assert.DoesNotContain("Too good /", svg);
-    }
-
-    [Fact]
-    public void CubePanel_BestLine_TieBoundaryIncoherentPairReadsTooGood()
-    {
-        // nd=1.00, dt=1.20 — the measure-zero boundary where the producer's
-        // tie-breaks compose BestClaimPair = NoDoublePass. The banner reads
-        // "Too good" (SPEC-scoring §3's sixth-cell ruling), never "No double",
-        // which is the NoDoubleTake verdict and a different answer.
-        var svg = RenderCube(1.00, 1.20);
-
-        Assert.Contains("Best:   Too good", svg);
-        Assert.DoesNotContain("Best:   No double", svg);
-    }
-
-    [Fact]
-    public void CubePanel_BestLine_NoDoubleClaimHoldsWhenDoublingIsActivelyBad()
-    {
-        // nd=0.25, dt=-0.10 → the same NoDoubleTake pair, reached from a
-        // negative double/take equity: how far short the double falls does
-        // not change the claim.
-        var svg = RenderCube(0.25, -0.10);
-
-        Assert.Contains("Best:   No double", svg);
-        Assert.DoesNotContain("Best:   No double /", svg);
-    }
-
-    [Fact]
-    public void CubePanel_BestLine_PassWhenDoubleTakeEquityExceedsOne()
-    {
-        // nd=0.30, dt=1.20 → Double is correct; opp should pass (dt > 1).
-        Assert.Contains("Best:   Double / Pass", RenderCube(0.30, 1.20, CubeAction.Double, CubeAction.Pass));
-    }
-
-    [Fact]
-    public void CubePanel_ActualLine_ReadsStampedPlayedActions()
-    {
-        // The doubled game was passed, so both halves are stamped and render.
-        Assert.Contains("Actual: Double / Pass", RenderCube(0.40, 0.60, CubeAction.Double, CubeAction.Pass));
-    }
-
-    [Fact]
-    public void CubePanel_ActualLine_EquityTieDoubleStillRendersDouble()
-    {
-        // Regression — the bug the stamped actions exist to fix. nd == dt ==
-        // 0.50: doubling gains nothing, so the tie-break picks NoDouble as the
-        // best doubler action and the double's error is 0. Read from that
-        // zero, the line printed "No double" for a game that was doubled and
-        // taken; only the stamped actions decide it.
-        var svg = RenderCube(0.50, 0.50, CubeAction.Double, CubeAction.Take);
-
-        Assert.Contains("Actual: Double / Take", svg);
-        Assert.DoesNotContain("Actual: No double", svg);
-    }
-
-    [Fact]
-    public void CubePanel_ActualLine_UndoubledGameShowsDoublerHalfAlone()
-    {
-        // An undoubled game: the doubler half stamped, the taker half null,
-        // because the opponent never faced the cube.
-        var svg = RenderCube(0.40, 0.60, CubeAction.NoDouble, userTakerAction: null);
-
-        Assert.Contains("Actual: No double", svg);
-        Assert.DoesNotContain("Actual: No double /", svg);
-    }
-
-    [Fact]
-    public void CubePanel_ActualLine_StaleTakerOnNoDoubleIsSuppressed()
-    {
-        // Defence against an out-of-contract stamp: the record holds each
-        // played half to its own domain and leaves cross-half consistency to
-        // the producer, so a stamped (NoDouble, Take) can reach the renderer.
-        // The Actual line drops that stale taker at its stamped-data boundary.
-        var svg = RenderCube(0.40, 0.60, CubeAction.NoDouble, CubeAction.Take);
-
-        Assert.Contains("Actual: No double", svg);
-        Assert.DoesNotContain("Actual: No double /", svg);
-    }
-
-    [Fact]
-    public void CubePanel_ActualLine_StampedTooGoodPairRendersTooGood()
-    {
-        // A stamped (NoDouble, Pass) is the too-good pair and names itself
-        // through CubeLabels.Label(CubeClaimPair.TooGoodPass), the Best
-        // banner's spelling. Guards the reach of the stale-taker filter,
-        // which drops only (NoDouble, Take).
-        var svg = RenderCube(1.50, 1.20, CubeAction.NoDouble, CubeAction.Pass);
-
-        Assert.Contains("Actual: Too good", svg);
-        Assert.DoesNotContain("Actual: No double", svg);
-    }
-
-    [Fact]
-    public void CubePanel_ActualLine_StampedActionsIgnoreTheBestPair()
-    {
-        // BestClaimPair = TooGoodPass; the player doubled anyway and was
-        // passed: the line reads its own halves.
-        var svg = RenderCube(1.50, 1.20, CubeAction.Double, CubeAction.Pass);
-
-        Assert.Contains("Best:   Too good", svg);
-        Assert.Contains("Actual: Double / Pass", svg);
-        Assert.DoesNotContain("Actual: Too good", svg);
-    }
-
-    [Fact]
-    public void CubePanel_ActualLine_TakerHalfAloneRendersUnknownDoubler()
-    {
-        // A taker half with no doubler half violates the producer's contract,
-        // but the line still renders it: the unknown doubler half prints "?".
-        Assert.Contains("Actual: ? / Take", RenderCube(0.40, 0.60, userDoublerAction: null, CubeAction.Take));
+        Assert.Equal(expected, ActualLine(RenderSolution(record)));
     }
 
     [Fact]
@@ -188,9 +161,30 @@ public class RendererPanelContentTests
             noDoubleEquity: 0.40, doubleTakeEquity: 0.60,
             userDoublerAction: null, userTakerAction: null,
             unstatedDoublerActionError: 0, unstatedTakerActionError: 0.1));
-        var svg = DiagramRenderer.RenderSvg(TestFixtures.RequestFor(record, DiagramMode.Solution), TestFixtures.DefaultOptions());
 
-        Assert.DoesNotContain("Actual:", svg);
+        Assert.Null(ActualLine(RenderSolution(record)));
+    }
+
+    [Fact]
+    public void CubePanel_ActualLine_EquityTieDoubleStillRendersDouble()
+    {
+        // Regression — the bug the stamped actions exist to fix. nd == dt ==
+        // 0.50: doubling gains nothing, so the tie-break picks NoDouble as the
+        // best doubler action and the double's error is 0. Read from that
+        // zero, the line printed "No double" for a game that was doubled and
+        // taken; only the stamped actions decide it.
+        Assert.Equal("Double / Take", ActualLine(RenderCube(0.50, 0.50, CubeAction.Double, CubeAction.Take)));
+    }
+
+    [Fact]
+    public void CubePanel_ActualLine_IsThePlayedAnswer_NotTheBest()
+    {
+        // Too good is best; the player doubled anyway and was passed. Each
+        // line reads its own answer.
+        var svg = RenderCube(1.50, 1.20, CubeAction.Double, CubeAction.Pass);
+
+        Assert.Equal("Too good", BestLine(svg));
+        Assert.Equal("Double / Pass", ActualLine(svg));
     }
 
     // -----------------------------------------------------------------------
@@ -216,9 +210,8 @@ public class RendererPanelContentTests
         var decision = TestFixtures.CubeWith(noDouble, doubleTake).Decision;
         var rows = CubeRows(RenderCube(noDouble, doubleTake));
 
-        string Equity(CubeAction action) => (decision.ActionEquity(action) >= 0 ? "+" : "")
-            + decision.ActionEquity(action).ToString("F4", CultureInfo.InvariantCulture);
-        static string Loss(double error) => error.ToString("F4", CultureInfo.InvariantCulture);
+        string Equity(CubeAction action) => DiagramRenderer.FormatEquity(decision.ActionEquity(action));
+        static string Loss(double error) => EquityLoss.Format(error);
 
         Assert.Equal(
         [
@@ -315,7 +308,7 @@ public class RendererPanelContentTests
     }
 
     // -----------------------------------------------------------------------
-    //  Equity formatting — invariant-culture, signed, 4 decimals
+    //  Equity and loss display — the shared precision, signed, invariant
     // -----------------------------------------------------------------------
 
     [Fact]
@@ -345,6 +338,46 @@ public class RendererPanelContentTests
         {
             CultureInfo.CurrentCulture = prior;
         }
+    }
+
+    [Theory]
+    [InlineData(-0.00004)]
+    [InlineData(0.00004)]
+    [InlineData(-0.0)]
+    public void CubePanel_EquityBelowTheDisplayZero_ShowsThroughTheSharedPrecision_WithNoMinusSign(double noDouble)
+    {
+        // The No double row's equity is the no-double equity. Below 0.00005 in
+        // magnitude it shows as the shared display's 0.0000, with the panel's
+        // explicit plus and never a minus: a negative zero once read "+-0.0000".
+        var rows = CubeRows(RenderCube(noDouble, 0.50));
+
+        Assert.Equal("+" + EquityLoss.Format(0), rows[0].Equity);
+        Assert.Equal("+0.0000", rows[0].Equity);
+    }
+
+    [Fact]
+    public void CubePanel_LossBelowTheDisplayZero_ShowsThroughTheSharedPrecision()
+    {
+        // nd = 0.5, dt = 0.50004: doubling is best by 0.00004, so No double's
+        // error is 0.00004, which is not 0 but shows as 0.0000. (Every error
+        // the table shows is derived, so never negative.)
+        var rows = CubeRows(RenderCube(0.50, 0.50004));
+
+        Assert.Equal("No double", rows[0].Label);
+        Assert.Equal("0.0000", rows[0].Loss);
+    }
+
+    [Fact]
+    public void Renderer_StatesNoPrecisionForAnEquityOrALoss()
+    {
+        // The display precision has one owner, BgDataTypes_Lib's EquityLoss
+        // (SPEC-scoring §3, halheinrich/backgammon#202). The renderer's one
+        // numeric format string is the percentages' one decimal, which is not
+        // a cost; no four-decimal format, or any other, returns.
+        string source = RendererSource.Read();
+        var formats = Regex.Matches(source, "\"[FfNn][0-9]+\"").Select(m => m.Value).Distinct();
+
+        Assert.Equal(["\"F1\""], formats);
     }
 
     // -----------------------------------------------------------------------

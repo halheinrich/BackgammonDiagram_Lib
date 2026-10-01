@@ -68,6 +68,30 @@ internal static class TestFixtures
             userDoublerAction: userDoublerAction, userTakerAction: userTakerAction));
 
     /// <summary>
+    /// A cube decision whose gammon fact (<see cref="CubeDecision.GammonsPossible"/>)
+    /// is <paramref name="possible"/>, with the two equities and the played
+    /// actions. Two such decisions differ in that fact alone: each is a money
+    /// session from the standard start with the cube centred, under the
+    /// Jacoby rule exactly when gammons are not possible — the one gate that
+    /// differs. The fact itself is the producer's; the fixture checks it came
+    /// out as asked rather than assuming it.
+    /// </summary>
+    public static CubeDecision CubeWithGammons(bool possible,
+        double noDoubleEquity, double doubleTakeEquity,
+        CubeAction? userDoublerAction = CubeAction.Double, CubeAction? userTakerAction = CubeAction.Take)
+    {
+        var record = TestRecords.Cube(
+            position: TestRecords.Position(session: TestRecords.MoneySession(isJacoby: !possible)),
+            decision: TestRecords.CubeData(
+                noDoubleEquity: noDoubleEquity, doubleTakeEquity: doubleTakeEquity,
+                userDoublerAction: userDoublerAction, userTakerAction: userTakerAction));
+        if (record.GammonsPossible != possible)
+            throw new InvalidOperationException(
+                $"The fixture asked for gammons possible = {possible}; the record says {record.GammonsPossible}.");
+        return record;
+    }
+
+    /// <summary>
     /// A board from slot counts in <see cref="BoardPosition"/>'s layout: slot
     /// 0 the opponent's bar, 1–24 the points, 25 the on-roll player's bar;
     /// positive counts on roll, negative the opponent's. Unnamed slots are 0.
