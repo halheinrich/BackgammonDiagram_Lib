@@ -8,8 +8,8 @@ namespace BackgammonDiagram_Lib.Tests;
 /// Pins <see cref="CubeLabels"/> — the library's one public home for the
 /// wording of a cube answer and a cube action (halheinrich/backgammon#185):
 /// the four answers' full and short labels (SPEC-scoring §3, SPEC-quiz-view
-/// §4), the fourth labelled by its decision's reading, and the four action
-/// labels. Every member is pinned exhaustively over its type, because the
+/// §4), the fourth labelled by its decision's reading, the answer-type
+/// breakdown's four bucket names, and the four action labels. Every member is pinned exhaustively over its type, because the
 /// point of a single label home is that nothing downstream re-spells these
 /// words: a silent change here would ripple through the cube panel,
 /// BgDiag_Razor and BgQuiz at once.
@@ -125,25 +125,58 @@ public class CubeLabelsTests
     }
 
     // -----------------------------------------------------------------------
-    //  The aggregate name: the fourth answer under either label
+    //  The breakdown's bucket names: no decision, one per answer
     // -----------------------------------------------------------------------
 
-    [Fact]
-    public void FourthAnswerUnderEitherLabel_IsTheBreakdownsFourthBucketName()
-        => Assert.Equal("Too good or No double / Pass", CubeLabels.FourthAnswerUnderEitherLabel);
+    [Theory]
+    [InlineData(CubeAnswer.NoDouble, "No double")]
+    [InlineData(CubeAnswer.DoubleTake, "Double / Take")]
+    [InlineData(CubeAnswer.DoublePass, "Double / Pass")]
+    [InlineData(CubeAnswer.NoDoublePass, "Too good or No double / Pass")]
+    public void BreakdownBucketLabel_IsTheBucketsName(CubeAnswer answer, string expected)
+        => Assert.Equal(expected, CubeLabels.BreakdownBucketLabel(answer));
+
+    [Theory]
+    [InlineData(CubeAnswer.NoDouble, true)]
+    [InlineData(CubeAnswer.NoDouble, false)]
+    [InlineData(CubeAnswer.DoubleTake, true)]
+    [InlineData(CubeAnswer.DoubleTake, false)]
+    [InlineData(CubeAnswer.DoublePass, true)]
+    [InlineData(CubeAnswer.DoublePass, false)]
+    public void BreakdownBucketLabel_OfAnAnswerReadOneWay_IsItsFullLabel(CubeAnswer answer, bool gammonsPossible)
+    {
+        // The first three answers read one way at every decision, so their
+        // bucket names are their full labels at any decision: one spelling,
+        // under both gammon facts.
+        Assert.Equal(
+            CubeLabels.Label(answer, DecisionWhereGammons(gammonsPossible)),
+            CubeLabels.BreakdownBucketLabel(answer));
+    }
 
     [Fact]
-    public void FourthAnswerUnderEitherLabel_IsComposedOfTheFourthAnswersTwoFullLabels()
+    public void BreakdownBucketLabel_OfTheFourthAnswer_IsComposedOfItsTwoFullLabels()
     {
         // Composed from the label home's own spellings of the fourth answer,
         // read at a decision of each gammon fact, so neither phrase is spelled
-        // twice. It names the mixed set, and is neither answer's label.
+        // twice. It names the bucket, and is neither reading's label.
         string tooGood = CubeLabels.Label(CubeAnswer.NoDoublePass, DecisionWhereGammons(possible: true));
         string noDoublePass = CubeLabels.Label(CubeAnswer.NoDoublePass, DecisionWhereGammons(possible: false));
+        string bucket = CubeLabels.BreakdownBucketLabel(CubeAnswer.NoDoublePass);
 
-        Assert.Equal(tooGood + " or " + noDoublePass, CubeLabels.FourthAnswerUnderEitherLabel);
-        Assert.NotEqual(tooGood, CubeLabels.FourthAnswerUnderEitherLabel);
-        Assert.NotEqual(noDoublePass, CubeLabels.FourthAnswerUnderEitherLabel);
+        Assert.Equal(tooGood + " or " + noDoublePass, bucket);
+        Assert.NotEqual(tooGood, bucket);
+        Assert.NotEqual(noDoublePass, bucket);
+    }
+
+    [Fact]
+    public void BreakdownBucketLabel_CoversEveryAnswer_AndTellsThemApart()
+    {
+        // Exhaustive by construction: an answer added to CubeAnswer fails
+        // here, and the breakdown's buckets stay distinguishable.
+        var names = Enum.GetValues<CubeAnswer>().Select(CubeLabels.BreakdownBucketLabel).ToList();
+
+        Assert.All(names, name => Assert.False(string.IsNullOrWhiteSpace(name)));
+        Assert.Equal(names.Count, names.Distinct().Count());
     }
 
     // -----------------------------------------------------------------------
@@ -157,17 +190,25 @@ public class CubeLabelsTests
         // from a reading a caller supplies apart from its decision: every
         // public member taking an answer takes the decision too, and none
         // takes a claim (labelling CubeClaim.TooGood would label the fourth
-        // answer from a supplied reading). The aggregate name takes neither
-        // an answer nor a decision, so it passes as what it is: no answer's
-        // label.
+        // answer from a supplied reading).
+        //
+        // One deliberate exception: BreakdownBucketLabel takes an answer
+        // without a decision, because it names the answer-type breakdown's
+        // bucket, which gathers problems across decisions (SPEC-scoring §3,
+        // "The tie"). It labels no answer at a decision, and for the fourth
+        // answer it names both readings rather than choosing one. The
+        // exception is named here, once, so any other member taking an
+        // answer alone still fails.
+        const string bucketName = nameof(CubeLabels.BreakdownBucketLabel);
         var members = typeof(CubeLabels).GetMethods(BindingFlags.Public | BindingFlags.Static);
         Assert.NotEmpty(members);
+        Assert.Single(members, member => member.Name == bucketName);
 
         foreach (var member in members)
         {
             var parameters = member.GetParameters().Select(p => p.ParameterType).ToList();
             Assert.DoesNotContain(typeof(CubeClaim), parameters);
-            if (parameters.Contains(typeof(CubeAnswer)))
+            if (parameters.Contains(typeof(CubeAnswer)) && member.Name != bucketName)
                 Assert.Contains(typeof(CubeDecision), parameters);
         }
     }
@@ -187,6 +228,7 @@ public class CubeLabelsTests
 
         Assert.Throws<ArgumentOutOfRangeException>(() => CubeLabels.Label((CubeAnswer)99, decision));
         Assert.Throws<ArgumentOutOfRangeException>(() => CubeLabels.ShortLabel((CubeAnswer)99, decision));
+        Assert.Throws<ArgumentOutOfRangeException>(() => CubeLabels.BreakdownBucketLabel((CubeAnswer)99));
     }
 
     [Fact]

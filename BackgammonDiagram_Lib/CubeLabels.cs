@@ -5,8 +5,9 @@ namespace BackgammonDiagram_Lib;
 
 /// <summary>
 /// Single source of truth for the user-facing wording of a cube answer and of
-/// a cube action: the four answers, each in a full and a short form, and the
-/// four board actions. Every surface that names a cube answer reads its
+/// a cube action: the four answers, each in a full and a short form, the
+/// answer-type breakdown's four bucket names, and the four board actions.
+/// Every surface that names a cube answer reads its
 /// wording here: this library's own cube panel, and the consuming apps
 /// (halheinrich/backgammon#185).
 /// </summary>
@@ -31,7 +32,8 @@ namespace BackgammonDiagram_Lib;
 /// answer means, are the decision's. So an answer is labelled only together
 /// with the decision it answers; no member labels an answer alone, or from a
 /// claim a caller supplies apart from its decision, and no caller can pair an
-/// answer with another decision's reading.
+/// answer with another decision's reading. (A bucket name, below, names a
+/// bucket of problems, not an answer.)
 /// </para>
 /// <para>
 /// <b>The actions</b> keep their own labels, <c>No double</c>,
@@ -40,12 +42,14 @@ namespace BackgammonDiagram_Lib;
 /// played half recorded without the other.
 /// </para>
 /// <para>
-/// <b>One aggregate name</b>, <see cref="FourthAnswerUnderEitherLabel"/>
-/// (<c>Too good or No double / Pass</c>), names the fourth answer gathered
-/// across decisions under both its labels, as the answer-type breakdown's
-/// fourth bucket does (Hal, 2026-10-01). It names a mixed set, not an answer:
-/// it takes no answer and no decision, and it is never a way to label one
-/// answer without its decision.
+/// <b>The breakdown's bucket names</b>, <see cref="BreakdownBucketLabel"/>,
+/// name the answer-type breakdown's bucket for each answer (SPEC-scoring §3,
+/// "The tie", its breakdown sub-bullet). A bucket gathers problems, so its
+/// name takes no decision: the first three are their answers' full labels,
+/// and the fourth is <c>Too good or No double / Pass</c>, the fourth answer
+/// under either label (Hal, 2026-10-01). A bucket name names a set, not an
+/// answer at a decision, and it is never a way to label one answer without
+/// its decision.
 /// </para>
 /// <para>
 /// One case throughout, sentence case (ruled 2026-09-02,
@@ -67,8 +71,8 @@ public static class CubeLabels
     /// full label. Spaced, as ruled: <c>"Double / Take"</c>.</summary>
     private const string FullSeparator = " / ";
 
-    /// <summary>Joins the fourth answer's two full labels in
-    /// <see cref="FourthAnswerUnderEitherLabel"/>.</summary>
+    /// <summary>Joins the fourth answer's two full labels in its
+    /// <see cref="BreakdownBucketLabel"/>.</summary>
     private const string EitherSeparator = " or ";
 
     /// <summary>
@@ -138,41 +142,81 @@ public static class CubeLabels
     public static string ShortLabel(CubeAnswer answer, CubeDecision decision) => Spell(answer, decision).Short;
 
     /// <summary>
-    /// The name of the fourth answer gathered across decisions under both its
-    /// labels: <c>Too good or No double / Pass</c>, the answer-type
-    /// breakdown's fourth bucket (Hal, 2026-10-01). Composed from the two full
-    /// labels <see cref="Label(CubeAnswer, CubeDecision)"/> gives the fourth
-    /// answer, so neither is spelled twice.
+    /// The name of the answer-type breakdown's bucket for
+    /// <paramref name="answer"/> (SPEC-scoring §3, "The tie", its breakdown
+    /// sub-bullet): <c>No double</c>, <c>Double / Take</c>,
+    /// <c>Double / Pass</c>, and for the fourth answer
+    /// (<see cref="CubeAnswer.NoDoublePass"/>)
+    /// <c>Too good or No double / Pass</c>.
     /// </summary>
     /// <remarks>
-    /// It names a mixed set, not an answer: a set holding the fourth answer
-    /// at decisions where gammons are possible and at decisions where they
-    /// are not. It takes no answer and no decision and infers no gammon
-    /// context, so it is never a label for one answer: one answer is labelled
-    /// only at its decision, by <see cref="Label(CubeAnswer, CubeDecision)"/>
-    /// or <see cref="ShortLabel"/>.
+    /// <para>
+    /// A bucket gathers problems, each at its own decision, so its name takes
+    /// none. The first three answers read one way at every decision, and
+    /// their bucket names are their full labels, from the same table
+    /// <see cref="Label(CubeAnswer, CubeDecision)"/> reads. The fourth bucket
+    /// holds the fourth answer under either label, so its name joins the two
+    /// full labels the fourth answer takes; neither is spelled twice.
+    /// </para>
+    /// <para>
+    /// It names a bucket, not an answer at a decision: it infers no gammon
+    /// context, and it is never a fallback for labelling one answer. One
+    /// answer is labelled only at its decision, by
+    /// <see cref="Label(CubeAnswer, CubeDecision)"/> or
+    /// <see cref="ShortLabel"/>.
+    /// </para>
     /// </remarks>
-    public static string FourthAnswerUnderEitherLabel =>
-        FourthReadTooGood.Full + EitherSeparator + FourthReadNoDouble.Full;
+    /// <param name="answer">The answer whose bucket to name.</param>
+    /// <returns>The sentence-case bucket name.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="answer"/> is not one of the four
+    /// <see cref="CubeAnswer"/> members.
+    /// </exception>
+    public static string BreakdownBucketLabel(CubeAnswer answer) => answer switch
+    {
+        CubeAnswer.NoDoublePass => FourthReadTooGood.Full + EitherSeparator + FourthReadNoDouble.Full,
+        _ => SpellOneReading(answer).Full
+    };
 
     /// <summary>
     /// Both spellings of <paramref name="answer"/> at
-    /// <paramref name="decision"/>, side by side: the one table of answer
-    /// labels, so a full label and its short form cannot drift apart.
+    /// <paramref name="decision"/>, side by side, so a full label and its
+    /// short form cannot drift apart.
     /// </summary>
     private static (string Full, string Short) Spell(CubeAnswer answer, CubeDecision decision)
     {
         ArgumentNullException.ThrowIfNull(decision);
         return answer switch
         {
-            CubeAnswer.NoDouble     => (Label(CubeAction.NoDouble), "ND"),
-            CubeAnswer.DoubleTake   => (Joined(CubeAction.Double, CubeAction.Take), "D/T"),
-            CubeAnswer.DoublePass   => (Joined(CubeAction.Double, CubeAction.Pass), "D/P"),
             CubeAnswer.NoDoublePass => SpellFourth(decision.ClaimOf(answer)),
-            _ => throw new ArgumentOutOfRangeException(nameof(answer), answer,
-                "CubeLabels requires one of the four CubeAnswer members.")
+            _ => SpellOneReading(answer)
         };
     }
+
+    /// <summary>
+    /// Both spellings of an answer that reads one way at every decision: the
+    /// one table of those answers' labels, read by
+    /// <see cref="Label(CubeAnswer, CubeDecision)"/>,
+    /// <see cref="ShortLabel"/> and <see cref="BreakdownBucketLabel"/> alike.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="answer"/> is not one of the four
+    /// <see cref="CubeAnswer"/> members.
+    /// </exception>
+    /// <exception cref="UnreachableException">
+    /// <paramref name="answer"/> is the fourth answer, whose spelling depends
+    /// on its reading: every caller spells it before reaching this table.
+    /// </exception>
+    private static (string Full, string Short) SpellOneReading(CubeAnswer answer) => answer switch
+    {
+        CubeAnswer.NoDouble     => (Label(CubeAction.NoDouble), "ND"),
+        CubeAnswer.DoubleTake   => (Joined(CubeAction.Double, CubeAction.Take), "D/T"),
+        CubeAnswer.DoublePass   => (Joined(CubeAction.Double, CubeAction.Pass), "D/P"),
+        CubeAnswer.NoDoublePass => throw new UnreachableException(
+            "The fourth answer has two readings; its callers spell it before this table."),
+        _ => throw new ArgumentOutOfRangeException(nameof(answer), answer,
+            "CubeLabels requires one of the four CubeAnswer members.")
+    };
 
     /// <summary>
     /// The fourth answer's two spellings for the decision's

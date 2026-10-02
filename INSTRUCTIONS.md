@@ -105,7 +105,8 @@ states why. Four areas:
   `GreyscaleTheme`) only as `ITheme`; and `CustomTheme`, the public
   caller-supplied palette.
 - **Single sources at the root** — `CubeLabels` (the wording of every cube
-  answer, full and short, and of every cube action), `SvgFormat` (invariant
+  answer, full and short, of the answer-type breakdown's buckets, and of
+  every cube action), `SvgFormat` (invariant
   number formatting for SVG attributes),
   and `Watermarks`, the loader for `Assets/board-watermark.png`, the
   pre-baked watermark shipped as an `EmbeddedResource`.
@@ -701,7 +702,8 @@ static BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions opti
 ### `CubeLabels` (core — `BackgammonDiagram_Lib`)
 
 Single source of truth for the user-facing wording of a cube answer, full
-and short, and of a cube action — one case throughout, sentence case. Every
+and short, of the answer-type breakdown's buckets, and of a cube action —
+one case throughout, sentence case. Every
 surface that names a cube answer reads it here: this library's cube panel,
 and the consuming apps (`halheinrich/backgammon#185`).
 
@@ -709,16 +711,16 @@ and the consuming apps (`halheinrich/backgammon#185`).
 static string Label(CubeAction action);                          // No double / Double / Take / Pass
 static string Label(CubeAnswer answer, CubeDecision decision);    // the full label, at its decision
 static string ShortLabel(CubeAnswer answer, CubeDecision decision); // the short label, at its decision
-static string FourthAnswerUnderEitherLabel { get; }               // "Too good or No double / Pass"
+static string BreakdownBucketLabel(CubeAnswer answer);           // the answer-type breakdown's bucket name, no decision
 ```
 
-| `CubeAnswer` | Full | Short |
-|---|---|---|
-| `NoDouble` | `No double` | `ND` |
-| `DoubleTake` | `Double / Take` | `D/T` |
-| `DoublePass` | `Double / Pass` | `D/P` |
-| `NoDoublePass`, read Too good | `Too good` | `TG` |
-| `NoDoublePass`, read No double | `No double / Pass` | `NP` |
+| `CubeAnswer` | Full | Short | Breakdown bucket |
+|---|---|---|---|
+| `NoDouble` | `No double` | `ND` | `No double` |
+| `DoubleTake` | `Double / Take` | `D/T` | `Double / Take` |
+| `DoublePass` | `Double / Pass` | `D/P` | `Double / Pass` |
+| `NoDoublePass`, read Too good | `Too good` | `TG` | `Too good or No double / Pass` |
+| `NoDoublePass`, read No double | `No double / Pass` | `NP` | `Too good or No double / Pass` |
 
 **The answers** are SPEC-scoring §3's four (amended 2026-09-30 and
 2026-10-01). The short labels are SPEC-quiz-view §4's ("The action row
@@ -736,26 +738,31 @@ gammons are possible, and what the answer means, are BgDataTypes_Lib's;
 this type renders the reading and re-checks no rule. So every answer is
 labelled together with the decision it answers: no member labels an
 answer alone, or from a claim a caller supplies apart from its decision,
-and no caller can pair an answer with another decision's reading.
+and no caller can pair an answer with another decision's reading. (A
+bucket name, below, names a bucket of problems, not an answer.)
 `PublicSurface_LabelsAnAnswerOnlyWithItsDecision_AndNeverAClaim` pins
 that shape.
 
-**The aggregate name** `FourthAnswerUnderEitherLabel` is
-`Too good or No double / Pass` (Hal, 2026-10-01): the answer-type
-breakdown's fourth bucket, which gathers the fourth answer across
-decisions under both its labels. It is composed from the two full labels
-the type gives the fourth answer, so neither is spelled twice. It names a
-mixed set, not an answer: it takes no answer and no decision, infers no
-gammon context, and is never a fallback for labelling one answer without
-its decision. BgQuiz_Blazor's breakdown is its consumer.
+**The breakdown's bucket names** come from `BreakdownBucketLabel`, one per
+answer (SPEC-scoring §3, "The tie", its breakdown sub-bullet). A bucket
+gathers problems, each at its own decision, so its name takes none. The
+first three are their answers' full labels, read from the same table as
+`Label(answer, decision)`, so each phrase has one spelling. The fourth is
+`Too good or No double / Pass` (Hal, 2026-10-01), joining the two full
+labels the fourth answer takes. A bucket name names a bucket, not an
+answer at a decision: it infers no gammon context and is never a fallback
+for labelling one answer without its decision. It is the one public member
+taking an answer without its decision, and the surface pin above names it
+as that pin's one exception. BgQuiz_Blazor's breakdown is its consumer.
 
 **The actions** keep their labels for what is an action, not an answer:
 the cube panel's equity table, and a played half recorded without the
 other.
 
 Every member is exhaustive over its type and throws
-`ArgumentOutOfRangeException` outside it, and the answer members throw
-`ArgumentNullException` without a decision, whichever the answer. A
+`ArgumentOutOfRangeException` outside it, and the members labelling an
+answer at its decision throw `ArgumentNullException` without one,
+whichever the answer. A
 decision reading the fourth answer as a claim it cannot make is a broken
 producer contract, refused with `UnreachableException`. There is no
 display fallback: an unlabelled value is a programming error, and
