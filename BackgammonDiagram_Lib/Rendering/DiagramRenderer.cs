@@ -1536,9 +1536,10 @@ public static class DiagramRenderer
         // each other. They are the analysis's action facts, not what the
         // scoring charges: a cube answer's cost is the producer's
         // CubeDecision.CostOf, which adds the response the answer commits to
-        // and, where gammons are possible, charges SPEC-scoring §3's two
-        // conventions for misreadings that lose no equity
-        // (halheinrich/backgammon#326).
+        // and follows SPEC-scoring §3, whose two conventions are charged by
+        // rule rather than by a board action's loss, so a cost can differ
+        // from the action errors this table shows (SPEC-scoring §3, "Two
+        // conventions"; halheinrich/backgammon#326).
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
             label: CubeLabels.Label(CubeAction.NoDouble), equity: d.ActionEquity(CubeAction.NoDouble), loss: d.DoublerActionError(CubeAction.NoDouble));
         y = AppendCubeRow(sb, textX, equityX, lossX, y, textColor, dimColor,
