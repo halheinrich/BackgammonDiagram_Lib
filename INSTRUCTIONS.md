@@ -105,8 +105,10 @@ states why. Four areas:
   `GreyscaleTheme`) only as `ITheme`; and `CustomTheme`, the public
   caller-supplied palette.
 - **Single sources at the root** — `CubeLabels` (the wording of every cube
-  answer, full and short, of the answer-type breakdown's buckets, and of
-  every cube action), `SvgFormat` (invariant
+  answer, full and short, at its decision and in every spelling it can take
+  without one, of the answer-type breakdown's buckets, and of every cube
+  action) with its `CubeAnswerSpelling` (an answer's full and short label
+  under one reading), `SvgFormat` (invariant
   number formatting for SVG attributes),
   and `Watermarks`, the loader for `Assets/board-watermark.png`, the
   pre-baked watermark shipped as an `EmbeddedResource`.
@@ -564,6 +566,25 @@ percentages, which are not costs, keep their one decimal.
   - No italic treatment — a single analysis depth value has no adjacent
     rank to compare against.
 
+### Every spelling a cube answer can take
+
+A host sizes its action row from one width budget, and the budget must
+hold the cube pills at their widest before any cube decision is on screen:
+SPEC-quiz-view §4, "One budget from the outset", states the rule and the
+chain that meets it. `CubeLabels` labels an answer only at its decision,
+and the fourth answer's label is the decision's reading of it, so no label
+could tell a host how wide the pills can be before a cube problem arrives.
+`CubeLabels.Spellings(answer)` does, without a decision: every spelling
+the answer can take, each a `CubeAnswerSpelling`, its full and short
+labels under one reading together.
+
+One table serves every member. A spelling is the table's unit:
+`Label` and `ShortLabel` read the one a decision chooses, `Spellings`
+lists them all, and `BreakdownBucketLabel` joins their full labels with
+`" or "`, so the fourth answer's two readings, and their order, are
+stated once. Like the bucket name, `Spellings` takes an answer without
+its decision and labels nothing (see Public API).
+
 ### Watermark
 
 On-by-default board watermark driven by `DiagramOptions.WatermarkImage`
@@ -677,7 +698,10 @@ the renderer's live `Dictionary` behind `IReadOnlyDictionary` and now holds
 an immutable copy taken on init. The renderers' `byte[]` results
 (`RenderPng`, `RenderPdf`, `RenderPptx`, `ISvgRasterizer.Rasterize`) are
 fresh arrays each call, owned by the caller, so they hand out nothing
-shared. `CollectionRiderTests` pins each site, and sweeps the shipped
+shared. `CubeLabels.Spellings` returns an `ImmutableArray` of immutable
+`CubeAnswerSpelling`s, so it hands out nothing a caller can change either
+(`CubeLabelsTests.Spellings_CannotBeChangedByACaller`).
+`CollectionRiderTests` pins each site, and sweeps the shipped
 assemblies' public properties for an array type.
 
 ### TestData
@@ -702,8 +726,9 @@ static BoardHitRegions GetHitRegions(DiagramRequest request, DiagramOptions opti
 ### `CubeLabels` (core — `BackgammonDiagram_Lib`)
 
 Single source of truth for the user-facing wording of a cube answer, full
-and short, of the answer-type breakdown's buckets, and of a cube action —
-one case throughout, sentence case. Every
+and short, of every spelling an answer can take, of the answer-type
+breakdown's buckets, and of a cube action — one case throughout, sentence
+case. Every
 surface that names a cube answer reads it here: this library's cube panel,
 and the consuming apps (`halheinrich/backgammon#185`).
 
@@ -711,7 +736,14 @@ and the consuming apps (`halheinrich/backgammon#185`).
 static string Label(CubeAction action);                          // No double / Double / Take / Pass
 static string Label(CubeAnswer answer, CubeDecision decision);    // the full label, at its decision
 static string ShortLabel(CubeAnswer answer, CubeDecision decision); // the short label, at its decision
+static ImmutableArray<CubeAnswerSpelling> Spellings(CubeAnswer answer); // every spelling it can take, no decision
 static string BreakdownBucketLabel(CubeAnswer answer);           // the answer-type breakdown's bucket name, no decision
+
+sealed record CubeAnswerSpelling   // made only here: its constructor is internal
+{
+    string Full  { get; }   // the full label
+    string Short { get; }   // the short label
+}
 ```
 
 | `CubeAnswer` | Full | Short | Breakdown bucket |
@@ -738,22 +770,43 @@ gammons are possible, and what the answer means, are BgDataTypes_Lib's;
 this type renders the reading and re-checks no rule. So every answer is
 labelled together with the decision it answers: no member labels an
 answer alone, or from a claim a caller supplies apart from its decision,
-and no caller can pair an answer with another decision's reading. (A
-bucket name, below, names a bucket of problems, not an answer.)
+and no caller can pair an answer with another decision's reading. (An
+answer's spellings and a bucket name, below, label no answer: the one
+lists what a row of answers must make room for, the other names a bucket
+of problems.)
 `PublicSurface_LabelsAnAnswerOnlyWithItsDecision_AndNeverAClaim` pins
 that shape.
 
+**Every spelling an answer can take** comes from `Spellings`, which takes
+no decision, for a host sizing a row of answers before any cube decision
+is on screen (SPEC-quiz-view §4, "One budget from the outset"; see
+Architecture, "Every spelling a cube answer can take"). Each
+`CubeAnswerSpelling` is one row of the table above, an answer's full and
+short labels under one reading together: one for each of the first three
+answers, and two for the fourth, `Too good` / `TG` first and
+`No double / Pass` / `NP` second, the order its bucket name joins them
+in. They are the
+pairs `Label` and `ShortLabel` read, from the one table, so no string is
+written twice. It labels nothing: it infers no gammon context, its order
+says nothing about which reading a decision takes, and it is never a
+fallback for labelling one answer, which is `Label(answer, decision)`'s
+and `ShortLabel`'s alone. A spelling carries no reading, so no caller can
+look a label up by a claim. The result is an immutable array of immutable
+values, and only this type makes a spelling; its `ToString` is a record's
+diagnostic form, not a label.
+
 **The breakdown's bucket names** come from `BreakdownBucketLabel`, one per
 answer (SPEC-scoring §3, "The tie", its breakdown sub-bullet). A bucket
-gathers problems, each at its own decision, so its name takes none. The
-first three are their answers' full labels, read from the same table as
-`Label(answer, decision)`, so each phrase has one spelling. The fourth is
-`Too good or No double / Pass` (Hal, 2026-10-01), joining the two full
-labels the fourth answer takes. A bucket name names a bucket, not an
+gathers problems, each at its own decision, so its name takes none: it
+joins the full labels of its answer's spellings with `" or "`. The first
+three are their answers' full labels, and the fourth is
+`Too good or No double / Pass` (Hal, 2026-10-01), the two full labels the
+fourth answer takes. A bucket name names a bucket, not an
 answer at a decision: it infers no gammon context and is never a fallback
-for labelling one answer without its decision. It is the one public member
-taking an answer without its decision, and the surface pin above names it
-as that pin's one exception. BgQuiz_Blazor's breakdown is its consumer.
+for labelling one answer without its decision. It and `Spellings` are the
+two public members taking an answer without its decision, and the surface
+pin above names them as that pin's two exceptions. BgQuiz_Blazor's
+breakdown is its consumer.
 
 **The actions** keep their labels for what is an action, not an answer:
 the cube panel's equity table, and a played half recorded without the
@@ -965,6 +1018,13 @@ to supply their own palette.
   `CubeAnswerExtensions.Of`, never by classifying the pair here: whether
   the fourth answer reads Too good is the decision's, through
   `CubeDecision.ClaimOf`.
+- **`CubeLabels.Spellings` is never a labelling fallback.** It lists every
+  spelling an answer can take, so a host can size a row before any
+  decision is on screen. Never label an answer with one of its spellings,
+  the first or the only: for the fourth answer that guesses the decision's
+  reading, and for the others it routes a label around the decision it
+  belongs to. Label one answer with `Label(answer, decision)` or
+  `ShortLabel`.
 - **The cube table's losses are not answer costs.** Each row is an
   action's error; an answer's cost is `CubeDecision.CostOf`. Anything that
   asks which answers are correct (the Best line) reads the costs, never

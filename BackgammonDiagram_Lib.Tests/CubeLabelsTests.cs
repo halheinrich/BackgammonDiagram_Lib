@@ -8,8 +8,9 @@ namespace BackgammonDiagram_Lib.Tests;
 /// Pins <see cref="CubeLabels"/> — the library's one public home for the
 /// wording of a cube answer and a cube action (halheinrich/backgammon#185):
 /// the four answers' full and short labels (SPEC-scoring §3, SPEC-quiz-view
-/// §4), the fourth labelled by its decision's reading, the answer-type
-/// breakdown's four bucket names, and the four action labels. Every member is pinned exhaustively over its type, because the
+/// §4), the fourth labelled by its decision's reading, every spelling each
+/// answer can take, the answer-type breakdown's four bucket names, and the
+/// four action labels. Every member is pinned exhaustively over its type, because the
 /// point of a single label home is that nothing downstream re-spells these
 /// words: a silent change here would ripple through the cube panel,
 /// BgDiag_Razor and BgQuiz at once.
@@ -125,6 +126,75 @@ public class CubeLabelsTests
     }
 
     // -----------------------------------------------------------------------
+    //  Every spelling an answer can take: no decision, for sizing a row
+    // -----------------------------------------------------------------------
+
+    /// <summary><paramref name="answer"/>'s spellings as (full, short) pairs, in order.</summary>
+    private static List<(string Full, string Short)> SpellingsOf(CubeAnswer answer) =>
+        CubeLabels.Spellings(answer).Select(spelling => (spelling.Full, spelling.Short)).ToList();
+
+    [Fact]
+    public void Spellings_AreEachAnswersFullAndShortLabels_TheFourthsTooGoodFirst()
+    {
+        // Exact, full and short together, one per reading: one for each of
+        // the first three answers, two for the fourth in a stated order, Too
+        // good first, as its bucket name joins them.
+        Assert.Equal([("No double", "ND")], SpellingsOf(CubeAnswer.NoDouble));
+        Assert.Equal([("Double / Take", "D/T")], SpellingsOf(CubeAnswer.DoubleTake));
+        Assert.Equal([("Double / Pass", "D/P")], SpellingsOf(CubeAnswer.DoublePass));
+        Assert.Equal([("Too good", "TG"), ("No double / Pass", "NP")], SpellingsOf(CubeAnswer.NoDoublePass));
+    }
+
+    [Fact]
+    public void Spellings_AreExactlyThePairsTheLabelsGive_AtDecisionsReadingTheFourthEachWay()
+    {
+        // At each decision an answer's full and short labels, taken together,
+        // are one of its spellings; and every spelling is one a decision
+        // gives. So the list is neither short of a spelling a row can show
+        // nor padded with one it never shows. The two decisions read the
+        // fourth answer each way, checked rather than assumed. Exhaustive by
+        // construction: an answer added to CubeAnswer is checked here too.
+        var decisions = new[] { DecisionWhereGammons(possible: true), DecisionWhereGammons(possible: false) };
+        Assert.Equal(
+            [CubeClaim.TooGood, CubeClaim.NoDouble],
+            decisions.Select(decision => decision.ClaimOf(CubeAnswer.NoDoublePass)));
+
+        foreach (CubeAnswer answer in Enum.GetValues<CubeAnswer>())
+        {
+            var given = decisions
+                .Select(decision => (CubeLabels.Label(answer, decision), CubeLabels.ShortLabel(answer, decision)))
+                .Distinct()
+                .Order();
+
+            Assert.Equal(given, SpellingsOf(answer).Order());
+        }
+    }
+
+    [Fact]
+    public void Spellings_CannotBeChangedByACaller()
+    {
+        // An immutable array of immutable spellings. The array refuses every
+        // change through the collection interfaces it implements. A spelling
+        // has no setter, init included, and no public constructor, so every
+        // spelling a caller holds carries the label home's labels. The result
+        // held and the next read are both unchanged.
+        var spellings = CubeLabels.Spellings(CubeAnswer.NoDoublePass);
+        var asList = (IList<CubeAnswerSpelling>)spellings;
+
+        Assert.True(asList.IsReadOnly);
+        Assert.Throws<NotSupportedException>(() => asList[0] = asList[1]);
+        Assert.Throws<NotSupportedException>(() => asList.Add(asList[0]));
+        Assert.Throws<NotSupportedException>(() => asList.RemoveAt(0));
+        Assert.Throws<NotSupportedException>(() => ((System.Collections.IList)spellings).Clear());
+
+        Assert.All(typeof(CubeAnswerSpelling).GetProperties(), property => Assert.Null(property.SetMethod));
+        Assert.Empty(typeof(CubeAnswerSpelling).GetConstructors());
+
+        Assert.Equal([("Too good", "TG"), ("No double / Pass", "NP")], spellings.Select(spelling => (spelling.Full, spelling.Short)));
+        Assert.Equal([("Too good", "TG"), ("No double / Pass", "NP")], SpellingsOf(CubeAnswer.NoDoublePass));
+    }
+
+    // -----------------------------------------------------------------------
     //  The breakdown's bucket names: no decision, one per answer
     // -----------------------------------------------------------------------
 
@@ -169,6 +239,18 @@ public class CubeLabelsTests
     }
 
     [Fact]
+    public void BreakdownBucketLabel_JoinsTheFullLabelsOfItsAnswersSpellings()
+    {
+        // The fourth answer's two readings, and their order, are stated once
+        // for the bucket names and the spellings both: each bucket name is
+        // its answer's spellings' full labels, in order, joined by " or ".
+        foreach (CubeAnswer answer in Enum.GetValues<CubeAnswer>())
+            Assert.Equal(
+                string.Join(" or ", CubeLabels.Spellings(answer).Select(spelling => spelling.Full)),
+                CubeLabels.BreakdownBucketLabel(answer));
+    }
+
+    [Fact]
     public void BreakdownBucketLabel_CoversEveryAnswer_AndTellsThemApart()
     {
         // Exhaustive by construction: an answer added to CubeAnswer fails
@@ -192,25 +274,33 @@ public class CubeLabelsTests
         // takes a claim (labelling CubeClaim.TooGood would label the fourth
         // answer from a supplied reading).
         //
-        // One deliberate exception: BreakdownBucketLabel takes an answer
-        // without a decision, because it names the answer-type breakdown's
-        // bucket, which gathers problems across decisions (SPEC-scoring §3,
-        // "The tie"). It labels no answer at a decision, and for the fourth
-        // answer it names both readings rather than choosing one. The
-        // exception is named here, once, so any other member taking an
-        // answer alone still fails.
-        const string bucketName = nameof(CubeLabels.BreakdownBucketLabel);
+        // Two deliberate exceptions take an answer without a decision, and
+        // neither labels an answer at a decision; for the fourth answer each
+        // gives both readings rather than choosing one:
+        // - BreakdownBucketLabel names the answer-type breakdown's bucket,
+        //   which gathers problems across decisions (SPEC-scoring §3, "The
+        //   tie").
+        // - Spellings lists every spelling an answer can take, for a host
+        //   sizing a row of answers before any cube decision is on screen
+        //   (SPEC-quiz-view §4, "One budget from the outset").
+        // The exceptions are named here, once, so any other member taking an
+        // answer alone still fails. A spelling carries no reading either, so
+        // no caller can look a label up by a claim.
+        string[] withoutADecision = [nameof(CubeLabels.BreakdownBucketLabel), nameof(CubeLabels.Spellings)];
         var members = typeof(CubeLabels).GetMethods(BindingFlags.Public | BindingFlags.Static);
         Assert.NotEmpty(members);
-        Assert.Single(members, member => member.Name == bucketName);
+        foreach (var name in withoutADecision)
+            Assert.Single(members, member => member.Name == name);
 
         foreach (var member in members)
         {
             var parameters = member.GetParameters().Select(p => p.ParameterType).ToList();
             Assert.DoesNotContain(typeof(CubeClaim), parameters);
-            if (parameters.Contains(typeof(CubeAnswer)) && member.Name != bucketName)
+            if (parameters.Contains(typeof(CubeAnswer)) && !withoutADecision.Contains(member.Name))
                 Assert.Contains(typeof(CubeDecision), parameters);
         }
+
+        Assert.DoesNotContain(typeof(CubeClaim), typeof(CubeAnswerSpelling).GetProperties().Select(p => p.PropertyType));
     }
 
     // -----------------------------------------------------------------------
@@ -229,6 +319,7 @@ public class CubeLabelsTests
         Assert.Throws<ArgumentOutOfRangeException>(() => CubeLabels.Label((CubeAnswer)99, decision));
         Assert.Throws<ArgumentOutOfRangeException>(() => CubeLabels.ShortLabel((CubeAnswer)99, decision));
         Assert.Throws<ArgumentOutOfRangeException>(() => CubeLabels.BreakdownBucketLabel((CubeAnswer)99));
+        Assert.Throws<ArgumentOutOfRangeException>(() => CubeLabels.Spellings((CubeAnswer)99));
     }
 
     [Fact]

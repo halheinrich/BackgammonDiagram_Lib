@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Diagnostics;
 using BgDataTypes_Lib;
 
@@ -5,8 +6,9 @@ namespace BackgammonDiagram_Lib;
 
 /// <summary>
 /// Single source of truth for the user-facing wording of a cube answer and of
-/// a cube action: the four answers, each in a full and a short form, the
-/// answer-type breakdown's four bucket names, and the four board actions.
+/// a cube action: the four answers, each in a full and a short form, every
+/// spelling each answer can take, the answer-type breakdown's four bucket
+/// names, and the four board actions.
 /// Every surface that names a cube answer reads its
 /// wording here: this library's own cube panel, and the consuming apps
 /// (halheinrich/backgammon#185).
@@ -32,8 +34,19 @@ namespace BackgammonDiagram_Lib;
 /// answer means, are the decision's. So an answer is labelled only together
 /// with the decision it answers; no member labels an answer alone, or from a
 /// claim a caller supplies apart from its decision, and no caller can pair an
-/// answer with another decision's reading. (A bucket name, below, names a
-/// bucket of problems, not an answer.)
+/// answer with another decision's reading. (An answer's spellings and a
+/// bucket name, below, label no answer: the one lists what a row of answers
+/// must make room for, the other names a bucket of problems.)
+/// </para>
+/// <para>
+/// <b>Every spelling an answer can take</b>, <see cref="Spellings"/>, is
+/// for a host that sizes a row of answers before any cube decision is on
+/// screen (SPEC-quiz-view §4, "One budget from the outset"). A spelling
+/// (<see cref="CubeAnswerSpelling"/>) is an answer's full and short label
+/// under one reading, together: one for each of the first three answers,
+/// which read one way at every decision, and two for the fourth. It takes
+/// no decision and labels nothing: it infers no gammon context, and it is
+/// never a way to label one answer without its decision.
 /// </para>
 /// <para>
 /// <b>The actions</b> keep their own labels, <c>No double</c>,
@@ -45,11 +58,11 @@ namespace BackgammonDiagram_Lib;
 /// <b>The breakdown's bucket names</b>, <see cref="BreakdownBucketLabel"/>,
 /// name the answer-type breakdown's bucket for each answer (SPEC-scoring §3,
 /// "The tie", its breakdown sub-bullet). A bucket gathers problems, so its
-/// name takes no decision: the first three are their answers' full labels,
-/// and the fourth is <c>Too good or No double / Pass</c>, the fourth answer
-/// under either label (Hal, 2026-10-01). A bucket name names a set, not an
-/// answer at a decision, and it is never a way to label one answer without
-/// its decision.
+/// name takes no decision: it joins the full labels of its answer's
+/// spellings. The first three are their answers' full labels, and the fourth
+/// is <c>Too good or No double / Pass</c>, the fourth answer under either
+/// label (Hal, 2026-10-01). A bucket name names a set, not an answer at a
+/// decision, and it is never a way to label one answer without its decision.
 /// </para>
 /// <para>
 /// One case throughout, sentence case (ruled 2026-09-02,
@@ -71,8 +84,8 @@ public static class CubeLabels
     /// full label. Spaced, as ruled: <c>"Double / Take"</c>.</summary>
     private const string FullSeparator = " / ";
 
-    /// <summary>Joins the fourth answer's two full labels in its
-    /// <see cref="BreakdownBucketLabel"/>.</summary>
+    /// <summary>Joins the full labels of an answer's spellings in its
+    /// <see cref="BreakdownBucketLabel"/>: the fourth answer's two.</summary>
     private const string EitherSeparator = " or ";
 
     /// <summary>
@@ -142,6 +155,50 @@ public static class CubeLabels
     public static string ShortLabel(CubeAnswer answer, CubeDecision decision) => Spell(answer, decision).Short;
 
     /// <summary>
+    /// Every spelling <paramref name="answer"/> can take at some decision,
+    /// each its full and its short label together: one for <c>No double</c>,
+    /// <c>Double / Take</c> and <c>Double / Pass</c>, which read one way at
+    /// every decision, and two for the fourth answer
+    /// (<see cref="CubeAnswer.NoDoublePass"/>), <c>Too good</c> / <c>TG</c>
+    /// first and <c>No double / Pass</c> / <c>NP</c> second.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It answers which spellings an answer can show, for a host that sizes a
+    /// row of answers before any cube decision is on screen and so measures
+    /// the row at its widest across every spelling here (SPEC-quiz-view §4,
+    /// "One budget from the outset"). The spellings are the ones
+    /// <see cref="Label(CubeAnswer, CubeDecision)"/> and
+    /// <see cref="ShortLabel"/> hand out, from the same table, so none is
+    /// spelled twice.
+    /// </para>
+    /// <para>
+    /// It labels nothing: it infers no gammon context, and it is never a
+    /// fallback for labelling one answer. The fourth answer's two come in the
+    /// order its bucket name joins them (<see cref="BreakdownBucketLabel"/>),
+    /// which says nothing about which reading a decision takes, so neither is
+    /// a default. One answer is labelled only at its decision, by
+    /// <see cref="Label(CubeAnswer, CubeDecision)"/> or
+    /// <see cref="ShortLabel"/>.
+    /// </para>
+    /// <para>
+    /// Each call returns an immutable array of immutable spellings, which no
+    /// caller can change.
+    /// </para>
+    /// </remarks>
+    /// <param name="answer">The answer whose spellings to list.</param>
+    /// <returns>The answer's spellings, one per reading.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="answer"/> is not one of the four
+    /// <see cref="CubeAnswer"/> members.
+    /// </exception>
+    public static ImmutableArray<CubeAnswerSpelling> Spellings(CubeAnswer answer) => answer switch
+    {
+        CubeAnswer.NoDoublePass => [FourthReadTooGood, FourthReadNoDouble],
+        _ => [SpellOneReading(answer)]
+    };
+
+    /// <summary>
     /// The name of the answer-type breakdown's bucket for
     /// <paramref name="answer"/> (SPEC-scoring §3, "The tie", its breakdown
     /// sub-bullet): <c>No double</c>, <c>Double / Take</c>,
@@ -152,11 +209,12 @@ public static class CubeLabels
     /// <remarks>
     /// <para>
     /// A bucket gathers problems, each at its own decision, so its name takes
-    /// none. The first three answers read one way at every decision, and
-    /// their bucket names are their full labels, from the same table
-    /// <see cref="Label(CubeAnswer, CubeDecision)"/> reads. The fourth bucket
-    /// holds the fourth answer under either label, so its name joins the two
-    /// full labels the fourth answer takes; neither is spelled twice.
+    /// none: it joins the full labels of every spelling its answer can take
+    /// (<see cref="Spellings"/>). The first three answers read one way at
+    /// every decision, so their bucket names are their full labels. The
+    /// fourth bucket holds the fourth answer under either label, so its name
+    /// joins the two full labels the fourth answer takes; neither is spelled
+    /// twice.
     /// </para>
     /// <para>
     /// It names a bucket, not an answer at a decision: it infers no gammon
@@ -172,18 +230,15 @@ public static class CubeLabels
     /// <paramref name="answer"/> is not one of the four
     /// <see cref="CubeAnswer"/> members.
     /// </exception>
-    public static string BreakdownBucketLabel(CubeAnswer answer) => answer switch
-    {
-        CubeAnswer.NoDoublePass => FourthReadTooGood.Full + EitherSeparator + FourthReadNoDouble.Full,
-        _ => SpellOneReading(answer).Full
-    };
+    public static string BreakdownBucketLabel(CubeAnswer answer) =>
+        string.Join(EitherSeparator, Spellings(answer).Select(spelling => spelling.Full));
 
     /// <summary>
-    /// Both spellings of <paramref name="answer"/> at
-    /// <paramref name="decision"/>, side by side, so a full label and its
-    /// short form cannot drift apart.
+    /// The spelling of <paramref name="answer"/> at
+    /// <paramref name="decision"/>: its full and short labels together, so a
+    /// full label and its short form cannot drift apart.
     /// </summary>
-    private static (string Full, string Short) Spell(CubeAnswer answer, CubeDecision decision)
+    private static CubeAnswerSpelling Spell(CubeAnswer answer, CubeDecision decision)
     {
         ArgumentNullException.ThrowIfNull(decision);
         return answer switch
@@ -194,10 +249,11 @@ public static class CubeLabels
     }
 
     /// <summary>
-    /// Both spellings of an answer that reads one way at every decision: the
+    /// The spelling of an answer that reads one way at every decision: the
     /// one table of those answers' labels, read by
     /// <see cref="Label(CubeAnswer, CubeDecision)"/>,
-    /// <see cref="ShortLabel"/> and <see cref="BreakdownBucketLabel"/> alike.
+    /// <see cref="ShortLabel"/> and <see cref="Spellings"/> alike, and through
+    /// <see cref="Spellings"/> by <see cref="BreakdownBucketLabel"/>.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="answer"/> is not one of the four
@@ -207,11 +263,11 @@ public static class CubeLabels
     /// <paramref name="answer"/> is the fourth answer, whose spelling depends
     /// on its reading: every caller spells it before reaching this table.
     /// </exception>
-    private static (string Full, string Short) SpellOneReading(CubeAnswer answer) => answer switch
+    private static CubeAnswerSpelling SpellOneReading(CubeAnswer answer) => answer switch
     {
-        CubeAnswer.NoDouble     => (Label(CubeAction.NoDouble), "ND"),
-        CubeAnswer.DoubleTake   => (Joined(CubeAction.Double, CubeAction.Take), "D/T"),
-        CubeAnswer.DoublePass   => (Joined(CubeAction.Double, CubeAction.Pass), "D/P"),
+        CubeAnswer.NoDouble     => new(Label(CubeAction.NoDouble), "ND"),
+        CubeAnswer.DoubleTake   => new(Joined(CubeAction.Double, CubeAction.Take), "D/T"),
+        CubeAnswer.DoublePass   => new(Joined(CubeAction.Double, CubeAction.Pass), "D/P"),
         CubeAnswer.NoDoublePass => throw new UnreachableException(
             "The fourth answer has two readings; its callers spell it before this table."),
         _ => throw new ArgumentOutOfRangeException(nameof(answer), answer,
@@ -219,7 +275,7 @@ public static class CubeLabels
     };
 
     /// <summary>
-    /// The fourth answer's two spellings for the decision's
+    /// The fourth answer's spelling for the decision's
     /// <paramref name="reading"/> of it: Too good where it reads
     /// <see cref="CubeClaim.TooGood"/>, No double / Pass where it reads
     /// <see cref="CubeClaim.NoDouble"/>. The reading is rendered, never
@@ -231,7 +287,7 @@ public static class CubeLabels
     /// <see cref="CubeClaim"/>): a broken producer contract, which no label
     /// can stand for.
     /// </exception>
-    private static (string Full, string Short) SpellFourth(CubeClaim reading) => reading switch
+    private static CubeAnswerSpelling SpellFourth(CubeClaim reading) => reading switch
     {
         CubeClaim.TooGood  => FourthReadTooGood,
         CubeClaim.NoDouble => FourthReadNoDouble,
@@ -239,13 +295,13 @@ public static class CubeLabels
             $"CubeDecision.ClaimOf read the fourth answer as {reading}; it reads TooGood or NoDouble.")
     };
 
-    /// <summary>The fourth answer's spellings where it reads Too good.</summary>
-    private static (string Full, string Short) FourthReadTooGood => ("Too good", "TG");
+    /// <summary>The fourth answer's spelling where it reads Too good.</summary>
+    private static CubeAnswerSpelling FourthReadTooGood => new("Too good", "TG");
 
-    /// <summary>The fourth answer's spellings where it reads No double, with
+    /// <summary>The fourth answer's spelling where it reads No double, with
     /// its pass.</summary>
-    private static (string Full, string Short) FourthReadNoDouble =>
-        (Joined(CubeAction.NoDouble, CubeAction.Pass), "NP");
+    private static CubeAnswerSpelling FourthReadNoDouble =>
+        new(Joined(CubeAction.NoDouble, CubeAction.Pass), "NP");
 
     /// <summary>A full label naming a doubling action and a response, each in
     /// its own action label.</summary>
