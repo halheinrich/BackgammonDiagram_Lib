@@ -69,6 +69,7 @@ public static class DiagramRasterRenderer
     /// page is rasterized and after the last, between pages as the document is
     /// composed, and after QuestPDF's generation returns.</param>
     /// <returns>The PDF file bytes.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="requests"/> is <c>null</c>.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/>
     /// was cancelled; no document is returned.</exception>
     /// <remarks>
@@ -82,6 +83,7 @@ public static class DiagramRasterRenderer
     public static byte[] RenderPdf(IEnumerable<DiagramRequest> requests, DiagramOptions options,
         ISvgRasterizer? rasterizer = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(requests);
         var pages = RenderOverlayPages(requests, options, rasterizer, cancellationToken);
         return PdfBuilder.Build(pages, cancellationToken);
     }
@@ -116,6 +118,7 @@ public static class DiagramRasterRenderer
     /// before each entry of each package fix-up pass, and after each package
     /// write returns.</param>
     /// <returns>The PPTX file bytes.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="requests"/> is <c>null</c>.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/>
     /// was cancelled; no document is returned.</exception>
     /// <remarks>Three kinds of call run to their end once entered: one page's
@@ -126,6 +129,7 @@ public static class DiagramRasterRenderer
     public static byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options,
         ISvgRasterizer? rasterizer = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(requests);
         var pages = RenderOverlayPages(requests, options, rasterizer, cancellationToken);
         return PptxBuilder.Build(pages, cancellationToken);
     }

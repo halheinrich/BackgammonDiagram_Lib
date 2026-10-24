@@ -131,6 +131,19 @@ public class DeckCancellationTests
         Assert.Equal(EntryHashes(without), EntryHashes(with));
     }
 
+    [Theory]
+    [InlineData(DeckFormat.Pdf)]
+    [InlineData(DeckFormat.Pptx)]
+    public void NullRequests_ThrowsArgumentNull(DeckFormat format)
+    {
+        var rasterizer = new CancellingRasterizer();
+
+        var ex = Assert.Throws<ArgumentNullException>(
+            () => Render(format, null!, rasterizer, CancellationToken.None));
+        Assert.Equal("requests", ex.ParamName);
+        Assert.Equal(0, rasterizer.Calls);
+    }
+
     // -----------------------------------------------------------------------
     //  The builders' own loops
     // -----------------------------------------------------------------------
