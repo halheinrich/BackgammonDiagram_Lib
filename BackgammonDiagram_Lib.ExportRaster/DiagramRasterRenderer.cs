@@ -53,7 +53,7 @@ public static class DiagramRasterRenderer
     public static byte[] RenderPdf(DiagramRequest request, DiagramOptions options,
         ISvgRasterizer? rasterizer = null)
     {
-        return PdfBuilder.Build([RenderOverlayPage(request, options, rasterizer)]);
+        return PdfBuilder.Build([RenderOverlayPage(request, options, rasterizer)], CancellationToken.None);
     }
 
     /// <summary>
@@ -65,14 +65,25 @@ public static class DiagramRasterRenderer
     /// so it cannot duplicate the text overlay.</param>
     /// <param name="rasterizer">SVG→PNG backend; when <c>null</c>, a shared
     /// built-in <see cref="SkiaSharpRasterizer"/> is used.</param>
+    /// <param name="cancellationToken">Stops the render. Honoured before each
+    /// page is rasterized and after the last, between pages as the document is
+    /// composed, and after QuestPDF's generation returns.</param>
     /// <returns>The PDF file bytes.</returns>
-    /// <remarks>The caller owns the QuestPDF license: set
-    /// <c>QuestPDF.Settings.License</c> before calling.</remarks>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/>
+    /// was cancelled; no document is returned.</exception>
+    /// <remarks>
+    /// <para>The caller owns the QuestPDF license: set
+    /// <c>QuestPDF.Settings.License</c> before calling.</para>
+    /// <para>Two calls run to their end once entered: one page's rasterization
+    /// by <paramref name="rasterizer"/>, and QuestPDF's <c>GeneratePdf()</c>,
+    /// which lays out and writes every page. A cancellation during either takes
+    /// effect when it returns.</para>
+    /// </remarks>
     public static byte[] RenderPdf(IEnumerable<DiagramRequest> requests, DiagramOptions options,
-        ISvgRasterizer? rasterizer = null)
+        ISvgRasterizer? rasterizer = null, CancellationToken cancellationToken = default)
     {
-        var pages = requests.Select(r => RenderOverlayPage(r, options, rasterizer)).ToList();
-        return PdfBuilder.Build(pages);
+        var pages = RenderOverlayPages(requests, options, rasterizer, cancellationToken);
+        return PdfBuilder.Build(pages, cancellationToken);
     }
 
     /// <summary>
@@ -88,7 +99,7 @@ public static class DiagramRasterRenderer
     public static byte[] RenderPptx(DiagramRequest request, DiagramOptions options,
         ISvgRasterizer? rasterizer = null)
     {
-        return PptxBuilder.Build([RenderOverlayPage(request, options, rasterizer)]);
+        return PptxBuilder.Build([RenderOverlayPage(request, options, rasterizer)], CancellationToken.None);
     }
 
     /// <summary>
@@ -100,12 +111,43 @@ public static class DiagramRasterRenderer
     /// so it cannot duplicate the text overlay.</param>
     /// <param name="rasterizer">SVG→PNG backend; when <c>null</c>, a shared
     /// built-in <see cref="SkiaSharpRasterizer"/> is used.</param>
+    /// <param name="cancellationToken">Stops the render. Honoured before each
+    /// page is rasterized and after the last, before each slide is built,
+    /// before each entry of each package fix-up pass, and after each package
+    /// write returns.</param>
     /// <returns>The PPTX file bytes.</returns>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/>
+    /// was cancelled; no document is returned.</exception>
+    /// <remarks>Three kinds of call run to their end once entered: one page's
+    /// rasterization by <paramref name="rasterizer"/>, the OpenXml package's
+    /// save as the presentation closes, and each fix-up pass's ZIP archive
+    /// rewrite as it closes. A cancellation during one takes effect when it
+    /// returns.</remarks>
     public static byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options,
-        ISvgRasterizer? rasterizer = null)
+        ISvgRasterizer? rasterizer = null, CancellationToken cancellationToken = default)
     {
-        var pages = requests.Select(r => RenderOverlayPage(r, options, rasterizer)).ToList();
-        return PptxBuilder.Build(pages);
+        var pages = RenderOverlayPages(requests, options, rasterizer, cancellationToken);
+        return PptxBuilder.Build(pages, cancellationToken);
+    }
+
+    /// <summary>
+    /// Renders each of <paramref name="requests"/>, in order, through
+    /// <see cref="RenderOverlayPage"/>. The token is checked before each page
+    /// and after the last, so a cancellation during one page's rasterization
+    /// stops the call as that page returns, before the next page or the build.
+    /// </summary>
+    private static List<(byte[] Png, string? Xgid)> RenderOverlayPages(
+        IEnumerable<DiagramRequest> requests, DiagramOptions options, ISvgRasterizer? rasterizer,
+        CancellationToken cancellationToken)
+    {
+        var pages = new List<(byte[] Png, string? Xgid)>();
+        foreach (var request in requests)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            pages.Add(RenderOverlayPage(request, options, rasterizer));
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return pages;
     }
 
     /// <summary>

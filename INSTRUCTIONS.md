@@ -856,15 +856,24 @@ static byte[] RenderPng(DiagramRequest request, DiagramOptions options,
 static byte[] RenderPdf(DiagramRequest request, DiagramOptions options,
                         ISvgRasterizer? rasterizer = null);
 static byte[] RenderPdf(IEnumerable<DiagramRequest> requests, DiagramOptions options,
-                        ISvgRasterizer? rasterizer = null);
+                        ISvgRasterizer? rasterizer = null,
+                        CancellationToken cancellationToken = default);
 static byte[] RenderPptx(DiagramRequest request, DiagramOptions options,
                          ISvgRasterizer? rasterizer = null);
 static byte[] RenderPptx(IEnumerable<DiagramRequest> requests, DiagramOptions options,
-                         ISvgRasterizer? rasterizer = null);
+                         ISvgRasterizer? rasterizer = null,
+                         CancellationToken cancellationToken = default);
 ```
 
 PDF and PPTX accept `IEnumerable<DiagramRequest>` for multi-page / multi-slide
 output; a single request is handled by the scalar overload.
+
+The multi-request overloads are cancellable: the token is checked between
+pages and inside the builders' own loops, and a cancelled call throws
+`OperationCanceledException`. A call that runs to its end once entered (one
+page's rasterization, QuestPDF's `GeneratePdf()`, the PPTX package save and
+each fix-up pass's ZIP rewrite) delays the stop until it returns, so the time
+from cancel to return is bounded by the longest of these, not by one page.
 
 ### `DiagramRequest` (core — `BackgammonDiagram_Lib`)
 

@@ -32,7 +32,8 @@ internal static class PptxBuilder
     private const long MarginH = 457200L;  // 0.5"
     private const long MarginV = 457200L;  // 0.5"
 
-    public static byte[] Build(IEnumerable<(byte[] Png, string? Xgid)> slides)
+    public static byte[] Build(IEnumerable<(byte[] Png, string? Xgid)> slides,
+        CancellationToken cancellationToken = default)
     {
         var slideList = slides.ToList();
         if (slideList.Count == 0)
@@ -93,29 +94,14 @@ internal static class PptxBuilder
             // --- Slide master, layout, theme ---
 
             var (slideLayoutPart, _) = AddMasterAndLayout(presentationPart);
-            var slideIdList = presentationPart.Presentation.GetFirstChild<SlideIdList>()!;
-
-            uint slideId = 256;
-            foreach (var (png, xgid) in slideList)
-            {
-                var slidePart = presentationPart.AddNewPart<SlidePart>();
-                slidePart.AddPart(slideLayoutPart);
-
-                var imagePart = slidePart.AddNewPart<ImagePart>("image/png", NewId());
-                using (var imgStream = new MemoryStream(png))
-                    imagePart.FeedData(imgStream);
-
-                string rId = slidePart.GetIdOfPart(imagePart);
-                var slide = BuildSlide(rId, png, slideWidth, xgid);
-                slidePart.Slide = slide;
-                slide.Save();
-
-                var slideRId = presentationPart.GetIdOfPart(slidePart);
-                slideIdList.AppendChild(new SlideId { Id = slideId++, RelationshipId = slideRId });
-            }
+            AddSlides(presentationPart, slideLayoutPart, slideList, slideWidth, cancellationToken);
 
             presentationPart.Presentation.Save();
         }
+
+        // Closing the document saves the package into ms, which runs to its
+        // end once entered — also when a check inside the block threw.
+        cancellationToken.ThrowIfCancellationRequested();
 
         // --- Post-process: fix SDK quirks in the zip ---
         //
@@ -138,14 +124,54 @@ internal static class PptxBuilder
         //                        without standalone; PowerPoint expects
         //                        encoding="UTF-8" standalone="yes".
         //
-        FixContentTypes(ms);
-        FixRelationshipTargets(ms);
-        FixNamespaceDeclarations(ms);
-        FixRelationshipIds(ms);
-        FixXmlDeclarations(ms);
+        // Each pass checks the token per entry; its archive's rewrite as it
+        // closes runs to its end once entered, so check again after each.
+        FixContentTypes(ms, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        FixRelationshipTargets(ms, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        FixNamespaceDeclarations(ms, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        FixRelationshipIds(ms, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        FixXmlDeclarations(ms, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         return ms.ToArray();
     }
 
+    /// <summary>
+    /// Adds one slide per entry of <paramref name="slides"/> to
+    /// <paramref name="presentationPart"/>, each on
+    /// <paramref name="slideLayoutPart"/> and listed in the presentation's
+    /// slide id list, checking the token before each.
+    /// </summary>
+    internal static void AddSlides(PresentationPart presentationPart, SlideLayoutPart slideLayoutPart,
+        IReadOnlyList<(byte[] Png, string? Xgid)> slides, int slideWidth,
+        CancellationToken cancellationToken)
+    {
+        var slideIdList = presentationPart.Presentation!.GetFirstChild<SlideIdList>()!;
+
+        uint slideId = 256;
+        foreach (var (png, xgid) in slides)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var slidePart = presentationPart.AddNewPart<SlidePart>();
+            slidePart.AddPart(slideLayoutPart);
+
+            var imagePart = slidePart.AddNewPart<ImagePart>("image/png", NewId());
+            using (var imgStream = new MemoryStream(png))
+                imagePart.FeedData(imgStream);
+
+            string rId = slidePart.GetIdOfPart(imagePart);
+            var slide = BuildSlide(rId, png, slideWidth, xgid);
+            slidePart.Slide = slide;
+            slide.Save();
+
+            var slideRId = presentationPart.GetIdOfPart(slidePart);
+            slideIdList.AppendChild(new SlideId { Id = slideId++, RelationshipId = slideRId });
+        }
+    }
 
 
     // -----------------------------------------------------------------------
@@ -158,11 +184,13 @@ internal static class PptxBuilder
     /// generic default plus explicit Override entries for each .xml part.
     /// This method rewrites [Content_Types].xml in the zip stream to fix that.
     /// </summary>
-    private static void FixContentTypes(MemoryStream ms)
+    internal static void FixContentTypes(MemoryStream ms, CancellationToken cancellationToken)
     {
         ms.Position = 0;
         using var zip = new ZipArchive(ms, ZipArchiveMode.Update, leaveOpen: true);
 
+        // This pass's one entry.
+        cancellationToken.ThrowIfCancellationRequested();
         var ctEntry = zip.GetEntry("[Content_Types].xml");
         if (ctEntry is null) return;
 
@@ -226,7 +254,7 @@ internal static class PptxBuilder
     /// URIs and PowerPoint flags absolute paths for repair.
     /// This method rewrites all .rels files to use relative Target paths.
     /// </summary>
-    private static void FixRelationshipTargets(MemoryStream ms)
+    internal static void FixRelationshipTargets(MemoryStream ms, CancellationToken cancellationToken)
     {
         ms.Position = 0;
         using var zip = new ZipArchive(ms, ZipArchiveMode.Update, leaveOpen: true);
@@ -240,6 +268,8 @@ internal static class PptxBuilder
 
         foreach (var relsPath in relsEntries)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var entry = zip.GetEntry(relsPath);
             if (entry is null) continue;
 
@@ -329,7 +359,7 @@ internal static class PptxBuilder
     /// declarations to the root element of each XML part under ppt/, then
     /// removes redundant declarations from descendant elements.
     /// </summary>
-    private static void FixNamespaceDeclarations(MemoryStream ms)
+    internal static void FixNamespaceDeclarations(MemoryStream ms, CancellationToken cancellationToken)
     {
         ms.Position = 0;
         using var zip = new ZipArchive(ms, ZipArchiveMode.Update, leaveOpen: true);
@@ -347,6 +377,8 @@ internal static class PptxBuilder
 
         foreach (var entryPath in xmlEntries)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var entry = zip.GetEntry(entryPath);
             if (entry is null) continue;
 
@@ -452,7 +484,7 @@ internal static class PptxBuilder
     /// part in the zip to use PowerPoint's expected declaration format.
     /// Runs last so it catches declarations written by all earlier fix passes.
     /// </summary>
-    private static void FixXmlDeclarations(MemoryStream ms)
+    internal static void FixXmlDeclarations(MemoryStream ms, CancellationToken cancellationToken)
     {
         const string target = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>";
 
@@ -467,6 +499,8 @@ internal static class PptxBuilder
 
         foreach (var entryPath in xmlEntries)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var entry = zip.GetEntry(entryPath);
             if (entry is null) continue;
 
@@ -508,7 +542,7 @@ internal static class PptxBuilder
     /// all corresponding references in XML parts.
     /// Runs before FixXmlDeclarations so declaration normalization covers the rewrites.
     /// </summary>
-    private static void FixRelationshipIds(MemoryStream ms)
+    internal static void FixRelationshipIds(MemoryStream ms, CancellationToken cancellationToken)
     {
         ms.Position = 0;
         using var zip = new ZipArchive(ms, ZipArchiveMode.Update, leaveOpen: true);
@@ -529,6 +563,8 @@ internal static class PptxBuilder
         // For each .rels, determine the owner directory and process
         foreach (var relsPath in relsEntries)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var entry = zip.GetEntry(relsPath);
             if (entry is null) continue;
 
@@ -578,8 +614,19 @@ internal static class PptxBuilder
         if (globalIdMap.Count == 0) return;
 
         // Phase 2: Update rId references in all XML parts.
+        ReplaceRelationshipIds(zip, globalIdMap, cancellationToken);
+    }
+
+    /// <summary>
+    /// <see cref="FixRelationshipIds"/>'s second phase: rewrites every
+    /// old→new relationship id of <paramref name="idMap"/> in each XML part of
+    /// <paramref name="zip"/>, checking the token before each entry.
+    /// </summary>
+    internal static void ReplaceRelationshipIds(ZipArchive zip, IReadOnlyDictionary<string, string> idMap,
+        CancellationToken cancellationToken)
+    {
         // We do straight string replacement, longest-first to avoid partial matches.
-        var sortedReplacements = globalIdMap
+        var sortedReplacements = idMap
             .OrderByDescending(kv => kv.Key.Length)
             .ThenByDescending(kv => kv.Key)
             .ToList();
@@ -592,6 +639,8 @@ internal static class PptxBuilder
 
         foreach (var entryPath in xmlEntries)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var entry = zip.GetEntry(entryPath);
             if (entry is null) continue;
 
