@@ -212,6 +212,193 @@ public class DeckCancellationTests
     }
 
     // -----------------------------------------------------------------------
+    //  The builders' checks are inside their loops: cancelled after the
+    //  first page, slide or entry, each loop stops there
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void PdfComposition_CancelledAfterFirstPage_StopsBeforeTheSecond()
+    {
+        using var source = new CancellationTokenSource();
+        var pages = new CancellingList<(byte[] Png, string? Xgid)>(
+            [(s_png, null), (s_png, null), (s_png, null)], cancelOnItem: 1, source);
+        var document = Document.Create(container => PdfBuilder.ComposePages(container, pages, source.Token));
+
+        Assert.Throws<OperationCanceledException>(() => document.GeneratePdf());
+        Assert.Equal(2, pages.Handed);
+    }
+
+    [Fact]
+    public void PptxSlides_CancelledAfterFirstSlide_StopsBeforeTheSecond()
+    {
+        using var source = new CancellationTokenSource();
+        var slides = new CancellingList<(byte[] Png, string? Xgid)>(
+            [(s_png, null), (s_png, null), (s_png, null)], cancelOnItem: 1, source);
+        using var ms = new MemoryStream();
+        using var doc = PresentationDocument.Create(ms, PresentationDocumentType.Presentation);
+        var presentationPart = doc.AddPresentationPart();
+        presentationPart.Presentation = new Presentation(new SlideIdList());
+        var layoutPart = presentationPart.AddNewPart<SlideMasterPart>().AddNewPart<SlideLayoutPart>();
+
+        Assert.Throws<OperationCanceledException>(() =>
+            PptxBuilder.AddSlides(presentationPart, layoutPart, slides, 1000, source.Token));
+        Assert.Single(presentationPart.SlideParts);
+    }
+
+    private const string RelsXml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+        + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+        + "<Relationship Id=\"rIdOld\" Type=\"t\" Target=\"/ppt/presentation.xml\"/></Relationships>";
+
+    private const string PartXml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+        + "<r xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><c id=\"rIdOld\">"
+        + "<a:x xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"/></c></r>";
+
+    // Every pass that processes more than one entry, with two entries it
+    // rewrites: (pass, first entry, second entry, both entries' content).
+    public static TheoryData<string, string, string, string> MultiEntryPasses() => new()
+    {
+        { nameof(PptxBuilder.FixRelationshipTargets), "_rels/.rels", "ppt/_rels/presentation.xml.rels", RelsXml },
+        { nameof(PptxBuilder.FixNamespaceDeclarations), "ppt/a.xml", "ppt/b.xml", PartXml },
+        { nameof(PptxBuilder.FixRelationshipIds), "_rels/.rels", "ppt/_rels/presentation.xml.rels", RelsXml },
+        { nameof(PptxBuilder.ReplaceRelationshipIds), "ppt/a.xml", "ppt/b.xml", PartXml },
+        { nameof(PptxBuilder.FixXmlDeclarations), "ppt/a.xml", "ppt/b.xml", PartXml },
+    };
+
+    [Theory]
+    [MemberData(nameof(MultiEntryPasses))]
+    public void PptxFixUpPass_CancelledAfterFirstEntry_StopsBeforeTheSecond(
+        string pass, string first, string second, string content)
+    {
+        using var source = new CancellationTokenSource();
+        using var ms = CancellingZipStream.Of(source, (first, content), (second, content));
+
+        Action run = pass switch
+        {
+            nameof(PptxBuilder.FixRelationshipTargets) => () => PptxBuilder.FixRelationshipTargets(ms, source.Token),
+            nameof(PptxBuilder.FixNamespaceDeclarations) => () => PptxBuilder.FixNamespaceDeclarations(ms, source.Token),
+            nameof(PptxBuilder.FixRelationshipIds) => () => PptxBuilder.FixRelationshipIds(ms, source.Token),
+            nameof(PptxBuilder.FixXmlDeclarations) => () => PptxBuilder.FixXmlDeclarations(ms, source.Token),
+            _ => () =>
+            {
+                using var zip = new ZipArchive(ms, ZipArchiveMode.Update, leaveOpen: true);
+                PptxBuilder.ReplaceRelationshipIds(zip, new Dictionary<string, string> { ["rIdOld"] = "rId1" }, source.Token);
+            },
+        };
+
+        Assert.Throws<OperationCanceledException>(run);
+        var after = EntryTexts(ms.ToArray());
+        Assert.NotEqual(content, after[first]);   // the first entry was processed …
+        Assert.Equal(content, after[second]);     // … and the loop stopped before the second
+    }
+
+    /// <summary>
+    /// A list whose enumerator cancels <c>source</c> as it hands over the
+    /// item at <c>cancelOnItem</c>, counting the items handed.
+    /// </summary>
+    private sealed class CancellingList<T>(IReadOnlyList<T> items, int cancelOnItem, CancellationTokenSource source)
+        : IReadOnlyList<T>
+    {
+        public int Handed { get; private set; }
+
+        public int Count => items.Count;
+
+        public T this[int index] => items[index];
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (i == cancelOnItem)
+                    source.Cancel();
+                Handed++;
+                yield return items[i];
+            }
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    /// <summary>
+    /// A ZIP archive on an expandable stream that cancels <c>source</c> on
+    /// the first read of the first entry's data. Opening the archive in
+    /// Update mode reads only the entries' headers; an entry's data is read
+    /// when it is opened, so the cancel lands as a pass opens its first entry.
+    /// </summary>
+    private sealed class CancellingZipStream : MemoryStream
+    {
+        private readonly CancellationTokenSource _source;
+        private readonly long _firstDataStart;
+        private readonly long _firstDataEnd;
+
+        private CancellingZipStream(CancellationTokenSource source, long firstDataStart, long firstDataEnd)
+        {
+            _source = source;
+            _firstDataStart = firstDataStart;
+            _firstDataEnd = firstDataEnd;
+        }
+
+        public static CancellingZipStream Of(CancellationTokenSource source, params (string Name, string Content)[] entries)
+        {
+            using var build = new MemoryStream();
+            long firstDataEnd = 0;
+            using (var zip = new ZipArchive(build, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                foreach (var (name, content) in entries)
+                {
+                    using (var writer = new StreamWriter(zip.CreateEntry(name).Open(), new UTF8Encoding(false)))
+                        writer.Write(content);
+                    if (firstDataEnd == 0)
+                        firstDataEnd = build.Position;
+                }
+            }
+
+            // The first local header starts at 0: 30 fixed bytes, then the
+            // name and the extra field, whose lengths sit at offsets 26 and 28.
+            var bytes = build.ToArray();
+            long firstDataStart = 30 + BitConverter.ToUInt16(bytes, 26) + BitConverter.ToUInt16(bytes, 28);
+
+            var stream = new CancellingZipStream(source, firstDataStart, firstDataEnd);
+            stream.Write(bytes);
+            stream.Position = 0;
+            return stream;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            Observe();
+            return base.Read(buffer, offset, count);
+        }
+
+        public override int Read(Span<byte> buffer)
+        {
+            Observe();
+            return base.Read(buffer);
+        }
+
+        public override int ReadByte()
+        {
+            Observe();
+            return base.ReadByte();
+        }
+
+        private void Observe()
+        {
+            if (Position >= _firstDataStart && Position < _firstDataEnd)
+                _source.Cancel();
+        }
+    }
+
+    private static Dictionary<string, string> EntryTexts(byte[] zipBytes)
+    {
+        using var zip = new ZipArchive(new MemoryStream(zipBytes), ZipArchiveMode.Read);
+        return zip.Entries.ToDictionary(e => e.FullName, e =>
+        {
+            using var reader = new StreamReader(e.Open(), Encoding.UTF8);
+            return reader.ReadToEnd();
+        });
+    }
+
+    // -----------------------------------------------------------------------
     //  Helpers — the comparison ExtractFromXgToCsv's golden harness uses
     // -----------------------------------------------------------------------
 
