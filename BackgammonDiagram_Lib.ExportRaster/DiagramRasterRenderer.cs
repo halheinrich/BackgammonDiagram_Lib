@@ -67,7 +67,8 @@ public static class DiagramRasterRenderer
     /// built-in <see cref="SkiaSharpRasterizer"/> is used.</param>
     /// <param name="cancellationToken">Stops the render. Honoured before each
     /// page is rasterized and after the last, between pages as the document is
-    /// composed, and after QuestPDF's generation returns.</param>
+    /// composed, each time QuestPDF lays out or draws a page during its
+    /// generation, and after the generation returns.</param>
     /// <returns>The PDF file bytes.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="requests"/> is <c>null</c>.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/>
@@ -75,10 +76,11 @@ public static class DiagramRasterRenderer
     /// <remarks>
     /// <para>The caller owns the QuestPDF license: set
     /// <c>QuestPDF.Settings.License</c> before calling.</para>
-    /// <para>Two calls run to their end once entered: one page's rasterization
-    /// by <paramref name="rasterizer"/>, and QuestPDF's <c>GeneratePdf()</c>,
-    /// which lays out and writes every page. A cancellation during either takes
-    /// effect when it returns.</para>
+    /// <para>What runs to its end once entered: one page's rasterization by
+    /// <paramref name="rasterizer"/>; inside QuestPDF's <c>GeneratePdf()</c>,
+    /// the work between two of a page's checks; and QuestPDF's cleanup as a
+    /// cancelled generation unwinds. A cancellation during one takes effect
+    /// when it returns.</para>
     /// </remarks>
     public static byte[] RenderPdf(IEnumerable<DiagramRequest> requests, DiagramOptions options,
         ISvgRasterizer? rasterizer = null, CancellationToken cancellationToken = default)

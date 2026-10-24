@@ -870,10 +870,14 @@ output; a single request is handled by the scalar overload.
 
 The multi-request overloads are cancellable: the token is checked between
 pages and inside the builders' own loops, and a cancelled call throws
-`OperationCanceledException`. A call that runs to its end once entered (one
-page's rasterization, QuestPDF's `GeneratePdf()`, the PPTX package save and
-each fix-up pass's ZIP rewrite) delays the stop until it returns, so the time
-from cancel to return is bounded by the longest of these, not by one page.
+`OperationCanceledException`. Inside QuestPDF's `GeneratePdf()` each page
+carries a background element that draws nothing and checks the token
+whenever QuestPDF lays out or draws that page; QuestPDF wraps the throw in
+`DocumentDrawingException`, and the builder unwraps only this call's own
+cancellation. A call that runs to its end once entered (one page's
+rasterization, the PPTX package save and each fix-up pass's ZIP rewrite)
+delays the stop until it returns, so the time from cancel to return is
+bounded by the longest of these, not by one page.
 
 ### `DiagramRequest` (core — `BackgammonDiagram_Lib`)
 

@@ -6,7 +6,10 @@ using BackgammonDiagram_Lib.ExportRaster;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
+using QuestPDF.Drawing.Exceptions;
+using QuestPDF.Elements;
 using QuestPDF.Fluent;
+using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
 namespace BackgammonDiagram_Lib.Tests;
@@ -245,7 +248,92 @@ public class DeckCancellationTests
         Assert.Single(presentationPart.SlideParts);
     }
 
-    private const string RelsXml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+    // -----------------------------------------------------------------------
+    //  Inside QuestPDF's generation: each deck page checks the token as it
+    //  is laid out and drawn; only this operation's cancellation is unwrapped
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void PdfGeneration_CancelledAsItRuns_StopsAtTheNextDeckPageAsItself()
+    {
+        using var source = new CancellationTokenSource();
+        int laterPageCalls = 0;
+        var document = Document.Create(container =>
+        {
+            ActionPage(container, source.Cancel);    // cancels as generation lays out page 1
+            PdfBuilder.ComposePages(container, [(s_png, null), (s_png, null)], source.Token);
+            ActionPage(container, () => laterPageCalls++);
+        });
+
+        var ex = Assert.Throws<OperationCanceledException>(() => PdfBuilder.Generate(document, source.Token));
+        Assert.Equal(source.Token, ex.CancellationToken);
+        Assert.Equal(0, laterPageCalls);    // stopped at the first deck page, not after the whole generation
+    }
+
+    [Fact]
+    public void PdfGeneration_UnrelatedFailure_StaysAnError_EvenWithTheTokenCancelled()
+    {
+        using var source = new CancellationTokenSource();
+        var document = Document.Create(container =>
+        {
+            ActionPage(container, () =>
+            {
+                source.Cancel();
+                throw new InvalidOperationException("A rendering failure.");
+            });
+            PdfBuilder.ComposePages(container, [(s_png, null)], source.Token);
+        });
+
+        var ex = Assert.Throws<DocumentDrawingException>(() => PdfBuilder.Generate(document, source.Token));
+        Assert.IsType<InvalidOperationException>(ex.InnerException);
+    }
+
+    [Fact]
+    public void PdfGeneration_AnotherTokensCancellation_StaysAnError()
+    {
+        using var source = new CancellationTokenSource();
+        using var other = new CancellationTokenSource();
+        other.Cancel();
+        var document = Document.Create(container =>
+        {
+            ActionPage(container, () =>
+            {
+                source.Cancel();
+                other.Token.ThrowIfCancellationRequested();
+            });
+            PdfBuilder.ComposePages(container, [(s_png, null)], source.Token);
+        });
+
+        var ex = Assert.Throws<DocumentDrawingException>(() => PdfBuilder.Generate(document, source.Token));
+        var inner = Assert.IsType<OperationCanceledException>(ex.InnerException);
+        Assert.Equal(other.Token, inner.CancellationToken);
+    }
+
+    /// <summary>
+    /// A page that runs <paramref name="act"/> each time QuestPDF draws it. It
+    /// sits on the background layer, as the deck pages' check does: that layer
+    /// is drawn and never measured, and QuestPDF wraps a throw while drawing
+    /// in a <see cref="DocumentDrawingException"/> (a throw while measuring
+    /// passes unwrapped).
+    /// </summary>
+    private static void ActionPage(IDocumentContainer container, Action act) =>
+        container.Page(page =>
+        {
+            page.Size(PageSizes.A4);
+            page.Background().Dynamic(new ActingComponent(act));
+            page.Content().Text(string.Empty);
+        });
+
+    private sealed class ActingComponent(Action act) : IDynamicComponent
+    {
+        public DynamicComponentComposeResult Compose(DynamicContext context)
+        {
+            act();
+            return new DynamicComponentComposeResult { Content = context.CreateElement(_ => { }), HasMoreContent = false };
+        }
+    }
+
+    private const string RelsXml ="<?xml version=\"1.0\" encoding=\"utf-8\"?>"
         + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
         + "<Relationship Id=\"rIdOld\" Type=\"t\" Target=\"/ppt/presentation.xml\"/></Relationships>";
 

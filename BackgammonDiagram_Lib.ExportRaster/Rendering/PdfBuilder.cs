@@ -1,3 +1,6 @@
+using System.Runtime.ExceptionServices;
+using QuestPDF.Drawing.Exceptions;
+using QuestPDF.Elements;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -30,20 +33,42 @@ internal static class PdfBuilder
         var pageList = pages.ToList();
 
         var document = Document.Create(container => ComposePages(container, pageList, cancellationToken));
+        return Generate(document, cancellationToken);
+    }
 
-        // GeneratePdf composes (the callback above, where the token is checked
-        // per page) and then lays out and writes every page, which runs to its
-        // end once entered; check again as it returns.
-        var pdf = document.GeneratePdf();
-        cancellationToken.ThrowIfCancellationRequested();
-        return pdf;
+    /// <summary>
+    /// Runs QuestPDF's generation of <paramref name="document"/>. Each page's
+    /// <see cref="CancellationCheck"/> stops it as that page is laid out or
+    /// drawn; QuestPDF wraps the throw in a <see cref="DocumentDrawingException"/>,
+    /// which is unwrapped here only when it carries this token's cancellation.
+    /// Any other failure stays wrapped, as QuestPDF reports it.
+    /// </summary>
+    internal static byte[] Generate(IDocument document, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var pdf = document.GeneratePdf();
+
+            // QuestPDF writes the file after the last page's last check; a
+            // cancellation during that still ends the call cancelled.
+            cancellationToken.ThrowIfCancellationRequested();
+            return pdf;
+        }
+        catch (DocumentDrawingException ex) when (ex.InnerException is OperationCanceledException canceled
+            && cancellationToken.IsCancellationRequested && canceled.CancellationToken == cancellationToken)
+        {
+            ExceptionDispatchInfo.Throw(canceled);
+            throw;
+        }
     }
 
     /// <summary>
     /// Declares one page per entry of <paramref name="pages"/> on
     /// <paramref name="container"/>, checking the token before each. Runs
     /// inside QuestPDF's generation, which lets the
-    /// <see cref="OperationCanceledException"/> through as itself.
+    /// <see cref="OperationCanceledException"/> through as itself. When the
+    /// token can be cancelled, each page also carries a
+    /// <see cref="CancellationCheck"/> on its background layer.
     /// </summary>
     internal static void ComposePages(IDocumentContainer container,
         IReadOnlyList<(byte[] Png, string? Xgid)> pages, CancellationToken cancellationToken)
@@ -57,6 +82,9 @@ internal static class PdfBuilder
                 page.Size(PageWidthPt, PageHeightPt, Unit.Point);
                 page.Margin(MarginPt, Unit.Point);
                 page.PageColor(Colors.White);
+
+                if (cancellationToken.CanBeCanceled)
+                    page.Background().Dynamic(new CancellationCheck(cancellationToken));
 
                 page.Content()
                     .AlignCenter()
@@ -78,6 +106,25 @@ internal static class PdfBuilder
                         .FontColor(Colors.Black);
                 }
             });
+        }
+    }
+
+    /// <summary>
+    /// A per-page element that draws nothing and checks the token each time
+    /// QuestPDF lays out or draws its page, which it does several times per
+    /// page across the whole generation. It holds only the token, so being
+    /// called again for the same page is harmless.
+    /// </summary>
+    private sealed class CancellationCheck(CancellationToken cancellationToken) : IDynamicComponent
+    {
+        public DynamicComponentComposeResult Compose(DynamicContext context)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return new DynamicComponentComposeResult
+            {
+                Content = context.CreateElement(_ => { }),
+                HasMoreContent = false,
+            };
         }
     }
 }
