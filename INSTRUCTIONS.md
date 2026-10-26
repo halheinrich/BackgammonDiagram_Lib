@@ -97,8 +97,8 @@ states why. Four areas:
   `DiagramOptions` with the `AspectPreset` canvas enum beside it;
   `DiagramSize`; the remaining display enums in `Enums.cs`
   (`DiagramMode`, `DiceOrder`, `PanelPosition`, `DiagramSizePreset`);
-  `BoardHitRegions` — the viewBox and the point, bar, cube, tray and dice
-  rectangles — with the `SvgViewBox` and `HitRect` records it is expressed
+  `BoardHitRegions` — the viewBox and the point, bar, cube, tray, dice and
+  candidate-row rectangles — with the `SvgViewBox` and `HitRect` records it is expressed
   in.
 - **Themes** — `Themes/`: `ITheme`, the palette contract; `ThemeRegistry`,
   which exposes the two internal built-ins (`DefaultTheme`,
@@ -195,11 +195,14 @@ Hal 2026-09-28 on halheinrich/backgammon#273):
   working board's; the names, source, roll (in `diceOrder`, since entry lets
   its user swap the dice on screen), cube and score are the decision's. It
   keeps every option but `Mode`, which is `Problem`: a working board has no
-  analysis, and no XGID (an XGID states the decision's position). A cube
+  analysis, and no XGID (an XGID states the decision's position); and
+  `ShownPlayIndex`, which is null: a working board shows the play being
+  entered. A cube
   decision's request, or a board's, has none (`InvalidOperationException`).
   It applies to a working board's request again, for the next click.
 
-Read-back: `Board` (always), `Decision` (a decision's diagram; null for a
+Read-back: `Board` (always; a shown play's position in a solution showing
+one, below), `Decision` (a decision's diagram; null for a
 board, a working board included), `Display` (a board request's stated facts;
 null otherwise), `Xgid` (a decision's, the record's derivation; null
 otherwise).
@@ -268,6 +271,15 @@ variation the request cannot draw is refused where it is made, by an
 - `SecondaryPlayIndex` (`int?`, default null) — the † mark: a candidate of
   a checker play, refused elsewhere and out of range. It was -1 for none;
   none is null now (the arc's rule).
+- `ShownPlayIndex` (`int?`, default null) — showing a play
+  (SPEC-quiz-view §1, 2026-10-25; halheinrich/backgammon#440): a candidate
+  of a checker play, validated as `SecondaryPlayIndex` is. In Solution,
+  `Board` is the position the candidate leaves,
+  `AfterBoardOf(i).Flipped()` in the decision's frame, so the checkers, pip
+  counts and trays follow it, and its panel row is highlighted; the roll,
+  names, cube, score and `Xgid` stay the record's (a baked
+  `ShowXgid` label would name the decision's position). Inert in Problem,
+  as the † is.
 
 **Equality.** Value equality: the same record instance (records compare by
 reference) or equal boards and display facts, with equal options.
@@ -481,16 +493,22 @@ percentages, which are not costs, keep their one decimal.
     level is the rollout's inner level), and neither are rows whose level is
     not recorded: `Unknown` sits outside the order, and since `Unknown = 0`
     would otherwise rank at or below every ceiling, an explicit guard keeps
-    them. **The ranking's best play and both marked rows are never hidden,
-    whatever their depth** — review must always show what was best and what
-    was played.
+    them. **The ranking's best play, both marked rows and the shown play are
+    never hidden, whatever their depth** — review must always show what was
+    best, what was played and what is shown.
   - Every per-row treatment — rank number, the * / † marks, the
     rank-inversion italics — follows the candidate, not the row, so marks
     land on the same candidates whatever order the ranking draws them in.
-  - When the panel runs out of vertical space, the marked plays are
-    "rescued" into the last visible slots with their real rank numbers,
-    displacing the rows that would otherwise have been last. The best play
-    needs no rescue: it heads the ranking.
+  - When the panel runs out of vertical space, the protected rows — the
+    best play, both marks and the shown play — are reserved first and the
+    rest fill the room left in the ranking's order, so a marked row beyond
+    the cut is "rescued" with its real rank number and one on the last
+    visible line is never displaced (halheinrich/backgammon#440). The rows
+    read in the ranking's order. One row plan (`PlanPlayPanel`, on the
+    `CanvasPlan`) is read by both the drawing and `GetHitRegions`.
+  - The shown play's row carries a highlight: one rect across the panel's
+    width and the row's height, behind its text, its colour derived from
+    the panel background as the dim text's is.
 
 - **Cube panel** (a cube decision). Best/Actual banner, Equity/Loss table
   (No double / Double / Take / Pass), two percentage tables (No double and
@@ -682,6 +700,14 @@ which trays show, and the presentation whether dice are drawn (the dice
 region is null where none are: a cube decision, a board showing none).
 `Points` is an immutable copy (see "The collection rider").
 
+`Candidates` (halheinrich/backgammon#440) holds one rect per row the play
+panel draws, keyed by the candidate's **stored index** into the decision's
+`Plays` — never its row position — so a click names the stored candidate
+under either ranking, the ceiling and a rescue. Each spans the panel's
+width and the row's `[top, top + row pitch)`, shifted by the title strip
+like every region. Empty for a Problem request, a cube decision, a board
+and a board-only canvas. An immutable copy, as `Points` is.
+
 Consumers rendering overlays from these rectangles must format the
 coordinates with `SvgFormat.Number` (and the viewBox with
 `SvgViewBox.ToAttributeString()`) — never culture-sensitive interpolation.
@@ -695,7 +721,8 @@ halheinrich/backgammon#273). This repository's sweep found three sites,
 each fixed: `Watermarks.Default` and `DiagramOptions.WatermarkImage`
 (immutable bytes, above), and `BoardHitRegions.Points`, which handed out
 the renderer's live `Dictionary` behind `IReadOnlyDictionary` and now holds
-an immutable copy taken on init. The renderers' `byte[]` results
+an immutable copy taken on init; `BoardHitRegions.Candidates`, added since,
+takes the same copy. The renderers' `byte[]` results
 (`RenderPng`, `RenderPdf`, `RenderPptx`, `ISvgRasterizer.Rasterize`) are
 fresh arrays each call, owned by the caller, so they hand out nothing
 shared. `CubeLabels.Spellings` returns an `ImmutableArray` of immutable
@@ -902,6 +929,7 @@ sealed record DiagramRequest
     PlayRanking?   Ranking               { get; init; }
     AnalysisLevel? MaximumHiddenCandidateAnalysisLevel { get; init; }
     int?           SecondaryPlayIndex    { get; init; }
+    int?           ShownPlayIndex        { get; init; }
 }
 
 static (DiagramRequest Problem, DiagramRequest Solution)
