@@ -297,6 +297,26 @@ public class DiagramRequestTests
     }
 
     [Fact]
+    public void ShownPlayIndex_RefusedOnAWorkingBoard()
+    {
+        // A working board presents its decision but shows the play being
+        // entered; WithWorkingBoard drops the option, and it cannot come back.
+        var working = TestFixtures.MinimalRequest().WithWorkingBoard(AfterEightFive());
+
+        var ex = Assert.Throws<ArgumentException>(() => working with { ShownPlayIndex = 1 });
+        Assert.Equal(nameof(DiagramRequest.ShownPlayIndex), ex.ParamName);
+        // The secondary mark, by contrast, rides a working board.
+        Assert.Equal(1, (working with { SecondaryPlayIndex = 1 }).SecondaryPlayIndex);
+    }
+
+    [Fact]
+    public void ShownPlayIndex_AcceptedOnACheckerPlayDecision_InEitherMode()
+    {
+        Assert.Equal(1, (TestFixtures.MinimalRequest() with { ShownPlayIndex = 1 }).ShownPlayIndex);
+        Assert.Equal(1, (TestFixtures.MinimalRequest() with { Mode = DiagramMode.Solution, ShownPlayIndex = 1 }).ShownPlayIndex);
+    }
+
+    [Fact]
     public void ShownPlayIndex_IsPartOfEquality()
     {
         var request = TestFixtures.MinimalRequest();

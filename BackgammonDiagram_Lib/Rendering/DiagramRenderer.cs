@@ -1109,13 +1109,22 @@ public static class DiagramRenderer
     }
 
     /// <summary>
-    /// The shown play's row highlight, derived from the panel background as
-    /// the panel's dim text is, so a theme states no colour of its own for
-    /// it: a shade darker on a light panel, lighter on a dark one, either way
-    /// leaving the panel's text colour (<see cref="ContrastText"/>) legible.
+    /// The shown play's row highlight, derived from the panel background, so
+    /// a theme states no colour of its own for it: the background blended a
+    /// little toward the panel's text colour (<see cref="ContrastText"/>) —
+    /// darker on a light panel, lighter on a dark one, black included — which
+    /// leaves that text legible on it.
     /// </summary>
     private static string RowHighlight(string panelBg) =>
-        IsLight(panelBg) ? Darken(panelBg, 0.12) : Lighten(panelBg, 0.6);
+        Blend(panelBg, ContrastText(panelBg), RowHighlightFraction);
+
+    /// <summary>
+    /// How far the shown row's highlight moves from the panel background
+    /// toward the panel's text colour. A blend, not a scale, so even a black
+    /// panel gets a visible highlight; 0.135 keeps the built-in themes'
+    /// highlights where a 12% darkening put them.
+    /// </summary>
+    private const double RowHighlightFraction = 0.135;
 
     // -----------------------------------------------------------------------
     //  Play analysis panel
@@ -2072,6 +2081,28 @@ public static class DiagramRenderer
         int g = Math.Clamp((int)(int.Parse(hex[2..4], System.Globalization.NumberStyles.HexNumber) * scale), 0, 255);
         int b = Math.Clamp((int)(int.Parse(hex[4..6], System.Globalization.NumberStyles.HexNumber) * scale), 0, 255);
         return $"#{r:X2}{g:X2}{b:X2}";
+    }
+
+    /// <summary>
+    /// Blends a 6-char hex colour toward another by <paramref name="fraction"/>
+    /// (0 = <paramref name="from"/>, 1 = <paramref name="toward"/>), per
+    /// channel: <c>from + (toward − from) × fraction</c>, truncated as
+    /// <see cref="ScaleRgb"/> truncates.
+    /// </summary>
+    private static string Blend(string from, string toward, double fraction)
+    {
+        from = from.TrimStart('#');
+        toward = toward.TrimStart('#');
+        if (from.Length != 6 || toward.Length != 6)
+            throw new ArgumentException($"Colors must be 6-character hex values, got '{from}' and '{toward}'.");
+        return $"#{Channel(0):X2}{Channel(2):X2}{Channel(4):X2}";
+
+        int Channel(int at)
+        {
+            int a = int.Parse(from.AsSpan(at, 2), System.Globalization.NumberStyles.HexNumber);
+            int b = int.Parse(toward.AsSpan(at, 2), System.Globalization.NumberStyles.HexNumber);
+            return Math.Clamp((int)(a + (b - a) * fraction), 0, 255);
+        }
     }
     private static string ContrastText(string bgHex) => IsLight(bgHex) ? "#1A1A1A" : "#F0F0F0";
 

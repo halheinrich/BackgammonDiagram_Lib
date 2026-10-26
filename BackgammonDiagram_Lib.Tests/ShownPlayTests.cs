@@ -146,6 +146,47 @@ public class ShownPlayTests
         Assert.Matches(new Regex($"<rect [^>]*y=\"{top}\" [^>]*height=\"{height}\"[^>]*/>\\s*<text [^>]*y=\"{baseline}\""), svg);
     }
 
+    /// <summary>The fill of the highlight rect behind the shown row of <paramref name="svg"/>.</summary>
+    private static string HighlightFill(string svg)
+    {
+        var row = Assert.Single(PlayPanelReader.Rows(svg), r => r.Highlighted);
+        string top = Regex.Escape(SvgFormat.Number(row.Baseline - DiagramRenderer.PlayPanelLineHeight * 0.8));
+        string height = Regex.Escape(SvgFormat.Number(DiagramRenderer.PlayPanelLineHeight));
+        var match = Regex.Match(svg, $"<rect [^>]*y=\"{top}\" [^>]*height=\"{height}\" fill=\"(#[0-9A-Fa-f]{{6}})\"/>");
+        Assert.True(match.Success, "No highlight rect found.");
+        return match.Groups[1].Value;
+    }
+
+    private static string RenderShown(DiagramOptions options) =>
+        DiagramRenderer.RenderSvg(Solution(5) with { ShownPlayIndex = 2 }, options);
+
+    [Fact]
+    public void Highlight_OnTheBuiltInThemes_IsPinned()
+    {
+        // The panel background blended toward its text colour: #FFFFFF →
+        // #E0E0E0 (Default), #E8E8E8 → #CCCCCC (Greyscale).
+        Assert.Equal("#E0E0E0", HighlightFill(RenderShown(TestFixtures.DefaultOptions())));
+        Assert.Equal("#CCCCCC", HighlightFill(RenderShown(TestFixtures.GreyscaleOptions())));
+    }
+
+    [Fact]
+    public void Highlight_OnABlackPanel_IsVisible()
+    {
+        // A scale of #000000 stays #000000; a blend toward the panel's light
+        // text colour does not. Six-digit colours only (#RGB is
+        // halheinrich/backgammon#441's).
+        const string Black = "#000000";
+        var theme = new BackgammonDiagram_Lib.Themes.CustomTheme(
+            boardColor: "#C8A96E", pointColorDark: "#8B2500", pointColorLight: "#F5DEB3",
+            checkerColorOnRoll: "#1A1A1A", checkerColorOpponent: "#F0F0F0", diceColor: "#FFFFFF",
+            textColor: "#000000", panelBackgroundColor: Black);
+
+        string fill = HighlightFill(RenderShown(new DiagramOptions { Theme = theme }));
+
+        Assert.NotEqual(Black, fill, StringComparer.OrdinalIgnoreCase);
+        Assert.NotEqual("#F0F0F0", fill, StringComparer.OrdinalIgnoreCase);   // the panel's text colour on black
+    }
+
     [Fact]
     public void ShownPlay_AtOrBelowTheCeiling_IsStillDrawn()
     {

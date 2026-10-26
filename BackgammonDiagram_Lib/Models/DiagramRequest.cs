@@ -456,7 +456,12 @@ public sealed record DiagramRequest
     /// a play is shown labels the drawn board with the decision's XGID.
     /// </para>
     /// </summary>
-    /// <exception cref="ArgumentException">Thrown on init when a value is stated and the request presents no checker play.</exception>
+    /// <exception cref="ArgumentException">
+    /// Thrown on init when a value is stated and the request draws no
+    /// checker-play decision: a cube decision's, a board's, or a working
+    /// board's, which shows the play being entered (see
+    /// <see cref="WithWorkingBoard"/>, which drops the option).
+    /// </exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown on init when the value identifies no candidate of the checker play.</exception>
     public int? ShownPlayIndex
     {
@@ -465,9 +470,13 @@ public sealed record DiagramRequest
         {
             if (value is int index)
             {
-                if (PresentedDecision is not CheckerPlayDecision play)
+                // Drawn, not PresentedDecision: a working board presents its
+                // decision but shows the play being entered. Drawn is set only
+                // inside this type, so no init order can defeat the check.
+                if (Drawn is not DecisionContent { Decision: CheckerPlayDecision play })
                     throw new ArgumentException(
-                        "A shown play names a checker play's candidate; this request presents none.",
+                        "A shown play names a checker-play decision's candidate; a cube decision's, a board's " +
+                        "and a working board's request draw none.",
                         nameof(ShownPlayIndex));
                 ArgumentOutOfRangeException.ThrowIfNegative(index, nameof(ShownPlayIndex));
                 ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, play.Decision.Plays.Count, nameof(ShownPlayIndex));

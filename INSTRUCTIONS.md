@@ -273,7 +273,10 @@ variation the request cannot draw is refused where it is made, by an
   none is null now (the arc's rule).
 - `ShownPlayIndex` (`int?`, default null) — showing a play
   (SPEC-quiz-view §1, 2026-10-25; halheinrich/backgammon#440): a candidate
-  of a checker play, validated as `SecondaryPlayIndex` is. In Solution,
+  of a checker-play decision, refused out of range and on a cube
+  decision's, a board's and a working board's request (a working board
+  shows the play being entered; `SecondaryPlayIndex`, by contrast, rides
+  a working board). In Solution,
   `Board` is the position the candidate leaves,
   `AfterBoardOf(i).Flipped()` in the decision's frame, so the checkers, pip
   counts and trays follow it, and its panel row is highlighted; the roll,
@@ -507,8 +510,9 @@ percentages, which are not costs, keep their one decimal.
     read in the ranking's order. One row plan (`PlanPlayPanel`, on the
     `CanvasPlan`) is read by both the drawing and `GetHitRegions`.
   - The shown play's row carries a highlight: one rect across the panel's
-    width and the row's height, behind its text, its colour derived from
-    the panel background as the dim text's is.
+    width and the row's height, behind its text, its colour the panel
+    background blended 13.5% toward the panel's text colour — visible on
+    any panel, black included.
 
 - **Cube panel** (a cube decision). Best/Actual banner, Equity/Loss table
   (No double / Double / Take / Pass), two percentage tables (No double and
