@@ -149,6 +149,7 @@ public class DiagramRequestTests
         Assert.Throws<ArgumentException>(() => request with { Ranking = PlayRanking.Equity });
         Assert.Throws<ArgumentException>(() => request with { MaximumHiddenCandidateAnalysisLevel = AnalysisLevel.Ply4 });
         Assert.Throws<ArgumentException>(() => request with { SecondaryPlayIndex = 0 });
+        Assert.Throws<ArgumentException>(() => request with { ShownPlayIndex = 0 });
     }
 
     // -----------------------------------------------------------------------
@@ -254,6 +255,97 @@ public class DiagramRequestTests
     }
 
     // -----------------------------------------------------------------------
+    //  The shown play — none is null; the board it draws
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void ShownPlayIndex_DefaultsToNull() =>
+        Assert.Null(TestFixtures.MinimalRequest().ShownPlayIndex);
+
+    [Fact]
+    public void ShownPlayIndex_NamesACandidate()
+    {
+        var request = TestFixtures.MinimalRequest() with { ShownPlayIndex = 2 };
+
+        Assert.Equal(2, request.ShownPlayIndex);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(3)]     // the default record holds three candidates
+    public void ShownPlayIndex_RefusesAnIndexNamingNoCandidate(int index)
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => TestFixtures.MinimalRequest() with { ShownPlayIndex = index });
+        Assert.Equal(nameof(DiagramRequest.ShownPlayIndex), ex.ParamName);
+    }
+
+    [Fact]
+    public void ShownPlayIndex_RefusedOnACubeDecision()
+    {
+        var ex = Assert.Throws<ArgumentException>(
+            () => TestFixtures.RequestFor(TestRecords.Cube()) with { ShownPlayIndex = 0 });
+        Assert.Equal(nameof(DiagramRequest.ShownPlayIndex), ex.ParamName);
+    }
+
+    [Fact]
+    public void ShownPlayIndex_RefusedOnABoard()
+    {
+        var ex = Assert.Throws<ArgumentException>(
+            () => DiagramRequest.ForBoard(BoardPosition.Standard, new DisplayFacts()) with { ShownPlayIndex = 0 });
+        Assert.Equal(nameof(DiagramRequest.ShownPlayIndex), ex.ParamName);
+    }
+
+    [Fact]
+    public void ShownPlayIndex_IsPartOfEquality()
+    {
+        var request = TestFixtures.MinimalRequest();
+
+        Assert.NotEqual(request, request with { ShownPlayIndex = 1 });
+        Assert.Equal(request with { ShownPlayIndex = 1 }, request with { ShownPlayIndex = 1 });
+    }
+
+    [Fact]
+    public void ShownPlay_InSolution_DrawsThePositionTheCandidateLeaves_InTheDecisionsFrame()
+    {
+        var record = TestRecords.CheckerPlay();
+        var request = TestFixtures.RequestFor(record, DiagramMode.Solution) with { ShownPlayIndex = 1 };
+
+        // The after-board is the next mover's; flipped, it is the decision's.
+        Assert.Equal(record.AfterBoardOf(1).Flipped(), request.Board);
+        // Candidate 1 is 13/10 6/5: the mover's checkers moved, positive.
+        Assert.Equal(4, request.Board[13]);
+        Assert.Equal(1, request.Board[10]);
+        Assert.Equal(1, request.Board[5]);
+        // In the decision's frame the opponent's checkers, which an opening
+        // play cannot hit, are where the record has them, and still negative
+        // (slot 0, the opponent's bar, to 25, the mover's).
+        for (int slot = 0; slot <= 25; slot++)
+        {
+            if (record.Board[slot] < 0)
+                Assert.Equal(record.Board[slot], request.Board[slot]);
+        }
+    }
+
+    [Fact]
+    public void ShownPlay_InProblem_IsInert()
+    {
+        var record = TestRecords.CheckerPlay();
+        var request = TestFixtures.RequestFor(record) with { ShownPlayIndex = 1 };
+
+        Assert.Equal(record.Board, request.Board);
+    }
+
+    [Fact]
+    public void ShownPlay_LeavesTheXgidTheDecisions()
+    {
+        var record = TestRecords.CheckerPlay();
+        var request = TestFixtures.RequestFor(record, DiagramMode.Solution) with { ShownPlayIndex = 1 };
+
+        Assert.Equal(record.Xgid, request.Xgid);
+    }
+
+    // -----------------------------------------------------------------------
     //  ToProblemSolutionPair
     // -----------------------------------------------------------------------
 
@@ -325,6 +417,18 @@ public class DiagramRequestTests
         Assert.Equal(4, working.PositionNumber);
         Assert.Equal(PlayRanking.DepthFirst, working.Ranking);
         Assert.Equal(1, working.SecondaryPlayIndex);
+    }
+
+    [Fact]
+    public void WithWorkingBoard_DropsTheShownPlay()
+    {
+        // A working board shows the play being entered, never a candidate's.
+        var source = TestFixtures.MinimalRequest() with { Mode = DiagramMode.Solution, ShownPlayIndex = 1 };
+
+        var working = source.WithWorkingBoard(AfterEightFive());
+
+        Assert.Null(working.ShownPlayIndex);
+        Assert.Equal(AfterEightFive(), working.Board);
     }
 
     [Fact]

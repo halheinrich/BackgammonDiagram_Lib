@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using BackgammonDiagram_Lib.Rendering;
 
@@ -11,7 +12,10 @@ namespace BackgammonDiagram_Lib.Tests;
 /// <param name="Loss">The Eq Loss cell's text, or null for a blank cell.</param>
 /// <param name="Depth">The Depth cell's text, or null for a blank cell.</param>
 /// <param name="Italic">Whether the row's numeric cells carry the rank-inversion italic.</param>
-internal sealed record PanelRow(string? Marker, int Rank, string Move, string Equity, string? Loss, string? Depth, bool Italic);
+/// <param name="Baseline">The row's text y, in the panel's own (board-relative) space.</param>
+/// <param name="Highlighted">Whether the shown play's highlight is drawn behind the row.</param>
+internal sealed record PanelRow(string? Marker, int Rank, string Move, string Equity, string? Loss, string? Depth, bool Italic,
+    double Baseline, bool Highlighted);
 
 /// <summary>
 /// Reads a rendered play panel back into rows. Structural, not pinned to
@@ -21,6 +25,9 @@ internal sealed record PanelRow(string? Marker, int Rank, string Move, string Eq
 /// row's cells by the y they share: a play row emits its marker (if any),
 /// its rank and its move text first, then its Equity, Eq Loss and Depth
 /// cells, all on one y. Layout itself is pinned in RendererPlayPanelTests.
+/// A row is highlighted when a rect one row pitch high
+/// (<see cref="DiagramRenderer.PlayPanelLineHeight"/>) is drawn with its top
+/// one row's ascent above the row's baseline — the shown play's highlight.
 /// </summary>
 internal static class PlayPanelReader
 {
@@ -40,6 +47,15 @@ internal static class PlayPanelReader
                     .ToDictionary(a => a.Groups[1].Value, a => a.Groups[2].Value),
                 Unescape(m.Groups[2].Value)))
             .ToList();
+
+        // The tops of the rects one row high: the highlight's candidates.
+        string rowHeight = SvgFormat.Number(DiagramRenderer.PlayPanelLineHeight);
+        var rowRectTops = Regex.Matches(svg, "<rect ([^>]*)/>")
+            .Select(m => Regex.Matches(m.Groups[1].Value, "([a-z-]+)=\"([^\"]*)\"")
+                .ToDictionary(a => a.Groups[1].Value, a => a.Groups[2].Value))
+            .Where(a => a.GetValueOrDefault("height") == rowHeight)
+            .Select(a => a["y"])
+            .ToHashSet();
 
         string equityX = Header(texts, DiagramRenderer.PlayPanelEquityHeader).X;
         string lossX = Header(texts, DiagramRenderer.PlayPanelLossHeader).X;
@@ -61,8 +77,10 @@ internal static class PlayPanelReader
             var equity = texts.Single(t => t.Y == y && t.X == equityX && t.Has("text-anchor"));
             var loss = texts.SingleOrDefault(t => t.Y == y && t.X == lossX && t.Has("text-anchor"));
             var depth = texts.SingleOrDefault(t => t.Y == y && t.X == depthX && !t.Has("text-anchor"));
+            double baseline = double.Parse(y, CultureInfo.InvariantCulture);
+            string top = SvgFormat.Number(baseline - DiagramRenderer.PlayPanelLineHeight * 0.8);
             rows.Add(new PanelRow(marker, number, move.Content, equity.Content, loss?.Content, depth?.Content,
-                equity.Attributes.GetValueOrDefault("font-style") == "italic"));
+                equity.Attributes.GetValueOrDefault("font-style") == "italic", baseline, rowRectTops.Contains(top)));
             i++;
         }
         return rows;

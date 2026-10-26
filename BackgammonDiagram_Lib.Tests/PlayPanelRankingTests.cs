@@ -142,6 +142,36 @@ public class PlayPanelRankingTests
     }
 
     // -----------------------------------------------------------------------
+    //  The shown play's highlight follows its candidate
+    // -----------------------------------------------------------------------
+
+    private static PanelRow HighlightedRow(CheckerPlayDecision record, PlayRanking ranking, int shown) =>
+        Assert.Single(
+            PlayPanelReader.Rows(TestFixtures.Render(
+                DiagramRequest.ForDecision(record, ranking) with { Mode = DiagramMode.Solution, ShownPlayIndex = shown })),
+            r => r.Highlighted);
+
+    [Fact]
+    public void Equity_TheHighlight_FollowsItsCandidate_NotItsStoredPlace()
+    {
+        // Stored first, ranked third.
+        var row = HighlightedRow(StoredOutOfEquityOrder(), PlayRanking.Equity, shown: 0);
+
+        Assert.Equal(Notation(0), row.Move);
+        Assert.Equal(3, row.Rank);
+    }
+
+    [Fact]
+    public void DepthFirst_TheHighlight_FollowsItsCandidate_NotItsStoredPlace()
+    {
+        // Stored third, ranked second under depth first.
+        var row = HighlightedRow(EvaluationAboveRollouts(), PlayRanking.DepthFirst, shown: 2);
+
+        Assert.Equal(Notation(2), row.Move);
+        Assert.Equal(2, row.Rank);
+    }
+
+    // -----------------------------------------------------------------------
     //  Notation from the play
     // -----------------------------------------------------------------------
 

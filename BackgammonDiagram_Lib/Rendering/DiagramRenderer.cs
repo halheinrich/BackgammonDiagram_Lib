@@ -1125,9 +1125,12 @@ public static class DiagramRenderer
     // deck-wide visual consistency. The horizontal ones are internal so the
     // play-panel layout tests derive their expected anchors from them rather
     // than pasting numbers.
-    // Row pitch. Independent of the font size: a panel set in a smaller size
-    // keeps its rows where they are.
-    private const double PlayPanelLineHeight = 20;
+    /// <summary>
+    /// The play panel's row pitch, in px: every row, the header's included,
+    /// is this high. Independent of the font size: a panel set in a smaller
+    /// size keeps its rows where they are.
+    /// </summary>
+    internal const double PlayPanelLineHeight = 20;
 
     /// <summary>
     /// The play panel's font size whenever its content fits at it — every

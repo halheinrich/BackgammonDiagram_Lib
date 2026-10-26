@@ -146,4 +146,56 @@ public class DualPlayMarkerTests
         Assert.Equal(primary + 1, ranks[^2]);          // primary's true rank
         Assert.Equal(secondary + 1, ranks[^1]);        // secondary's true rank
     }
+
+    [Fact]
+    public void ShownPlayBeyondFitCount_IsRescuedWithTrueRank()
+    {
+        int fit = MeasureFitCount();
+        int shown = MaxPlays - 1;
+
+        var rows = PlayPanelReader.Rows(TestFixtures.Render(Solution(MaxPlays, userPlayIndex: 0) with { ShownPlayIndex = shown }));
+
+        Assert.Equal(fit, rows.Count);
+        Assert.Equal(1, rows[0].Rank);
+        Assert.Equal(shown + 1, rows[^1].Rank);
+        Assert.Equal(rows[^1], Assert.Single(rows, r => r.Highlighted));
+    }
+
+    // -----------------------------------------------------------------------
+    //  The protected rows: every marked row is drawn, a mark on the last
+    //  normally visible row included (the regression the reservation fixes:
+    //  the old rescue truncated that row to make room for one beyond it)
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void StarOnTheLastVisibleRow_AndDaggerBeyond_BothDrawn_InRankingOrder()
+    {
+        int fit = MeasureFitCount();
+        int primary = fit - 1;           // the fit-th row of the display sequence
+        int secondary = MaxPlays - 1;    // beyond the cut
+
+        var rows = PlayPanelReader.Rows(TestFixtures.Render(Solution(MaxPlays, userPlayIndex: primary) with { SecondaryPlayIndex = secondary }));
+
+        Assert.Equal(fit, rows.Count);                                  // the panel holds n rows
+        Assert.Equal(1, rows[0].Rank);                                  // the best play, first
+        Assert.Equal(primary + 1, rows.Single(r => r.Marker == "*").Rank);
+        Assert.Equal(secondary + 1, rows.Single(r => r.Marker == Dagger).Rank);
+        Assert.Equal(rows.Select(r => r.Rank).Order(), rows.Select(r => r.Rank));   // ranking order
+    }
+
+    [Fact]
+    public void StarOnTheLastVisibleRow_AndShownPlayBeyond_BothDrawn_InRankingOrder()
+    {
+        int fit = MeasureFitCount();
+        int primary = fit - 1;
+        int shown = MaxPlays - 1;
+
+        var rows = PlayPanelReader.Rows(TestFixtures.Render(Solution(MaxPlays, userPlayIndex: primary) with { ShownPlayIndex = shown }));
+
+        Assert.Equal(fit, rows.Count);
+        Assert.Equal(1, rows[0].Rank);
+        Assert.Equal(primary + 1, rows.Single(r => r.Marker == "*").Rank);
+        Assert.Equal(shown + 1, Assert.Single(rows, r => r.Highlighted).Rank);
+        Assert.Equal(rows.Select(r => r.Rank).Order(), rows.Select(r => r.Rank));
+    }
 }

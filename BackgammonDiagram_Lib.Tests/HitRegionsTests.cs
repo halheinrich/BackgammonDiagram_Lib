@@ -337,6 +337,108 @@ public class HitRegionsTests
         return rects;
     }
 
+    // -----------------------------------------------------------------------
+    //  Candidate rows — keyed by stored index, aligned with the drawn rows
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Three candidates stored out of order under both rankings: equity draws
+    /// 1, 2, 0 (0.50, 0.45, 0.40); depth first draws the rollout, 2, first,
+    /// then 1, 0.
+    /// </summary>
+    private static CheckerPlayDecision StoredOutOfOrder() => TestFixtures.CheckerPlayWith(
+    [
+        TestRecords.Candidate(play: TestFixtures.StandardStartHops[0], equity: 0.40),
+        TestRecords.Candidate(play: TestFixtures.StandardStartHops[1], equity: 0.50),
+        TestRecords.Candidate(play: TestFixtures.StandardStartHops[2], equity: 0.45,
+            analysisMode: AnalysisMode.Rollout, rolloutTrials: 1296),
+    ], userPlayIndex: null);
+
+    /// <summary>A candidate list overfilling the panel, the user's play first and a secondary last, beyond the cut.</summary>
+    private static DiagramRequest WithRescuedRow()
+    {
+        int count = TestFixtures.StandardStartHops.Count;
+        return TestFixtures.RequestFor(TestFixtures.CheckerPlayWith(TestFixtures.HopCandidates(count)), DiagramMode.Solution)
+            with { SecondaryPlayIndex = count - 1 };
+    }
+
+    public static TheoryData<string> CandidateCases => new() { "equity", "depth first", "ceiling", "rescue" };
+
+    private static DiagramRequest CandidateCase(string name) => name switch
+    {
+        "equity" => DiagramRequest.ForDecision(StoredOutOfOrder(), PlayRanking.Equity) with { Mode = DiagramMode.Solution },
+        "depth first" => DiagramRequest.ForDecision(StoredOutOfOrder(), PlayRanking.DepthFirst) with { Mode = DiagramMode.Solution },
+        // Every hop a 3-ply evaluation: the ceiling hides all but the user's
+        // play (the best) and the shown one.
+        "ceiling" => TestFixtures.RequestFor(TestFixtures.CheckerPlayWith(TestFixtures.HopCandidates(6)), DiagramMode.Solution)
+            with { MaximumHiddenCandidateAnalysisLevel = AnalysisLevel.Ply3, ShownPlayIndex = 4 },
+        "rescue" => WithRescuedRow(),
+        _ => throw new ArgumentOutOfRangeException(nameof(name)),
+    };
+
+    [Theory]
+    [MemberData(nameof(CandidateCases))]
+    public void Candidates_AreKeyedByStoredIndex_ExactlyForTheDrawnRows_AndAlignWithThem(string name)
+    {
+        var request = CandidateCase(name);
+        var plays = ((CheckerPlayDecision)request.Decision!).Decision.Plays;
+
+        string svg = DiagramRenderer.RenderSvg(request, _defaultOptions);
+        var regions = DiagramRenderer.GetHitRegions(request, _defaultOptions);
+        var rows = PlayPanelReader.Rows(svg);
+
+        // The rows drawn, as the candidates they show.
+        var drawn = rows.Select(r => plays.Select((p, i) => (p, i)).Single(c => c.p.Notation == r.Move).i).ToList();
+        Assert.Equal(drawn.Order(), regions.Candidates.Keys.Order());
+
+        // The panel's text sits inside the title strip's translate group, so
+        // its y is board-relative; the rects are in viewBox space.
+        var (svgWidth, svgHeight) = ParseSvgViewBox(svg);
+        var layout = BoardLayout.Default with { PanelWidthOverride = svgWidth - BoardLayout.Default.BoardWidth };
+        double titleOffset = svgHeight - layout.BoardHeight;
+        Assert.True(titleOffset > 0, "A Solution canvas carries the title strip.");
+
+        for (int k = 0; k < rows.Count; k++)
+        {
+            var rect = regions.Candidates[drawn[k]];
+            double textY = rows[k].Baseline + titleOffset;
+            Assert.InRange(textY, rect.Y, rect.Y + rect.Height);
+            Assert.Equal(layout.PanelX(request.PanelOnLeft), rect.X, 2);
+            Assert.Equal(layout.PanelWidth, rect.Width, 2);
+        }
+    }
+
+    [Fact]
+    public void Candidates_RowsTileThePanel_WithoutOverlap()
+    {
+        // Each row's rect is one row high, and consecutive drawn rows abut.
+        var request = CandidateCase("rescue");
+        var regions = DiagramRenderer.GetHitRegions(request, _defaultOptions);
+        var tops = regions.Candidates.Values.Select(r => r.Y).Order().ToList();
+
+        Assert.All(regions.Candidates.Values, r => Assert.Equal(DiagramRenderer.PlayPanelLineHeight, r.Height, 6));
+        for (int k = 1; k < tops.Count; k++)
+            Assert.Equal(DiagramRenderer.PlayPanelLineHeight, tops[k] - tops[k - 1], 6);
+    }
+
+    public static TheoryData<string> NoPlayPanelCases => new() { "problem", "cube", "board", "board-only problem" };
+
+    [Theory]
+    [MemberData(nameof(NoPlayPanelCases))]
+    public void Candidates_AreEmpty_WhereNoPlayPanelIsDrawn(string name)
+    {
+        var (request, options) = name switch
+        {
+            "problem" => (TestFixtures.MinimalRequest() with { ShownPlayIndex = 1 }, _defaultOptions),
+            "cube" => (TestFixtures.RequestFor(TestRecords.Cube(), DiagramMode.Solution), _defaultOptions),
+            "board" => (DiagramRequest.ForBoard(BoardPosition.Standard, new DisplayFacts()), _defaultOptions),
+            "board-only problem" => (TestFixtures.MinimalRequest(), new DiagramOptions { Aspect = AspectPreset.BoardOnly }),
+            _ => throw new ArgumentOutOfRangeException(nameof(name)),
+        };
+
+        Assert.Empty(DiagramRenderer.GetHitRegions(request, options).Candidates);
+    }
+
     private static (double Width, double Height) ParseSvgViewBox(string svg)
     {
         var match = Regex.Match(svg,
