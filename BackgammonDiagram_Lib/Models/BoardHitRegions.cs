@@ -3,12 +3,13 @@ using System.Collections.Frozen;
 namespace BackgammonDiagram_Lib;
 
 /// <summary>
-/// Axis-aligned hit rectangles for all clickable board regions.
-/// All coordinates are in SVG viewBox space matching RenderSvg() output.
+/// Axis-aligned hit rectangles for all clickable board regions and the play
+/// panel's candidate rows. All coordinates are in SVG viewBox space matching RenderSvg() output.
 /// </summary>
 public class BoardHitRegions
 {
     private readonly FrozenDictionary<int, HitRect> _points = FrozenDictionary<int, HitRect>.Empty;
+    private readonly FrozenDictionary<int, HitRect> _candidates = FrozenDictionary<int, HitRect>.Empty;
 
     /// <summary>The rendered diagram's viewBox — the coordinate space every
     /// rectangle below is expressed in.</summary>
@@ -50,6 +51,20 @@ public class BoardHitRegions
     /// the drawn dice exactly.
     /// </summary>
     public HitRect? Dice { get; init; }
+
+    /// <summary>Hit rectangle per play-panel row, keyed by the candidate's
+    /// stored index into the decision's <c>Plays</c> — never its row
+    /// position — so a click names the candidate under either ranking, the
+    /// analysis-level ceiling and a rescue. Present exactly for the rows the
+    /// panel draws: empty unless a Solution-mode checker play's panel is
+    /// drawn. Each rect spans the panel's width and the row's height. An
+    /// immutable copy, taken on init, as <see cref="Points"/> is.</summary>
+    /// <exception cref="ArgumentNullException">Thrown on init when the value is <see langword="null"/>.</exception>
+    public required IReadOnlyDictionary<int, HitRect> Candidates
+    {
+        get => _candidates;
+        init => _candidates = (value ?? throw new ArgumentNullException(nameof(Candidates))).ToFrozenDictionary();
+    }
 }
 
 /// <summary>

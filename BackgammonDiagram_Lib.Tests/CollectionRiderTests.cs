@@ -15,8 +15,10 @@ namespace BackgammonDiagram_Lib.Tests;
 /// three: <see cref="Watermarks.Default"/>'s cached array, the same array (or
 /// a caller's) handed back by <see cref="DiagramOptions.WatermarkImage"/>,
 /// and <see cref="BoardHitRegions.Points"/>, a live dictionary behind a
-/// read-only interface. The renderers' byte results are fresh arrays each
-/// call, owned by the caller, so they hand out nothing shared.
+/// read-only interface; <see cref="BoardHitRegions.Candidates"/>, added
+/// since, follows <see cref="BoardHitRegions.Points"/>. The renderers' byte
+/// results are fresh arrays each call, owned by the caller, so they hand out
+/// nothing shared.
 /// </summary>
 public class CollectionRiderTests
 {
@@ -78,11 +80,54 @@ public class CollectionRiderTests
             ViewBox = new SvgViewBox(0, 0, 10, 10),
             Points = source,
             Bar = new HitRect(0, 0, 1, 1),
+            Candidates = new Dictionary<int, HitRect>(),
         };
 
         source[2] = new HitRect(1, 1, 1, 1);
         source.Remove(1);
 
         Assert.Equal([1], regions.Points.Keys);
+    }
+
+    [Fact]
+    public void HitRegions_Candidates_CannotBeChangedThroughTheInterface()
+    {
+        var request = TestFixtures.RequestFor(TestFixtures.CheckerPlayWith(TestFixtures.HopCandidates(3)), DiagramMode.Solution);
+        var candidates = DiagramRenderer.GetHitRegions(request, new DiagramOptions()).Candidates;
+
+        Assert.True(((ICollection<KeyValuePair<int, HitRect>>)candidates).IsReadOnly);
+        Assert.Throws<NotSupportedException>(() => ((IDictionary)candidates).Clear());
+        Assert.Equal(3, candidates.Count);
+    }
+
+    [Fact]
+    public void BoardHitRegions_CopiesTheCandidatesItIsGiven()
+    {
+        var source = new Dictionary<int, HitRect> { [0] = new HitRect(0, 0, 1, 1) };
+        var regions = new BoardHitRegions
+        {
+            ViewBox = new SvgViewBox(0, 0, 10, 10),
+            Points = new Dictionary<int, HitRect>(),
+            Bar = new HitRect(0, 0, 1, 1),
+            Candidates = source,
+        };
+
+        source[1] = new HitRect(1, 1, 1, 1);
+        source.Remove(0);
+
+        Assert.Equal([0], regions.Candidates.Keys);
+    }
+
+    [Fact]
+    public void BoardHitRegions_RefusesNullCandidates()
+    {
+        var ex = Assert.Throws<ArgumentNullException>(() => new BoardHitRegions
+        {
+            ViewBox = new SvgViewBox(0, 0, 10, 10),
+            Points = new Dictionary<int, HitRect>(),
+            Bar = new HitRect(0, 0, 1, 1),
+            Candidates = null!,
+        });
+        Assert.Equal(nameof(BoardHitRegions.Candidates), ex.ParamName);
     }
 }

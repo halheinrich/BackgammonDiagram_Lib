@@ -34,8 +34,8 @@ namespace BackgammonDiagram_Lib;
 /// and a variation the request cannot draw is refused where it is made. The
 /// options a decision's candidates are drawn by — <see cref="Ranking"/>,
 /// <see cref="MaximumHiddenCandidateAnalysisLevel"/>,
-/// <see cref="SecondaryPlayIndex"/> — belong to a request that presents a
-/// decision; a board has none.
+/// <see cref="SecondaryPlayIndex"/>, <see cref="ShownPlayIndex"/> — belong to
+/// a request that presents a decision; a board has none.
 /// </para>
 /// <para>
 /// <b>Equality.</b> Value equality, as a record: two requests are equal when
@@ -66,6 +66,7 @@ public sealed record DiagramRequest
     private readonly PlayRanking? _ranking;
     private readonly AnalysisLevel? _maximumHiddenCandidateAnalysisLevel;
     private readonly int? _secondaryPlayIndex;
+    private readonly int? _shownPlayIndex;
 
     private DiagramRequest(Content content) => Drawn = content;
 
@@ -133,8 +134,10 @@ public sealed record DiagramRequest
     /// the roll, the cube and the score are the decision's; the checkers and
     /// the pip counts are the working board's; the dice are drawn in
     /// <paramref name="diceOrder"/>. Every option is kept but
-    /// <see cref="Mode"/>, which is <see cref="DiagramMode.Problem"/>: a
-    /// working board has no analysis.
+    /// <see cref="Mode"/> and <see cref="ShownPlayIndex"/>: the mode is
+    /// <see cref="DiagramMode.Problem"/>, since a working board has no
+    /// analysis, and no play is shown, since a working board shows the play
+    /// being entered.
     /// </summary>
     /// <param name="board">The working board, in the decision's frame.</param>
     /// <param name="diceOrder">The order the decision's dice are drawn in.</param>
@@ -151,6 +154,7 @@ public sealed record DiagramRequest
         {
             Drawn = new WorkingBoardContent(decision, board, diceOrder),
             Mode = DiagramMode.Problem,
+            ShownPlayIndex = null,
         };
     }
 
@@ -161,10 +165,17 @@ public sealed record DiagramRequest
     /// <summary>
     /// The board drawn: a decision's own board (<see cref="BgDecisionData.Board"/>,
     /// read from the record), or the board a board request or a working
-    /// board states.
+    /// board states. A decision's diagram showing a play in
+    /// <see cref="DiagramMode.Solution"/> draws the position that candidate
+    /// leaves instead (<see cref="ShownPlayIndex"/>), in the decision's frame.
     /// </summary>
     public BoardPosition Board => Drawn switch
     {
+        // The after-board is in the next mover's frame; flipped back, it is in
+        // the decision's, the frame every board here is drawn in.
+        DecisionContent { Decision: CheckerPlayDecision play }
+            when _mode == DiagramMode.Solution && _shownPlayIndex is int shown =>
+            play.AfterBoardOf(shown).Flipped(),
         DecisionContent content => content.Decision.Board,
         BoardContent content => content.Board,
         WorkingBoardContent content => content.Board,
@@ -191,7 +202,9 @@ public sealed record DiagramRequest
     /// board, a working board included: an XGID states a decision. Consumed as
     /// an upper-right label — real selectable text in PDF and PPTX, and baked
     /// pixels in the SVG and PNG when <see cref="DiagramOptions.ShowXgid"/> is
-    /// set.
+    /// set. It stays the decision's while a play is shown
+    /// (<see cref="ShownPlayIndex"/>), so a baked label would name the
+    /// decision's position, not the shown one.
     /// </summary>
     public string? Xgid => (Drawn as DecisionContent)?.Decision.Xgid;
 
@@ -355,11 +368,13 @@ public sealed record DiagramRequest
     /// or below every ceiling, so the renderer excludes it explicitly.
     /// </para>
     /// <para>
-    /// <b>Contract: the ranking's best play, the user's play and an active
-    /// secondary play are never hidden, whatever their depth</b> — review must
-    /// always show what was best and what was played. At
-    /// <see cref="AnalysisLevel.XgRollerPlusPlus"/> the panel drops every
-    /// evaluation row and still draws the rollout family and these three.
+    /// <b>Contract: the ranking's best play, the user's play, an active
+    /// secondary play and the shown play are never hidden, whatever their
+    /// depth</b> — review must always show what was best, what was played and
+    /// what is shown. At <see cref="AnalysisLevel.XgRollerPlusPlus"/> the panel
+    /// drops every evaluation row and still draws the rollout family and
+    /// these. When the panel has no room for every candidate, these rows are
+    /// drawn first and the rest fill the room left, in the ranking's order.
     /// </para>
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">Thrown on init when the value is not a defined level.</exception>
@@ -422,6 +437,42 @@ public sealed record DiagramRequest
                 ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, play.Decision.Plays.Count, nameof(SecondaryPlayIndex));
             }
             _secondaryPlayIndex = value;
+        }
+    }
+
+    /// <summary>
+    /// The candidate whose play is shown, or <see langword="null"/> — the
+    /// default — for none. In <see cref="DiagramMode.Solution"/> a decision's
+    /// diagram then draws the position that candidate leaves
+    /// (<see cref="Board"/>: its checkers, pip counts and trays) and
+    /// highlights its row in the play panel, while everything else — the
+    /// roll, the names, the cube, the score and <see cref="Xgid"/> — stays
+    /// the record's. In <see cref="DiagramMode.Problem"/> it is inert, as the
+    /// † mark is.
+    /// <para>
+    /// A consumer's overlay, not a record fact. The shown row is never
+    /// hidden (see <see cref="MaximumHiddenCandidateAnalysisLevel"/>). A
+    /// consumer baking the XGID (<see cref="DiagramOptions.ShowXgid"/>) while
+    /// a play is shown labels the drawn board with the decision's XGID.
+    /// </para>
+    /// </summary>
+    /// <exception cref="ArgumentException">Thrown on init when a value is stated and the request presents no checker play.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown on init when the value identifies no candidate of the checker play.</exception>
+    public int? ShownPlayIndex
+    {
+        get => _shownPlayIndex;
+        init
+        {
+            if (value is int index)
+            {
+                if (PresentedDecision is not CheckerPlayDecision play)
+                    throw new ArgumentException(
+                        "A shown play names a checker play's candidate; this request presents none.",
+                        nameof(ShownPlayIndex));
+                ArgumentOutOfRangeException.ThrowIfNegative(index, nameof(ShownPlayIndex));
+                ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, play.Decision.Plays.Count, nameof(ShownPlayIndex));
+            }
+            _shownPlayIndex = value;
         }
     }
 }

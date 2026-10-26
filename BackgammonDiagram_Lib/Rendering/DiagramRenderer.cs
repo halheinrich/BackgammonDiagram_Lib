@@ -88,7 +88,7 @@ public static class DiagramRenderer
             sb.AppendLine($"""  <g transform="translate(0,{F(titleOffset)})">""");
         }
 
-        AppendBoard(sb, layout, theme, request, plan.Presentation, panelOnLeft, options.WatermarkImage);
+        AppendBoard(sb, layout, theme, request, plan.Presentation, plan.PlayPanel, panelOnLeft, options.WatermarkImage);
 
         if (plan.HasTitle)
             sb.AppendLine("  </g>");
@@ -107,7 +107,9 @@ public static class DiagramRenderer
     }
 
     /// <summary>
-    /// Returns hit-test rectangles for all clickable board regions.
+    /// Returns hit-test rectangles for all clickable board regions and, on a
+    /// Solution-mode checker play, for each candidate row the play panel
+    /// draws (<see cref="BoardHitRegions.Candidates"/>).
     /// Coordinates are in SVG viewBox space matching <see cref="RenderSvg"/>
     /// output for the same request — including the analysis-panel allocation
     /// (present under every panel-bearing preset, where Problem and Solution
@@ -188,13 +190,12 @@ public static class DiagramRenderer
         // The tray occupies the half of the left rail between the centered-cube
         // position and the turned-cube position — same region the renderer uses
         // for the stack, minus the bar-specific padding.
-        int onRollOff = request.Board.OnRollBorneOffCount;
-        int opponentOff = request.Board.OpponentBorneOffCount;
+        var board = request.Board;
         double cubeSize = layout.LeftRailWidth * 0.7;
-        HitRect? onRollTray = onRollOff is >= OnRollTrayMinCount and <= BearOffMaxCount
+        HitRect? onRollTray = OnRollTrayDrawn(board)
             ? TrayHitRect(layout, panelOnLeft, titleOffset, cubeSize, atBottom: request.OnRollAtBottom)
             : null;
-        HitRect? opponentTray = opponentOff is >= OpponentTrayMinCount and <= BearOffMaxCount
+        HitRect? opponentTray = OpponentTrayDrawn(board)
             ? TrayHitRect(layout, panelOnLeft, titleOffset, cubeSize, atBottom: !request.OnRollAtBottom)
             : null;
 
@@ -211,6 +212,17 @@ public static class DiagramRenderer
             dice = bounds with { Y = bounds.Y + titleOffset };
         }
 
+        // --- Candidate rows: one per row the play panel draws, read from the
+        //     same plan AppendPlayPanel draws from, keyed by the candidate's
+        //     stored index. The panel is drawn inside the title-strip
+        //     translate group, so its rows shift by titleOffset too.
+        var candidates = new Dictionary<int, HitRect>();
+        if (plan.PlayPanel is { } panel)
+        {
+            foreach (var row in panel.Rows)
+                candidates[row.Index] = new HitRect(panel.PanelX, row.Top + titleOffset, panel.PanelWidth, PlayPanelRow.Height);
+        }
+
         return new BoardHitRegions
         {
             ViewBox = plan.ViewBox,
@@ -220,6 +232,7 @@ public static class DiagramRenderer
             OnRollTray = onRollTray,
             OpponentTray = opponentTray,
             Dice = dice,
+            Candidates = candidates,
         };
     }
 
@@ -247,7 +260,8 @@ public static class DiagramRenderer
     /// <summary>
     /// The resolved canvas for one (request, options) pair: the request's
     /// presentation, the layout, the title-strip cells and vertical offset,
-    /// and the viewBox they produce. Built exclusively by
+    /// the viewBox they produce, and the play panel's rows where one is drawn
+    /// (<see cref="PlayPanel"/>). Built exclusively by
     /// <see cref="PlanCanvas"/> and consumed by both <see cref="RenderSvg"/>
     /// and <see cref="GetHitRegions"/>, so the two public entry points
     /// describe the same canvas by construction — the single-sourcing that
@@ -260,7 +274,8 @@ public static class DiagramRenderer
         SvgViewBox ViewBox,
         string TitleAction,
         string TitlePosition,
-        string TitleSource)
+        string TitleSource,
+        PlayPanelPlan? PlayPanel)
     {
         /// <summary>Whether the title strip renders (<see cref="StripShows"/>).</summary>
         public bool HasTitle => StripShows(TitleAction, TitlePosition, TitleSource);
@@ -278,7 +293,8 @@ public static class DiagramRenderer
     /// Shared prologue of <see cref="RenderSvg"/> and
     /// <see cref="GetHitRegions"/>: validates the mode/preset combination,
     /// resolves the request's presentation, composes the title cells, builds
-    /// the layout, and derives the viewBox. Under
+    /// the layout, derives the viewBox, and plans the play panel's rows
+    /// (<see cref="PlanPlayPanel"/>). Under
     /// <see cref="AspectPreset.BoardOnly"/> no title cells are composed, which
     /// is what drops the strip: the canvas is the board proper alone.
     /// </summary>
@@ -316,7 +332,17 @@ public static class DiagramRenderer
         // SvgViewBox.ToAttributeString is the one place the rendered attribute
         // value is assembled; GetHitRegions returns this same instance.
         var viewBox = new SvgViewBox(0, 0, layout.TotalWidth, layout.BoardHeight + titleOffset);
-        return new CanvasPlan(presentation, layout, titleOffset, viewBox, titleAction, titlePosition, titleSource);
+
+        // The play panel is drawn on a panel-bearing canvas, in Solution mode,
+        // for a checker play; a Solution request is never board-only (refused
+        // above), and the layout is checked all the same.
+        PlayPanelPlan? playPanel = !layout.BoardOnly
+            && request.Mode == DiagramMode.Solution
+            && request.Decision is CheckerPlayDecision play
+                ? PlanPlayPanel(play, request, layout, request.PanelOnLeft)
+                : null;
+
+        return new CanvasPlan(presentation, layout, titleOffset, viewBox, titleAction, titlePosition, titleSource, playPanel);
     }
 
     /// <summary>
@@ -436,7 +462,8 @@ public static class DiagramRenderer
     // -----------------------------------------------------------------------
 
     private static void AppendBoard(StringBuilder sb, BoardLayout layout, ITheme theme,
-        DiagramRequest request, DiagramPresentation presentation, bool panelOnLeft, ImmutableArray<byte>? watermarkImage)
+        DiagramRequest request, DiagramPresentation presentation, PlayPanelPlan? playPanel, bool panelOnLeft,
+        ImmutableArray<byte>? watermarkImage)
     {
         bool effectivePanelOnLeft = panelOnLeft;
         bool homeBoardOnRight = request.HomeBoardOnRight;
@@ -470,7 +497,7 @@ public static class DiagramRenderer
         AppendBearOff(sb, layout, theme, bx, request);
         AppendCube(sb, layout, theme, bx, request, presentation);
         AppendRightRail(sb, layout, theme, bx);  // last — draws over any overflowing content
-        AppendAnalysisPanel(sb, layout, theme, request, panelOnLeft);
+        AppendAnalysisPanel(sb, layout, theme, request, playPanel, panelOnLeft);
     }
 
     // -----------------------------------------------------------------------
@@ -963,22 +990,37 @@ public static class DiagramRenderer
     private const int OpponentTrayMinCount = 1;
     private const int BearOffMaxCount = BoardPosition.CheckersPerSide - 1;
 
+    /// <summary>
+    /// Whether the on-roll player's tray is drawn on <paramref name="board"/>
+    /// — the band rule's one statement for that side, read by both
+    /// <see cref="AppendBearOff"/> and <see cref="GetHitRegions"/>, so a tray
+    /// is drawn exactly when it is hit-tested.
+    /// </summary>
+    private static bool OnRollTrayDrawn(BoardPosition board) =>
+        board.OnRollBorneOffCount is >= OnRollTrayMinCount and <= BearOffMaxCount;
+
+    /// <summary>
+    /// Whether the opponent's tray is drawn on <paramref name="board"/>; the
+    /// opponent's side of <see cref="OnRollTrayDrawn"/>.
+    /// </summary>
+    private static bool OpponentTrayDrawn(BoardPosition board) =>
+        board.OpponentBorneOffCount is >= OpponentTrayMinCount and <= BearOffMaxCount;
+
     private static void AppendBearOff(StringBuilder sb, BoardLayout layout, ITheme theme,
         double bx, DiagramRequest request)
     {
-        int onRollOff = request.Board.OnRollBorneOffCount;
-        int opponentOff = request.Board.OpponentBorneOffCount;
+        var board = request.Board;
         double cubeSize = layout.LeftRailWidth * 0.7;
 
-        if (onRollOff >= OnRollTrayMinCount && onRollOff <= BearOffMaxCount)
+        if (OnRollTrayDrawn(board))
         {
             AppendBearOffStack(sb, layout, bx, request.OnRollAtBottom,
-                count: onRollOff, cubeSize: cubeSize, fill: theme.CheckerColorOnRoll);
+                count: board.OnRollBorneOffCount, cubeSize: cubeSize, fill: theme.CheckerColorOnRoll);
         }
-        if (opponentOff >= OpponentTrayMinCount && opponentOff <= BearOffMaxCount)
+        if (OpponentTrayDrawn(board))
         {
             AppendBearOffStack(sb, layout, bx, !request.OnRollAtBottom,
-                count: opponentOff, cubeSize: cubeSize, fill: theme.CheckerColorOpponent);
+                count: board.OpponentBorneOffCount, cubeSize: cubeSize, fill: theme.CheckerColorOpponent);
         }
     }
 
@@ -1036,7 +1078,7 @@ public static class DiagramRenderer
     // -----------------------------------------------------------------------
 
     private static void AppendAnalysisPanel(StringBuilder sb, BoardLayout layout, ITheme theme,
-        DiagramRequest request, bool panelOnLeft)
+        DiagramRequest request, PlayPanelPlan? playPanel, bool panelOnLeft)
     {
         // Board-only canvas: no panel allocation at all — return before the
         // background rect so no zero-width panel element is emitted.
@@ -1060,9 +1102,20 @@ public static class DiagramRenderer
             return;
 
         decision.Switch(
-            play => AppendPlayPanel(sb, px, pw, ph, panelText, dimText, play, request),
+            _ => AppendPlayPanel(sb, playPanel
+                    ?? throw new UnreachableException("The canvas plans the panel of every Solution-mode checker play it draws."),
+                panelText, dimText, RowHighlight(panelBg)),
             cube => AppendCubePanel(sb, px, pw, panelText, dimText, cube));
     }
+
+    /// <summary>
+    /// The shown play's row highlight, derived from the panel background as
+    /// the panel's dim text is, so a theme states no colour of its own for
+    /// it: a shade darker on a light panel, lighter on a dark one, either way
+    /// leaving the panel's text colour (<see cref="ContrastText"/>) legible.
+    /// </summary>
+    private static string RowHighlight(string panelBg) =>
+        IsLight(panelBg) ? Darken(panelBg, 0.12) : Lighten(panelBg, 0.6);
 
     // -----------------------------------------------------------------------
     //  Play analysis panel
@@ -1145,26 +1198,69 @@ public static class DiagramRenderer
     internal const string PlayPanelNotScoredMark = "—";
 
     /// <summary>
-    /// Render the checker-play candidate list. One line per visible play, in
-    /// the order of the request's ranking — <see cref="DiagramRequest.Ranking"/>,
+    /// The play panel's resolved rows: the panel's x and width, the column
+    /// layout, the header's top, and the rows drawn, top to bottom. Built
+    /// once per canvas by <see cref="PlanPlayPanel"/> and read by both
+    /// <see cref="AppendPlayPanel"/>, which draws it, and
+    /// <see cref="GetHitRegions"/>, which states a rect per row — the
+    /// <see cref="CanvasPlan"/> pattern applied to the panel, so the drawn rows
+    /// and their hit regions agree by construction. Coordinates are board
+    /// space: the panel is drawn inside the title strip's translate group.
+    /// </summary>
+    private sealed record PlayPanelPlan(
+        double PanelX, double PanelWidth, PlayPanelColumns Columns, double HeaderTop,
+        ImmutableArray<PlayPanelRow> Rows);
+
+    /// <summary>
+    /// One drawn row of the play panel: the candidate under the request's
+    /// ranking (its stored index, rank, numbers and error), the row's top, its
+    /// mark (<c>*</c>, <c>†</c> or empty), its rank-inversion italic, and
+    /// whether it is the shown play's row. The row occupies
+    /// <c>[Top, Top + Height)</c>.
+    /// </summary>
+    private sealed record PlayPanelRow(RankedPlay Play, double Top, string Marker, bool Italic, bool Shown)
+    {
+        /// <summary>Every row's height: the panel's row pitch.</summary>
+        public const double Height = PlayPanelLineHeight;
+
+        /// <summary>The candidate's stored index into the decision's plays.</summary>
+        public int Index => Play.Index;
+
+        /// <summary>The row's text baseline.</summary>
+        public double Baseline => Top + Height * 0.8;
+    }
+
+    /// <summary>
+    /// Plans the checker-play candidate list. One row per drawn play, in the
+    /// order of the request's ranking — <see cref="DiagramRequest.Ranking"/>,
     /// through the producer's <see cref="CheckerPlayDecisionData.RankedBy"/>,
     /// which decides the order, the rank numbers, the best play and every
     /// error (SPEC-scoring §2a) — less the candidates the request's
     /// <see cref="DiagramRequest.MaximumHiddenCandidateAnalysisLevel"/> hides
     /// (see <see cref="BuildDisplaySequence"/>). The candidates arrive in the
-    /// analyser's stored order; this renderer ranks nothing itself.
-    /// Columns from left to right:
-    ///   * user-play marker, rank, move notation, equity, equity loss, depth.
-    /// The marks are keyed to the candidate's stored index, so they follow
-    /// candidates, not row positions, and the rank-inversion italics to its
-    /// place in the ranking. When the panel doesn't have room for every
-    /// candidate, trim the tail but always include the marked plays on the
-    /// last lines (with their real rank numbers) if they would otherwise be
-    /// cut; the best play is the ranking's first, so it is never cut.
+    /// analyser's stored order; this renderer ranks nothing itself. The marks
+    /// and the shown play's highlight are keyed to the candidate's stored
+    /// index, so they follow candidates, not row positions, and the
+    /// rank-inversion italics to its place in the ranking.
+    /// <para>
+    /// <b>The protected rows.</b> The ranking's best play, the user's play, an
+    /// active secondary and the shown play are never hidden by the ceiling
+    /// and are always drawn: when the panel has no room for every candidate,
+    /// they are reserved first and the remaining rows are filled from the
+    /// display sequence in the ranking's order. The drawn rows read in the
+    /// ranking's order, each with its real rank. Only a panel with room for
+    /// fewer rows than there are protected candidates drops one: it keeps the
+    /// protected rows the ranking places first, so the best play, which heads
+    /// the ranking, is the last to go.
+    /// </para>
     /// </summary>
-    private static void AppendPlayPanel(StringBuilder sb, double px, double pw, double ph,
-        string textColor, string dimColor, CheckerPlayDecision decision, DiagramRequest request)
+    private static PlayPanelPlan PlanPlayPanel(CheckerPlayDecision decision, DiagramRequest request,
+        BoardLayout layout, bool panelOnLeft)
     {
+        double px = layout.PanelX(panelOnLeft);
+        double pw = layout.PanelWidth;
+        double ph = layout.BoardHeight;
+
         var data = decision.Decision;
         var ranked = data.RankedBy(request.Ranking
             ?? throw new UnreachableException("A request presenting a decision states its ranking."));
@@ -1178,69 +1274,49 @@ public static class DiagramRenderer
         int? secondaryIndex = request.SecondaryPlayIndex is int secondary && secondary != userIndex
             ? secondary
             : null;
+        int? shownIndex = request.ShownPlayIndex;
+
+        // The protected candidates: never hidden, always drawn.
+        var protectedIndices = new HashSet<int> { ranked.Best.Index };
+        foreach (int? index in (int?[])[userIndex, secondaryIndex, shownIndex])
+        {
+            if (index is int i)
+                protectedIndices.Add(i);
+        }
 
         // The display sequence — the ranking's order, after the request's
         // optional analysis-level ceiling (halheinrich/backgammon#66).
         List<RankedPlay> sequence = BuildDisplaySequence(
-            ranked, request.MaximumHiddenCandidateAnalysisLevel, userIndex, secondaryIndex);
+            ranked, request.MaximumHiddenCandidateAnalysisLevel, protectedIndices);
 
         // One font size and the column anchors for the whole panel — header
         // row and every play row alike (see LayOutPlayPanelColumns).
-        var (fontSize, markerX, rankX, moveX, equityX, lossX, depthX) =
-            LayOutPlayPanelColumns(px, pw, sequence);
+        var columns = LayOutPlayPanelColumns(px, pw, sequence);
 
-        double y = PanelMargin;
-
-        // Column-header row — a checker play always has candidates to label.
-        sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(y + PlayPanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">{PlayPanelEquityHeader}</text>""");
-        sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(y + PlayPanelLineHeight * 0.8)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">{PlayPanelLossHeader}</text>""");
-        sb.AppendLine($"""  <text x="{F(depthX)}" y="{F(y + PlayPanelLineHeight * 0.8)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">{PlayPanelDepthHeader}</text>""");
-        y += PlayPanelLineHeight;
-
-        double rowBudget = ph - PanelMargin;
-
-        int fitCount = (int)Math.Max(0, (rowBudget - y) / PlayPanelLineHeight);
-
-        // Decide the visible rows. Normally the first
-        // min(fitCount, sequence.Count) entries of the display sequence. Up to
-        // two plays are marked and must both stay visible: the primary (*) at
-        // UserPlayIndex and the secondary (†) at SecondaryPlayIndex. Any
-        // marked play whose display position falls beyond the cut
-        // (position >= fitCount) is "rescued" by displacing a tail entry, so
-        // it still shows with its real rank — so up to two tail rows may be
-        // displaced (neither, one, or both). The best play needs no rescue:
-        // it is the ranking's first, and the ceiling never hides it.
+        // The header takes the first row; the plays take the rows below it,
+        // down to the panel's foot less its margin.
+        double headerTop = PanelMargin;
+        double firstRowTop = headerTop + PlayPanelLineHeight;
+        int fitCount = (int)Math.Max(0, (ph - PanelMargin - firstRowTop) / PlayPanelLineHeight);
         int visibleCount = Math.Min(fitCount, sequence.Count);
 
-        // In the ranking's order, so rescued rows read in rank order at the
-        // foot of the panel. (fitCount == 0 leaves no room to rescue into.)
-        var rescued = new List<RankedPlay>(2);
-        if (fitCount > 0)
-        {
-            foreach (var row in sequence.Skip(fitCount))
-            {
-                if (row.Index == userIndex || row.Index == secondaryIndex)
-                    rescued.Add(row);
-            }
-        }
+        // Reserve the protected rows (every one is in the sequence: the
+        // ceiling hides none), then fill what room is left in the ranking's
+        // order. A row is drawn when it is reserved or filled; both lists
+        // are in the ranking's order, so the drawn rows are too.
+        var reserved = sequence.Where(row => protectedIndices.Contains(row.Index)).Take(visibleCount).ToHashSet();
+        int fillCount = visibleCount - reserved.Count;
+        var filled = sequence.Where(row => !protectedIndices.Contains(row.Index)).Take(fillCount).ToHashSet();
 
-        // Keep the top rows of the display sequence, then give the remaining
-        // slots to the rescued plays. keepCount never goes negative; if more
-        // plays need rescue than there are slots (a panel with room for only a
-        // single row), show as many as fit rather than overflow the budget.
-        int keepCount = Math.Max(0, visibleCount - rescued.Count);
-        var visible = new List<RankedPlay>(visibleCount);
-        visible.AddRange(sequence.Take(keepCount));
-        visible.AddRange(rescued.Take(visibleCount - visible.Count));
-
-        foreach (var row in visible)
+        var rows = ImmutableArray.CreateBuilder<PlayPanelRow>(visibleCount);
+        foreach (var row in sequence)
         {
-            var candidate = row.Candidate;
-            int playIdx = row.Index;
+            if (!reserved.Contains(row) && !filled.Contains(row))
+                continue;
+
             // Primary * wins over secondary †. They can't both be true (an
             // active secondary is a distinct index), but keep * authoritative.
-            string marker = playIdx == userIndex ? "*" : playIdx == secondaryIndex ? "†" : string.Empty;
-            string rank = row.Rank.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string marker = row.Index == userIndex ? "*" : row.Index == secondaryIndex ? "†" : string.Empty;
 
             // Italic flags a rank inversion in the ranking's order: a deeper
             // analysis (higher DepthRank) ranked below a shallower one — the
@@ -1252,17 +1328,55 @@ public static class DiagramRenderer
             // depth, so no row is inverted under it; under equity, a deeper
             // analysis rating below a shallower one is. A depth not recorded
             // compares with nothing (its rank is null): it is not shallower
-            // than a recorded one, only unrecorded. Applied to the Equity, Eq
-            // Loss, and Depth cells -- three cells instead of one makes the
-            // cue stand out enough to notice at a glance. Italic composes with
-            // the bold weight the two numeric columns carry (see below): they
-            // are independent attributes, so an inverted row reads
-            // bold-italic.
+            // than a recorded one, only unrecorded.
             int place = row.Rank - 1;
-            bool italic = place > 0 && candidate.DepthRank > ranked[place - 1].Candidate.DepthRank;
-            string italicAttr = italic ? """ font-style="italic" """ : " ";
+            bool italic = place > 0 && row.Candidate.DepthRank > ranked[place - 1].Candidate.DepthRank;
 
-            double lineY = y + PlayPanelLineHeight * 0.8;
+            double top = firstRowTop + rows.Count * PlayPanelLineHeight;
+            rows.Add(new PlayPanelRow(row, top, marker, italic, Shown: row.Index == shownIndex));
+        }
+
+        return new PlayPanelPlan(px, pw, columns, headerTop, rows.MoveToImmutable());
+    }
+
+    /// <summary>
+    /// Draws the checker-play candidate list from its plan
+    /// (<see cref="PlanPlayPanel"/>), computing nothing of it again. Columns
+    /// from left to right:
+    ///   * user-play marker, rank, move notation, equity, equity loss, depth.
+    /// The shown play's row is highlighted: one rect spanning the panel's
+    /// width and the row's height, drawn before the row's text so the text
+    /// stays on top. It composes with the marks, which are drawn as ever.
+    /// </summary>
+    private static void AppendPlayPanel(StringBuilder sb, PlayPanelPlan panel,
+        string textColor, string dimColor, string highlightColor)
+    {
+        var (fontSize, markerX, rankX, moveX, equityX, lossX, depthX) = panel.Columns;
+        double headerY = panel.HeaderTop + PlayPanelLineHeight * 0.8;
+
+        // Column-header row — a checker play always has candidates to label.
+        sb.AppendLine($"""  <text x="{F(equityX)}" y="{F(headerY)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">{PlayPanelEquityHeader}</text>""");
+        sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(headerY)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">{PlayPanelLossHeader}</text>""");
+        sb.AppendLine($"""  <text x="{F(depthX)}" y="{F(headerY)}" font-family="sans-serif" font-size="{F(fontSize)}" fill="{dimColor}">{PlayPanelDepthHeader}</text>""");
+
+        foreach (var row in panel.Rows)
+        {
+            var candidate = row.Play.Candidate;
+            string marker = row.Marker;
+            string rank = row.Play.Rank.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            // The rank-inversion italic (see PlanPlayPanel) is applied to the
+            // Equity, Eq Loss, and Depth cells -- three cells instead of one
+            // makes the cue stand out enough to notice at a glance. Italic
+            // composes with the bold weight the two numeric columns carry
+            // (see below): they are independent attributes, so an inverted
+            // row reads bold-italic.
+            string italicAttr = row.Italic ? """ font-style="italic" """ : " ";
+
+            double lineY = row.Baseline;
+
+            if (row.Shown)
+                sb.AppendLine($"""  <rect x="{F(panel.PanelX)}" y="{F(row.Top)}" width="{F(panel.PanelWidth)}" height="{F(PlayPanelRow.Height)}" fill="{highlightColor}"/>""");
 
             if (marker.Length > 0)
                 sb.AppendLine($"""  <text x="{F(markerX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold" fill="{textColor}">{marker}</text>""");
@@ -1281,7 +1395,7 @@ public static class DiagramRenderer
             // shows as 0.0000), so a blank cell and a correct play coincide;
             // the error, through the shared display, where it does not; and
             // the not-scored mark where the ranking gives none.
-            string? loss = row.Error switch
+            string? loss = row.Play.Error switch
             {
                 null => PlayPanelNotScoredMark,
                 double error when EquityDisplay.CountsAsZero(error) => null,
@@ -1291,8 +1405,6 @@ public static class DiagramRenderer
                 sb.AppendLine($"""  <text x="{F(lossX)}" y="{F(lineY)}" text-anchor="end" font-family="sans-serif" font-size="{F(fontSize)}" font-weight="bold"{italicAttr}fill="{dimColor}">{Escape(loss)}</text>""");
             if (candidate.DepthAbbreviation is { } depth)
                 sb.AppendLine($"""  <text x="{F(depthX)}" y="{F(lineY)}" font-family="sans-serif" font-size="{F(fontSize)}"{italicAttr}fill="{dimColor}">{Escape(depth)}</text>""");
-
-            y += PlayPanelLineHeight;
         }
     }
 
@@ -1433,18 +1545,18 @@ public static class DiagramRenderer
     /// rollout's inner one, not the analysis's own depth); a candidate whose
     /// level is not recorded (<see cref="AnalysisLevel.Unknown"/> sits outside
     /// the order, and its zero value would compare at or below every ceiling,
-    /// so the guard is explicit); and the ranking's best play and both marked
-    /// rows, whatever their depth — see the contract on
+    /// so the guard is explicit); and the protected candidates — the ranking's
+    /// best play, both marked rows and the shown play — whatever their depth;
+    /// see the contract on
     /// <see cref="DiagramRequest.MaximumHiddenCandidateAnalysisLevel"/>.
     /// </para>
     /// </summary>
     /// <param name="ranked">The candidates under the request's ranking.</param>
     /// <param name="ceiling">The request's ceiling, or null to hide nothing.</param>
-    /// <param name="userIndex">The user's play, exempt from the ceiling.</param>
-    /// <param name="activeSecondaryIndex">The secondary play when its mark is
-    /// active, exempt from the ceiling.</param>
+    /// <param name="protectedIndices">The stored indices of the protected
+    /// candidates, exempt from the ceiling.</param>
     private static List<RankedPlay> BuildDisplaySequence(
-        RankedPlays ranked, AnalysisLevel? ceiling, int? userIndex, int? activeSecondaryIndex)
+        RankedPlays ranked, AnalysisLevel? ceiling, IReadOnlySet<int> protectedIndices)
     {
         var sequence = new List<RankedPlay>(ranked.Count);
         foreach (var row in ranked)
@@ -1453,9 +1565,7 @@ public static class DiagramRenderer
                 && row.Candidate.AnalysisMode == AnalysisMode.Evaluation
                 && row.Candidate.AnalysisLevel != AnalysisLevel.Unknown
                 && row.Candidate.AnalysisLevel <= level
-                && row != ranked.Best
-                && row.Index != userIndex
-                && row.Index != activeSecondaryIndex;
+                && !protectedIndices.Contains(row.Index);
             if (!hidden)
                 sequence.Add(row);
         }
@@ -1960,14 +2070,17 @@ public static class DiagramRenderer
         int b = Math.Clamp((int)(int.Parse(hex[4..6], System.Globalization.NumberStyles.HexNumber) * scale), 0, 255);
         return $"#{r:X2}{g:X2}{b:X2}";
     }
-    private static string ContrastText(string bgHex)
+    private static string ContrastText(string bgHex) => IsLight(bgHex) ? "#1A1A1A" : "#F0F0F0";
+
+    /// <summary>Whether a 6-char hex colour is light: its relative luminance is above one half.</summary>
+    private static bool IsLight(string hex)
     {
-        bgHex = bgHex.TrimStart('#');
-        int r = int.Parse(bgHex[..2], System.Globalization.NumberStyles.HexNumber);
-        int g = int.Parse(bgHex[2..4], System.Globalization.NumberStyles.HexNumber);
-        int b = int.Parse(bgHex[4..6], System.Globalization.NumberStyles.HexNumber);
+        hex = hex.TrimStart('#');
+        int r = int.Parse(hex[..2], System.Globalization.NumberStyles.HexNumber);
+        int g = int.Parse(hex[2..4], System.Globalization.NumberStyles.HexNumber);
+        int b = int.Parse(hex[4..6], System.Globalization.NumberStyles.HexNumber);
         // Relative luminance (ITU-R BT.709)
         double luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
-        return luminance > 0.5 ? "#1A1A1A" : "#F0F0F0";
+        return luminance > 0.5;
     }
 }
