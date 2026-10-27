@@ -1852,24 +1852,30 @@ public static class DiagramRenderer
     /// The Actual line: what was played, read off the record's played halves
     /// (<see cref="CubeDecisionData.UserDoublerAction"/>,
     /// <see cref="CubeDecisionData.UserTakerAction"/>), or
-    /// <see langword="null"/> where neither half is recorded, which drops the
-    /// line.
+    /// <see langword="null"/> where the doubler's action is not recorded,
+    /// which drops the line.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// With both halves present the record states an answer, formed the one
-    /// way two actions become one (<see cref="CubeAnswerExtensions.Of"/>) and
-    /// labelled at its decision like any answer: a recorded no double with a
-    /// pass reads Too good or No double / Pass as the decision reads it, and a
-    /// recorded no double with a take is the No double answer, which reads
-    /// <c>No double</c>.
+    /// The line reads one of three shapes. With both halves present the record
+    /// states the played answer, formed the one way two actions become one
+    /// (<see cref="CubeAnswerExtensions.Of"/>) and labelled at its decision
+    /// like any answer: <c>Double / Take</c> or <c>Double / Pass</c>. With the
+    /// doubler's action alone it renders in its action label:
+    /// <c>No double</c>, or <c>Double</c> where no response is recorded —
+    /// including a double the opponent answered by resigning. With no doubler
+    /// action there is no line.
     /// </para>
     /// <para>
-    /// With one half missing no answer is inferred: the present half renders
-    /// alone in its action label, and a missing doubler half shows
-    /// <c>?</c> ahead of the taker half. Neither line reads a played action
-    /// off an error: a zero error does not identify the action when the two
-    /// cube equities tie.
+    /// No arm handles a taker half without a stated double, and none throws:
+    /// the record's <see cref="RecordedCubeActions"/> refuses a take or pass
+    /// unless the doubler's action is <see cref="CubeAction.Double"/>
+    /// (SPEC-scoring §3), so the last arm only ever sees an unrecorded
+    /// decision, never a response it drops.
+    /// </para>
+    /// <para>
+    /// No played action is read off an error: a zero error does not identify
+    /// the action when the two cube equities tie.
     /// </para>
     /// </remarks>
     private static string? CubeActualLine(CubeDecision cube) =>
@@ -1877,8 +1883,7 @@ public static class DiagramRenderer
         {
             (CubeAction doubler, CubeAction taker) => CubeLabels.Label(CubeAnswerExtensions.Of(doubler, taker), cube),
             (CubeAction doubler, null)             => CubeLabels.Label(doubler),
-            (null, CubeAction taker)               => "? / " + CubeLabels.Label(taker),
-            (null, null)                           => null,
+            (null, _)                              => null,
         };
 
     // -----------------------------------------------------------------------

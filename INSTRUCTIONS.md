@@ -565,19 +565,17 @@ percentages, which are not costs, keep their one decimal.
   - **The Actual line reads what was played**: the record's
     `UserDoublerAction` and `UserTakerAction`, never inferred from an error
     (a zero error does not identify the action when the equities tie).
-    With both halves present they are the answer
+    It reads one of three shapes. Both halves present are the played answer
     `CubeAnswerExtensions.Of(doubler, taker)`, labelled at its decision like
-    any answer — a recorded no double with a pass reads `Too good` or
-    `No double / Pass` as the decision reads it, and a recorded no double
-    with a take is the No double answer, `No double`. With one half missing
-    no answer is inferred: the present half renders alone in its action
-    label, a missing doubler half shows `?` (`? / Take`), and a decision
-    with neither half recorded drops the line. The renderer classifies no
-    action pair itself: the pair check and the stale-taker filter it once
-    kept are gone, since the answer mapping reads every combination.
-  - From real data a no double with a pass is never recorded: on a decline
-    to double no taker decision exists, so no taker half is stamped. Don't
-    stamp a fabricated Pass to reach the fourth answer's Actual line.
+    any answer: `Double / Take` or `Double / Pass`. The doubler's action
+    alone renders in its action label: `No double`, or `Double` where no
+    response is recorded, a double answered by resigning among them. With
+    no doubler action recorded the line is dropped. The renderer classifies
+    no action pair itself: the answer mapping reads every pair a record can
+    hold.
+  - A take or pass without a stated double never reaches the renderer: the
+    record's `RecordedCubeActions` refuses it as invalid data
+    (SPEC-scoring §3), so the switch has no arm for it and none throws.
   - The Analysis Level footer renders the cube analysis's derived `Depth`
     label (e.g. `"Rollout: 1296 trials. 3-ply"`), not its abbreviation: the
     cube panel has one analysis depth and column space to spare. No depth

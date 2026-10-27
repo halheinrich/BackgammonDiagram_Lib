@@ -287,40 +287,35 @@ public class RendererPanelContentTests
     //  The Actual line — the played halves, read as an answer when both are
     // -----------------------------------------------------------------------
 
+    /// <summary>
+    /// One row per shape <see cref="RecordedCubeActions"/> admits, with the
+    /// Actual line it reads, or null where it draws none.
+    /// </summary>
+    public static TheoryData<RecordedCubeActions, string?> ActualLineShapes() => new()
+    {
+        { RecordedCubeActions.None, null },
+        { RecordedCubeActions.NoDouble, "No double" },
+        { RecordedCubeActions.DoubleUnanswered, "Double" },
+        { RecordedCubeActions.DoubleAnswered(CubeAction.Take), "Double / Take" },
+        { RecordedCubeActions.DoubleAnswered(CubeAction.Pass), "Double / Pass" },
+        // No response is read off the analyser's take error.
+        { RecordedCubeActions.DoubleWithUnstatedResponse(0.1), "Double" },
+        // No action is read off the analyser's doubling error: no line.
+        { RecordedCubeActions.UnstatedDoubler(0.1), null },
+    };
+
     [Theory]
-    // Both halves present: the answer they form, labelled at its decision.
-    [InlineData(CubeAction.NoDouble, CubeAction.Take, true, "No double")]
-    [InlineData(CubeAction.Double, CubeAction.Take, true, "Double / Take")]
-    [InlineData(CubeAction.Double, CubeAction.Pass, true, "Double / Pass")]
-    [InlineData(CubeAction.NoDouble, CubeAction.Pass, true, "Too good")]
-    [InlineData(CubeAction.NoDouble, CubeAction.Pass, false, "No double / Pass")]
-    // One half missing: never inferred. The present half alone, in its
-    // action label; a missing doubler half shows "?".
-    [InlineData(CubeAction.NoDouble, null, true, "No double")]
-    [InlineData(CubeAction.Double, null, true, "Double")]
-    [InlineData(null, CubeAction.Take, true, "? / Take")]
-    [InlineData(null, CubeAction.Pass, true, "? / Pass")]
-    [InlineData(null, CubeAction.Pass, false, "? / Pass")]
-    public void CubePanel_ActualLine_ReadsEveryRecordedCombination(
-        CubeAction? doubler, CubeAction? taker, bool gammonsPossible, string expected)
+    [MemberData(nameof(ActualLineShapes))]
+    public void CubePanel_ActualLine_ReadsEveryRecordedCombination(RecordedCubeActions recorded, string? expected)
     {
         // A too-good position, so no line can borrow the truth's label.
-        var record = TestFixtures.CubeWithGammons(gammonsPossible, 1.50, 1.20, doubler, taker);
+        var record = TestRecords.Cube(decision: TestRecords.CubeData(
+            noDoubleEquity: 1.50, doubleTakeEquity: 1.20,
+            userDoublerAction: recorded.DoublerAction, userTakerAction: recorded.TakerAction,
+            unstatedDoublerActionError: recorded.UnstatedDoublerError,
+            unstatedTakerActionError: recorded.UnstatedTakerError));
 
         Assert.Equal(expected, ActualLine(RenderSolution(record)));
-    }
-
-    [Fact]
-    public void CubePanel_ActualLine_SuppressedWhenNoActionStamped()
-    {
-        // No action stated, only the analyser's errors: there is no inference
-        // from an error, so an unrecorded decision drops the line entirely.
-        var record = TestRecords.Cube(decision: TestRecords.CubeData(
-            noDoubleEquity: 0.40, doubleTakeEquity: 0.60,
-            userDoublerAction: null, userTakerAction: null,
-            unstatedDoublerActionError: 0, unstatedTakerActionError: 0.1));
-
-        Assert.Null(ActualLine(RenderSolution(record)));
     }
 
     [Fact]
