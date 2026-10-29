@@ -13,7 +13,10 @@ namespace BackgammonDiagram_Lib.Rendering;
 /// <remarks>
 /// <para>
 /// Two sources, one wording. A decision's presentation is derived from its
-/// record, and a board's from the display facts its request states. The
+/// record, and a board's from the display facts its request states. A rail's
+/// name is the record's or the facts', or, for a decision, the
+/// <see cref="DiagramRequest.RailNames"/> its request states in the record's
+/// place. The
 /// score is the one both carry into the same rule: a record's session is
 /// read as the <see cref="RailScore"/> a board would state for it
 /// (<see cref="ScoreOf"/>), and <see cref="Scored"/> words either — the
@@ -54,15 +57,16 @@ internal sealed record DiagramPresentation(
 
     /// <summary>The presentation <paramref name="request"/> draws.</summary>
     internal static DiagramPresentation Of(DiagramRequest request) =>
-        request.Present(OfDecision, OfFacts);
+        request.Present((decision, diceOrder) => OfDecision(decision, diceOrder, request.RailNames), OfFacts);
 
     /// <summary>
-    /// A decision's presentation, from its record: the names and the source
-    /// file, the roll (a checker play's, in <paramref name="diceOrder"/>) or
-    /// the cube prompt, the cube's face and place, and the rails' score from
-    /// the session.
+    /// A decision's presentation, from its record: the names (the record's,
+    /// or <paramref name="railNames"/> in their place) and the source file,
+    /// the roll (a checker play's, in <paramref name="diceOrder"/>) or the
+    /// cube prompt, the cube's face and place, and the rails' score from the
+    /// session.
     /// </summary>
-    private static DiagramPresentation OfDecision(BgDecisionData decision, DiceOrder diceOrder)
+    private static DiagramPresentation OfDecision(BgDecisionData decision, DiceOrder diceOrder, RailNames? railNames)
     {
         var dice = decision.Match<DiceFaces?>(
             play => diceOrder == DiceOrder.Reversed
@@ -72,7 +76,8 @@ internal sealed record DiagramPresentation(
 
         var (cubeFace, onRollLabel, opponentLabel) = Scored(
             ScoreOf(decision.Session), decision.Position.CubeSize,
-            decision.Descriptive.OnRollName, decision.Descriptive.OpponentName);
+            railNames?.OnRollName ?? decision.Descriptive.OnRollName,
+            railNames?.OpponentName ?? decision.Descriptive.OpponentName);
 
         return new DiagramPresentation(
             dice is null ? CubeActionPrompt : RollPrompt(dice),

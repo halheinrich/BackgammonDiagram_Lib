@@ -91,7 +91,8 @@ states why. Four areas:
 - **The request and options model** — `Models/`, whose types sit in the
   root `BackgammonDiagram_Lib` namespace rather than a `.Models` one:
   `DiagramRequest` (immutable and validated, from its three entry points)
-  and `DiagramRequestExtensions` (`ToProblemSolutionPair`); a board's
+  and `DiagramRequestExtensions` (`ToProblemSolutionPair`); `RailNames`,
+  the names a decision's rails show in place of the record's; a board's
   display facts, `DisplayFacts`, with the values they state — `DiceFaces`
   and the closed pair `RailScore` (`MatchRailScore`, `MoneyRailScore`);
   `DiagramOptions` with the `AspectPreset` canvas enum beside it;
@@ -197,7 +198,7 @@ Hal 2026-09-28 on halheinrich/backgammon#273):
   keeps every option but `Mode`, which is `Problem`: a working board has no
   analysis, and no XGID (an XGID states the decision's position); and
   `ShownPlayIndex`, which is null: a working board shows the play being
-  entered. A cube
+  entered. `RailNames`, like every other option, is kept. A cube
   decision's request, or a board's, has none (`InvalidOperationException`).
   It applies to a working board's request again, for the next click.
 
@@ -283,6 +284,15 @@ variation the request cannot draw is refused where it is made, by an
   names, cube, score and `Xgid` stay the record's (a baked
   `ShowXgid` label would name the decision's position). Inert in Problem,
   as the † is.
+- `RailNames` (`RailNames?`, default null) — the names the rails show in
+  place of the record's (halheinrich/backgammon#448): a sealed record of
+  two names, the on-roll side's and the opponent's, both required and
+  neither blank (refused by its constructor). Each rail reads the stated
+  name with the side's score, `"On Roll needs 3"`; the cube's face, the
+  title, the score and the record are unchanged. Applies to a decision's
+  diagram in either mode and to a working board, which keeps it; refused on
+  a board request, whose display facts state its names. A caller's wording:
+  this library holds none of its own. Null draws the record's names.
 
 **Equality.** Value equality: the same record instance (records compare by
 reference) or equal boards and display facts, with equal options.
@@ -327,7 +337,8 @@ What a diagram draws beyond its checkers and its analysis — the title
 strip's texts, the dice, the cube's face and place, the rail labels — is
 resolved once per render by the internal `DiagramPresentation`, from one of
 two sources: a decision's record (for a decision's diagram and a working
-board) or a board's display facts. Both go through the same wording helpers
+board, with the request's `RailNames`, where stated, in place of the
+record's names) or a board's display facts. Both go through the same wording helpers
 there, so a thing is worded one way whichever source states it — the score
 through one method (see "Rail text and the cube's face"). The title's cube
 prompt stays a decision's: it words a decision's kind. The pip
@@ -373,7 +384,8 @@ Each rail carries a player label and `Pip: N`. Both are bold on every
 surface, emitted by the one helper `DiagramRenderer.AppendRailLabel`. The
 pip count is the drawn board's, by `BoardState`'s count. The player label is
 `"{name} {score}"`, each part drawn only where stated (a record may state no
-name).
+name). A decision's name is the record's, or the request's `RailNames` in
+its place (see "DiagramRequest"); a board's is its display facts'.
 
 **One rule for the score, whichever path states it.** A decision's session
 is read as the `RailScore` a board would state for it — a match's away
@@ -932,7 +944,11 @@ sealed record DiagramRequest
     AnalysisLevel? MaximumHiddenCandidateAnalysisLevel { get; init; }
     int?           SecondaryPlayIndex    { get; init; }
     int?           ShownPlayIndex        { get; init; }
+    RailNames?     RailNames             { get; init; }
 }
+
+sealed record RailNames(string onRollName, string opponentName)   // each required, not blank
+{ string OnRollName { get; } string OpponentName { get; } }
 
 static (DiagramRequest Problem, DiagramRequest Solution)
     ToProblemSolutionPair(this DiagramRequest request);   // DiagramRequestExtensions

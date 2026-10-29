@@ -36,6 +36,8 @@ namespace BackgammonDiagram_Lib;
 /// <see cref="MaximumHiddenCandidateAnalysisLevel"/>,
 /// <see cref="SecondaryPlayIndex"/>, <see cref="ShownPlayIndex"/> — belong to
 /// a request that presents a decision; a board has none.
+/// <see cref="RailNames"/>, the names the rails show in place of the
+/// record's, belongs to one too: a board's names are its display facts'.
 /// </para>
 /// <para>
 /// <b>Equality.</b> Value equality, as a record: two requests are equal when
@@ -67,6 +69,7 @@ public sealed record DiagramRequest
     private readonly AnalysisLevel? _maximumHiddenCandidateAnalysisLevel;
     private readonly int? _secondaryPlayIndex;
     private readonly int? _shownPlayIndex;
+    private readonly RailNames? _railNames;
 
     private DiagramRequest(Content content) => Drawn = content;
 
@@ -133,7 +136,8 @@ public sealed record DiagramRequest
     /// component never restates the record's facts. The names, the source,
     /// the roll, the cube and the score are the decision's; the checkers and
     /// the pip counts are the working board's; the dice are drawn in
-    /// <paramref name="diceOrder"/>. Every option is kept but
+    /// <paramref name="diceOrder"/>. Every option is kept — the
+    /// <see cref="RailNames"/> included — but
     /// <see cref="Mode"/> and <see cref="ShownPlayIndex"/>: the mode is
     /// <see cref="DiagramMode.Problem"/>, since a working board has no
     /// analysis, and no play is shown, since a working board shows the play
@@ -482,6 +486,30 @@ public sealed record DiagramRequest
                 ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, play.Decision.Plays.Count, nameof(ShownPlayIndex));
             }
             _shownPlayIndex = value;
+        }
+    }
+
+    /// <summary>
+    /// The names the rails show in place of the record's, or
+    /// <see langword="null"/> — the default — for the record's own. Each rail
+    /// reads its stated name with the side's score, so the score, the cube,
+    /// the title and the record are unchanged. It applies wherever the
+    /// request presents a decision: the decision's diagram in either mode,
+    /// and a working board, which keeps it.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// Thrown on init when a value is stated and the request draws a board,
+    /// whose <see cref="DisplayFacts"/> state its names.
+    /// </exception>
+    public RailNames? RailNames
+    {
+        get => _railNames;
+        init
+        {
+            if (value is not null && PresentedDecision is null)
+                throw new ArgumentException(
+                    "A board's display facts state its names; rail names replace a decision's.", nameof(RailNames));
+            _railNames = value;
         }
     }
 }
