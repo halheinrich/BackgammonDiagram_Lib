@@ -16,8 +16,8 @@ namespace BackgammonDiagram_Lib.ExportRaster;
 /// </summary>
 internal static class PdfBuilder
 {
-    // Page dimensions: widescreen landscape matching PPTX (13.33" × 7.5")
-    // QuestPDF uses points (1 inch = 72 points)
+    // Page dimensions: widescreen landscape (13.33" × 7.5"), the PPTX slide's
+    // size at the default 16:9 preset. QuestPDF uses points (1 inch = 72 points)
     private const float PageWidthPt = 13.33f * 72;   // ~960pt
     private const float PageHeightPt = 7.5f * 72;    // 540pt
 

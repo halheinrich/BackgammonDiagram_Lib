@@ -1,8 +1,9 @@
 namespace BackgammonDiagram_Lib.Rendering;
 
 /// <summary>
-/// All board layout constants derived from the base checker radius.
-/// Change CheckerRadius and everything else scales accordingly.
+/// The board's geometry. The point, checker, bar and left- and right-rail
+/// dimensions scale with the base checker radius; the top and bottom rails and
+/// the point-number strips are fixed heights, in px.
 /// </summary>
 internal readonly struct BoardLayout
 {
@@ -156,8 +157,9 @@ internal readonly struct BoardLayout
 
     /// <summary>
     /// Returns the X centre of the column for a given point number (1–24),
-    /// assuming OnRollAtBottom=true and OnRollRight orientation.
-    /// The renderer applies orientation transforms on top of this.
+    /// mirrored left to right when <paramref name="homeBoardOnRight"/> is
+    /// <c>false</c>. The one orientation transform the points take:
+    /// <c>OnRollAtBottom</c> does not move them.
     /// </summary>
     public double ColumnCentreX(int point, bool panelOnLeft, bool homeBoardOnRight = true)
     {

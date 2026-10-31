@@ -54,15 +54,17 @@ public static class DiagramRenderer
 
     /// <summary>
     /// Renders <paramref name="request"/> to a complete, self-contained SVG
-    /// document string, honouring <paramref name="options"/> for size, theme,
-    /// watermark, canvas preset, and the optional XGID label. The result
+    /// document string, honouring <paramref name="options"/> for theme,
+    /// watermark, canvas preset, and the optional XGID label; the document
+    /// fills its host's width, so <see cref="DiagramOptions.Size"/> plays no
+    /// part. The result
     /// shares its viewBox with <see cref="GetHitRegions"/> for the same inputs,
     /// so overlay coordinates align with the drawing. All numbers are formatted
     /// culture-invariantly (see <see cref="SvgFormat.Number"/>), so the output
     /// is valid regardless of the current thread culture.
     /// </summary>
     /// <param name="request">The board/match state and display flags to render.</param>
-    /// <param name="options">Size, theme, watermark, canvas preset, and XGID options.</param>
+    /// <param name="options">Theme, watermark, canvas preset, and XGID options.</param>
     /// <returns>The rendered SVG document as a string.</returns>
     /// <exception cref="ArgumentException">
     /// Thrown when <paramref name="options"/> selects
@@ -751,8 +753,9 @@ public static class DiagramRenderer
 
     /// <summary>
     /// Computes the dice-pair geometry for the current request. Caller-gated to
-    /// checker decisions — for cube decisions no dice are drawn and there is no
-    /// dice hit-region (mirrors the <see cref="AppendDice"/> call site).
+    /// a diagram that draws dice — a cube decision's, or a board showing none,
+    /// draws none and has no dice hit-region (mirrors the
+    /// <see cref="AppendDice"/> call site).
     /// </summary>
     internal static DicePairGeometry DicePairBounds(BoardLayout layout,
         DiagramRequest request, bool panelOnLeft)
@@ -905,8 +908,8 @@ public static class DiagramRenderer
 
     /// <summary>
     /// Sniffs the image MIME type from the first bytes of the array. Only
-    /// PNG is explicitly detected; anything else falls back to JPEG, which
-    /// is the format of the built-in asset.
+    /// PNG, the format of the built-in asset, is explicitly detected; anything
+    /// else falls back to JPEG.
     /// </summary>
     private static string GuessImageMime(ReadOnlySpan<byte> bytes)
     {
@@ -2025,7 +2028,8 @@ public static class DiagramRenderer
     /// ASCII charged that table's widest), times
     /// <see cref="TextWidthSafetyFactor"/>. The one owner of text-width
     /// estimation in this renderer — the play panel's column layout and the
-    /// rail-label fit both measure through it. Linear in
+    /// Best line's wrap measure through it, and a test checks the rail labels'
+    /// fit with it (the rails themselves measure nothing). Linear in
     /// <paramref name="fontSize"/>, so a size of 1 gives the width per unit
     /// of font size.
     /// </summary>

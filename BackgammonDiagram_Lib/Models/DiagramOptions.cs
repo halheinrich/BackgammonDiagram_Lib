@@ -11,7 +11,8 @@ namespace BackgammonDiagram_Lib;
 /// </summary>
 public record DiagramOptions
 {
-    /// <summary>Target diagram size. Defaults to <see cref="DiagramSize.Medium"/>.</summary>
+    /// <summary>Target size of a raster render; the SVG ignores it and fills
+    /// its host's width. Defaults to <see cref="DiagramSize.Medium"/>.</summary>
     public DiagramSize Size { get; init; } = DiagramSize.Medium;
 
     private readonly ImmutableArray<byte>? _watermarkImage = Watermarks.Default;

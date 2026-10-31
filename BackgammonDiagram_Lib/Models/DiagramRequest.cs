@@ -284,8 +284,12 @@ public sealed record DiagramRequest
     public bool HomeBoardOnRight { get; init; } = true;
 
     /// <summary>
-    /// When <c>true</c> (the default), the on-roll half of the board is drawn
-    /// at the bottom. Controls only the vertical orientation of the two halves.
+    /// When <c>true</c> (the default), the on-roll side's rail label, turned
+    /// cube and bear-off tray take the bottom end of the diagram, the
+    /// opponent's the top, and the dice sit in the board's right half;
+    /// <c>false</c> swaps the ends and puts the dice in the left half. The
+    /// points and the checkers do not move: points 1–12 are drawn at the
+    /// bottom either way.
     /// </summary>
     public bool OnRollAtBottom { get; init; } = true;
 

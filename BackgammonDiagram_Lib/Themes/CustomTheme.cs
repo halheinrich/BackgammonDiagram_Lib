@@ -1,8 +1,10 @@
 ﻿namespace BackgammonDiagram_Lib.Themes;
 
 /// <summary>
-/// A caller-supplied colour palette. All eight colours are required.
-/// Each value must be a valid CSS hex colour: #RGB or #RRGGBB.
+/// A caller-supplied colour palette. All eight colours are required. Each
+/// value must be a valid CSS hex colour, #RGB or #RRGGBB, but only #RRGGBB
+/// draws today: a #RGB colour the renderer shades or reads for contrast passes
+/// this constructor and throws at render (halheinrich/backgammon#441).
 /// </summary>
 public partial record CustomTheme : ITheme
 {
@@ -36,11 +38,11 @@ public partial record CustomTheme : ITheme
     /// <param name="boardColor">Board background fill.</param>
     /// <param name="pointColorDark">Dark (alternating) point fill.</param>
     /// <param name="pointColorLight">Light (alternating) point fill.</param>
-    /// <param name="checkerColorOnRoll">On-roll player's checker fill.</param>
+    /// <param name="checkerColorOnRoll">On-roll player's checker and dice fill.</param>
     /// <param name="checkerColorOpponent">Opponent's checker fill.</param>
-    /// <param name="diceColor">Dice fill.</param>
-    /// <param name="textColor">Rendered-text colour.</param>
-    /// <param name="panelBackgroundColor">Analysis-panel background fill.</param>
+    /// <param name="diceColor">Doubling-cube fill, despite the name.</param>
+    /// <param name="textColor">Point-number colour.</param>
+    /// <param name="panelBackgroundColor">Analysis-panel and title-strip background fill.</param>
     /// <param name="name">Display name; defaults to <c>"Custom"</c>.</param>
     /// <exception cref="ArgumentException">A colour is not <c>#RGB</c> or
     /// <c>#RRGGBB</c>.</exception>

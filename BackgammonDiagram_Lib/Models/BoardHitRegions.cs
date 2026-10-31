@@ -30,8 +30,11 @@ public class BoardHitRegions
     /// <summary>Hit rectangle for the bar.</summary>
     public required HitRect Bar { get; init; }
 
-    /// <summary>Hit rectangle for the doubling cube, or <c>null</c> when no cube
-    /// indicator is drawn.</summary>
+    /// <summary>Hit rectangle for the doubling cube: the whole left-rail
+    /// column, every place the cube can sit. Always set by
+    /// <c>DiagramRenderer.GetHitRegions</c>, since a cube is always drawn. The
+    /// bear-off trays lie inside it, so a host hit-testing both decides which
+    /// wins.</summary>
     public HitRect? Cube { get; init; }
 
     /// <summary>Hit rectangle for the on-roll player's bear-off tray, or

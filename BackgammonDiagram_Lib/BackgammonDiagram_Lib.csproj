@@ -6,7 +6,8 @@
   <!-- CORE IS NATIVE-FREE: this project must never reference a native package
        (SkiaSharp, Svg.Skia, QuestPDF, DocumentFormat.OpenXml). All raster/export
        work lives in the BackgammonDiagram_Lib.ExportRaster sibling. The
-       CoreNativeFreeTests guard test enforces this at build time. -->
+       CoreNativeFreeTests guard test fails once core's compiled code references
+       one. -->
 
   <!-- This library's half of the trim gate (halheinrich/backgammon#197):
        BgQuiz's WebAssembly client ships this assembly and its publish runs

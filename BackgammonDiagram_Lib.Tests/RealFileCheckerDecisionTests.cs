@@ -11,7 +11,8 @@ namespace BackgammonDiagram_Lib.Tests;
 /// ConvertXgToJson_Lib and renders checker-play decisions to a PPTX so the
 /// play panel can be eyeballed on realistic fixtures.
 ///
-/// Cross-submodule dependency — this file is the only reason
+/// Cross-submodule dependency — this class and
+/// <see cref="RealFileCubeDecisionTests"/> are the only reason
 /// BackgammonDiagram_Lib.Tests references ConvertXgToJson_Lib.
 /// </summary>
 [Trait("Category", "Visual")]

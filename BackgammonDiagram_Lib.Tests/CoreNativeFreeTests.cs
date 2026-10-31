@@ -5,12 +5,14 @@ using Xunit;
 namespace BackgammonDiagram_Lib.Tests;
 
 /// <summary>
-/// Compile-time proof that the core <c>BackgammonDiagram_Lib</c> assembly is
+/// Test-time proof that the core <c>BackgammonDiagram_Lib</c> assembly is
 /// native-free — the invariant that lets WASM / SVG-only consumers
 /// (BgDiag_Razor, BgQuiz, anything Blazor WASM) depend on it without dragging
 /// in SkiaSharp's native libs. All rasterization / export work lives in the
-/// <c>BackgammonDiagram_Lib.ExportRaster</c> sibling. If a native package ref
-/// ever leaks back into core, this test fails before the WASM consumer does.
+/// <c>BackgammonDiagram_Lib.ExportRaster</c> sibling. If core's compiled code
+/// ever references a native package, this test fails before the WASM consumer
+/// does. A package referenced but not used leaves no assembly reference, so
+/// this guard does not see it.
 /// (A full WASM run is a later phase's job; this is the static guard.)
 /// </summary>
 public class CoreNativeFreeTests

@@ -1,9 +1,10 @@
 namespace BackgammonDiagram_Lib;
 
 /// <summary>
-/// The target size of a rendered diagram: either a named preset or a custom
-/// width. Width is the only degree of freedom — height always follows from it
-/// by the fixed board aspect ratio.
+/// The target size of a raster render (PNG, and the pages PDF and PPTX embed):
+/// either a named preset or a custom width. Width is the only degree of
+/// freedom — height always follows from it by the canvas's aspect ratio. The
+/// SVG takes no size: it fills its host's width.
 /// </summary>
 public class DiagramSize
 {
@@ -13,8 +14,8 @@ public class DiagramSize
     /// <summary>
     /// Target width in pixels; only consulted when <see cref="Preset"/> is
     /// <see cref="DiagramSizePreset.Custom"/>. Width is the sole degree of
-    /// freedom — the rendered height derives from it by the board's fixed
-    /// aspect ratio, so there is no companion height property.
+    /// freedom — the rendered height derives from it by the canvas's aspect
+    /// ratio, so there is no companion height property.
     /// </summary>
     public int? CustomWidth { get; init; }
 
@@ -27,8 +28,8 @@ public class DiagramSize
 
     /// <summary>
     /// A custom-sized diagram of the given pixel <paramref name="width"/>.
-    /// Height is not a parameter: it follows from the width by the fixed
-    /// board aspect ratio.
+    /// Height is not a parameter: it follows from the width by the canvas's
+    /// aspect ratio.
     /// </summary>
     public static DiagramSize Custom(int width) =>
         new() { Preset = DiagramSizePreset.Custom, CustomWidth = width };
