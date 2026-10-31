@@ -29,8 +29,9 @@ public interface ITheme
     /// <summary>Fill colour of the doubling cube, despite the name: the dice
     /// take <see cref="CheckerColorOnRoll"/>.</summary>
     string DiceColor { get; }
-    /// <summary>Colour of the point numbers. All other text takes a contrast
-    /// colour the renderer derives from its background.</summary>
+    /// <summary>Colour of the point numbers alone: title, rail and panel text
+    /// take a contrast colour derived from the background behind it, and a
+    /// capped stack's count takes the other side's checker colour.</summary>
     string TextColor { get; }
     /// <summary>Background fill of the analysis panel and the title
     /// strip.</summary>

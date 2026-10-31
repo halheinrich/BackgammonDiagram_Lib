@@ -637,7 +637,7 @@ supported way for a caller to supply its own palette.
 A palette covers less than its member names suggest. `DiceColor` fills the cube;
 the dice take `CheckerColorOnRoll`. `TextColor` colours only the point numbers:
 title, rail and panel text take a contrast colour derived from the background
-behind it.
+behind it, and a capped stack's count takes the other side's checker colour.
 
 **The spelling that works today is `#RRGGBB`.** `CustomTheme` also accepts `#RGB`
 by its regex, but the renderer's colour helpers read six digits, so a short
@@ -704,10 +704,12 @@ the SVG.
   through the PDF's ToUnicode CMap, and that test's one unreproduced failure is
   halheinrich/backgammon#436.
 - **PPTX.** Each request becomes one slide, with the XGID as a real text box.
-  The slide's height is fixed at 7.5" and its width follows the first PNG's
-  aspect, so it matches the PDF page only at 16:9. `PptxBuilder.Build`
-  post-processes the package to correct a list of OpenXml SDK quirks, each named
-  at its call; `PptxConformanceTests` guards against regressions.
+  The slide's height is fixed at 7.5", with 0.5" margins on every side, and its
+  width is the height inside the margins times the first PNG's aspect, plus the
+  side margins, so the picture fits the space inside them exactly.
+  `PptxBuilder.Build` post-processes the package to correct a list of OpenXml SDK
+  quirks, each named at its call; `PptxConformanceTests` guards against
+  regressions.
 - **Cancellation.** The multi-request `RenderPdf` and `RenderPptx` take a token,
   and a cancelled call throws `OperationCanceledException`. Their XML docs list
   where it is checked. A call that runs to its end once entered (one page's

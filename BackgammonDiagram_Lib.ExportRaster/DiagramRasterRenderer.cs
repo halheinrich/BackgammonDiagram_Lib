@@ -40,9 +40,9 @@ public static class DiagramRasterRenderer
 
     /// <summary>
     /// Renders <paramref name="request"/> to a single-page PDF (widescreen
-    /// landscape whatever the canvas preset, the PPTX slide's size at the
-    /// default 16:9), embedding the rasterized PNG and overlaying the request's
-    /// XGID as real selectable text.
+    /// landscape, 13.33" × 7.5" whatever the canvas preset), embedding the
+    /// rasterized PNG and overlaying the request's XGID as real selectable
+    /// text.
     /// </summary>
     /// <param name="request">The diagram to render.</param>
     /// <param name="options">Render options; the baked XGID label is forced off
