@@ -15,8 +15,9 @@ namespace BackgammonDiagram_Lib.ExportRaster;
 public static class DiagramRasterRenderer
 {
     // Built-in rasterizer used when callers don't supply one. SkiaSharpRasterizer
-    // construction is cheap (native Skia libs load lazily on first rasterize);
-    // a single shared readonly instance is safe — rasterization is stateless.
+    // construction is cheap (native Skia libs load lazily on first rasterize),
+    // and the instance holds no state to share. Whether native Skia tolerates
+    // concurrent renders is not established (halheinrich/backgammon#426).
     private static readonly SkiaSharpRasterizer s_defaultRasterizer = new();
 
     /// <summary>

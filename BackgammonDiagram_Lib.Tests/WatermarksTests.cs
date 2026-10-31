@@ -45,7 +45,7 @@ public class WatermarksTests
     // because RenderSvg embeds these bytes as base64, an identical hash here
     // guarantees byte-identical SVG watermark output. If the embedded asset is
     // ever regenerated, this hash must be updated deliberately — an accidental
-    // change (re-encode, re-tune, wrong file) fails the build instead of
+    // change (re-encode, re-tune, wrong file) fails this test instead of
     // silently shifting every rendered diagram.
     private const string ExpectedSha256 =
         "E3B7E458CB3C9C0589F525F497EF10CE64028B89B992D3A2C843B2522B30EA6C";

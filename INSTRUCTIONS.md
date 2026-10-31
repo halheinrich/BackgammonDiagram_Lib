@@ -66,8 +66,8 @@ dotnet test BackgammonDiagram_Lib.slnx
 
 Four test classes carry `[Trait("Category", "Visual")]`. They work against the
 umbrella's `TestData/`, which `TestPaths` reaches five `..` above the test
-assembly and whose contents are gitignored, so what they prove depends on what
-is there:
+assembly and whose contents are gitignored (AGENTS § Tests), so what they prove
+depends on what is there:
 
 | Class | Input | With no fixtures |
 |---|---|---|
@@ -180,9 +180,9 @@ fails on any SkiaSharp, Svg.Skia, QuestPDF or OpenXml reference (see Pitfalls).
 
 ### DiagramRequest
 
-What a diagram draws, and the diagram's own options for drawing it: a `sealed
-record`, validated where each part is set, with no public constructor. Three
-entry points (the umbrella's determination, approved by Hal 2026-09-28 on
+What a diagram draws, and the diagram's own options for drawing it: a
+`sealed record`, validated where each part is set, with no public constructor.
+Three entry points (the umbrella's determination, approved by Hal 2026-09-28 on
 halheinrich/backgammon#273):
 
 - **`ForDecision(BgDecisionData decision, PlayRanking ranking)`** — a
@@ -209,10 +209,10 @@ halheinrich/backgammon#273):
   which is `Problem`, a working board having no analysis and no XGID (an XGID
   states the decision's position); and `ShownPlayIndex`, which is null, a
   working board showing the play being entered. It applies to a working board's
-  request again, for the next click. A cube decision's request, or a board's,
-  has none: `InvalidOperationException` at run time, since a request's type does
-  not carry its decision's kind (halheinrich/backgammon#306 asks whether it
-  could).
+  request again, for the next click. On a cube decision's request, or a board's,
+  it throws `InvalidOperationException`: a run-time refusal, since a request's
+  type does not carry its decision's kind (halheinrich/backgammon#306 asks
+  whether it could).
 
 `Board`, `Decision`, `Display` and `Xgid` read a request back. `Decision` and
 `Xgid` are null for a board, a working board included.
@@ -525,13 +525,13 @@ table names actions.
   never inside a label, and every answer keeps its full label. Everything below
   moves down one line pitch per line added. A single label wider than the panel
   takes a line of its own and overruns it, on the narrow presets: that overflow
-  is halheinrich/backgammon#253's. **Measured 2026-10-01 on `Widescreen16x9`**,
-  the preset BgQuiz uses for every review: the answers start at x 52.1 and must
-  end by 396.2. The four-answer list (about 353 px one-line with Too good,
-  405 px with No double / Pass) wraps into two lines, the first,
-  `No double, Double / Take, Double / Pass,`, ending at 335.4. With an Actual
-  line, the footer's baseline then sits at 354 in a panel 446 high. On Natural
-  and 4:3 the same list takes four lines, footer at 394.
+  is halheinrich/backgammon#253's. **Measured 2026-10-01 on `Widescreen16x9`**
+  (recorded in 86bb111), the preset BgQuiz uses for every review: the answers
+  start at x 52.1 and must end by 396.2. The four-answer list (about 353 px
+  one-line with Too good, 405 px with No double / Pass) wraps into two lines,
+  the first, `No double, Double / Take, Double / Pass,`, ending at 335.4. With
+  an Actual line, the footer's baseline then sits at 354 in a panel 446 high. On
+  Natural and 4:3 the same list takes four lines, footer at 394.
 - **The Actual line reads what was played**: the record's `UserDoublerAction`
   and `UserTakerAction`, never inferred from an error (a zero error does not
   identify the action when the equities tie). Both halves present are the
@@ -731,13 +731,20 @@ the SVG.
   `QuestPDF.Settings.License` in app startup before calling `RenderPdf`. The test
   classes that render PDF set the Community license in their static constructors,
   so a new one must too.
-- **`Svg.Skia`'s `Drawable.Bounds` is unreliable.** Anywhere you need the SVG's
-  visible extent in the PNG path, parse the viewBox yourself and `ClipRect`, as
-  `SkiaSharpRasterizer` does.
-- **`dominant-baseline` is ignored by Svg.Skia.** Compute text vertical placement
-  manually (`centreY + fontSize * 0.35`).
-- **Keep the generated SVG to inline attributes and primitive shapes.** Svg.Skia
-  has limited support for CSS stylesheets and complex SVG filters.
+- **Don't trust `Svg.Skia`'s `Drawable.Bounds` for the SVG's visible extent.**
+  `SkiaSharpRasterizer` has parsed the viewBox and used `ClipRect` instead since it
+  was found unreliable (fbfdf4a, 2026-03-19); no test pins the cause, and it has
+  not been re-checked since.
+- **Vertical text placement in a raster is an open assumption.** This doc has said
+  since 2026-03-26 (66e7fb7), with no test behind it, that Svg.Skia ignores
+  `dominant-baseline`. The cube's face and a capped stack's count place their text
+  by hand (`centreY + fontSize * 0.35`), which holds either way, so do that for new
+  text. The title strip, rail labels and point numbers state
+  `dominant-baseline="central"` with no offset: if the claim still holds at 3.6.0,
+  they sit high in a raster.
+- **Keep the generated SVG to inline attributes and primitive shapes.** Svg.Skia is
+  taken to have limited support for CSS stylesheets and complex SVG filters
+  (recorded here since 2026-03-26, not tested).
 - **`sldLayoutId < 2147483648` produces invalid PPTX.** The OOXML spec requires
   values in the reserved range, the OpenXml SDK will not enforce it, and PowerPoint
   answers with its repair prompt.

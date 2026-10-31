@@ -1921,7 +1921,8 @@ public static class DiagramRenderer
     /// standard encoding puts at those codes.
     /// </para>
     /// <para>
-    /// Verified 2026-09-21 by measurement: every entry here and in
+    /// Verified 2026-09-21 by measurement (recorded in eb3c467): every entry
+    /// here and in
     /// <see cref="HelveticaBoldAdvanceEm"/> against the advance SkiaSharp
     /// 2.88.9 reports for the same character at 1000 px in the Windows 11
     /// Arial and Arial Bold faces on one machine (the tables parsed from this
@@ -2009,7 +2010,8 @@ public static class DiagramRenderer
     /// elsewhere (DejaVu Sans is the usual example). The 10% is an assumed
     /// margin for that, not a measurement.
     /// <para>
-    /// The one measured data point (2026-09-21, one Windows 11 machine): the
+    /// The one measured data point (2026-09-21, one Windows 11 machine;
+    /// recorded in 669a567): the
     /// raster export path — Svg.Skia 3.6.0 over SkiaSharp 2.88.9 — resolves
     /// <c>sans-serif</c> to Segoe UI (its render pixel-identical to an explicit
     /// Segoe UI one, not to Arial). Segoe UI's widths at 14 px for the play
